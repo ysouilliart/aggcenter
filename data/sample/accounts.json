@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ACC-1001",
+    "name": "Operating Account",
+    "bank": "First National",
+    "currency": "USD",
+    "openingBalance": 250000
+  },
+  {
+    "id": "ACC-2001",
+    "name": "EUR Collections",
+    "bank": "Euro Bank",
+    "currency": "EUR",
+    "openingBalance": 80000
+  }
+]

@@ -1,0 +1,4 @@
+date,description,reference,counterparty,amount,currency
+2026-08-05,Customer payment,SO-5006,Stark Industries,27500.00,EUR
+2026-08-12,Customer payment,SO-5008,Cyberdyne Systems,18400.00,EUR
+2026-08-15,Vendor payment,PO-8006,Euro Supplier GmbH,-9600.00,EUR

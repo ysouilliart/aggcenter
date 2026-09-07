@@ -1,0 +1,8 @@
+[
+  { "id": "PO-8001", "vendor": "CloudHost Ltd", "amount": 12000.0, "currency": "USD", "orderDate": "2026-07-18", "dueDate": "2026-08-05", "status": "billed" },
+  { "id": "PO-8002", "vendor": "OfficeSupplies Co", "amount": 3400.75, "currency": "USD", "orderDate": "2026-07-19", "dueDate": "2026-08-06", "status": "billed" },
+  { "id": "PO-8003", "vendor": "Logistics Plus", "amount": 18250.0, "currency": "USD", "orderDate": "2026-07-25", "dueDate": "2026-08-10", "status": "billed" },
+  { "id": "PO-8004", "vendor": "SteelWorks", "amount": 56000.0, "currency": "USD", "orderDate": "2026-07-26", "dueDate": "2026-08-11", "status": "billed" },
+  { "id": "PO-8005", "vendor": "DataVendor", "amount": 8000.0, "currency": "USD", "orderDate": "2026-08-01", "dueDate": "2026-08-17", "status": "billed" },
+  { "id": "PO-8006", "vendor": "Euro Supplier GmbH", "amount": 9600.0, "currency": "EUR", "orderDate": "2026-08-02", "dueDate": "2026-08-15", "status": "billed" }
+]

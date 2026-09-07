@@ -1,0 +1,12 @@
+[
+  { "id": "REM-C-001", "party": "customer", "name": "Acme Corp", "reference": "SO-5001", "amount": 48250.0, "currency": "USD", "date": "2026-08-02" },
+  { "id": "REM-C-002", "party": "customer", "name": "Globex LLC", "reference": "SO-5002", "amount": 15900.5, "currency": "USD", "date": "2026-08-03" },
+  { "id": "REM-C-003", "party": "customer", "name": "Initech", "reference": "SO-5003", "amount": 32000.0, "currency": "USD", "date": "2026-08-06" },
+  { "id": "REM-C-004", "party": "customer", "name": "Umbrella Inc", "reference": "SO-5004", "amount": 9750.0, "currency": "USD", "date": "2026-08-12" },
+  { "id": "REM-C-005", "party": "customer", "name": "Wayne Enterprises", "reference": "SO-5005", "amount": 120000.0, "currency": "USD", "date": "2026-08-17" },
+  { "id": "REM-C-006", "party": "customer", "name": "Soylent Corp", "reference": "SO-5007", "amount": 22000.0, "currency": "USD", "date": "2026-08-16" },
+  { "id": "REM-C-007", "party": "customer", "name": "Stark Industries", "reference": "SO-5006", "amount": 27500.0, "currency": "EUR", "date": "2026-08-04" },
+  { "id": "REM-C-008", "party": "customer", "name": "Cyberdyne Systems", "reference": "SO-5008", "amount": 18400.0, "currency": "EUR", "date": "2026-08-11" },
+  { "id": "REM-V-001", "party": "vendor", "name": "CloudHost Ltd", "reference": "PO-8001", "amount": 12000.0, "currency": "USD", "date": "2026-08-04" },
+  { "id": "REM-V-002", "party": "vendor", "name": "SteelWorks", "reference": "PO-8004", "amount": 56000.0, "currency": "USD", "date": "2026-08-10" }
+]

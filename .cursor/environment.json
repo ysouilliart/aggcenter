@@ -1,16 +1,11 @@
 {
   "name": "aggcenter",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".."
-  },
-  "user": "ubuntu",
-  "install": "./scripts/cloud-agent-install.sh",
+  "install": "npm ci",
   "terminals": [
     {
       "name": "dev-server",
-      "command": "./scripts/start-dev.sh"
+      "command": "npm run dev"
     }
   ],
-  "ports": [8000]
+  "ports": [3000]
 }

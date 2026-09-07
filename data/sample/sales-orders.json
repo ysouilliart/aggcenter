@@ -1,0 +1,10 @@
+[
+  { "id": "SO-5001", "customer": "Acme Corp", "amount": 48250.0, "currency": "USD", "orderDate": "2026-07-20", "dueDate": "2026-08-05", "status": "invoiced" },
+  { "id": "SO-5002", "customer": "Globex LLC", "amount": 15900.5, "currency": "USD", "orderDate": "2026-07-22", "dueDate": "2026-08-06", "status": "invoiced" },
+  { "id": "SO-5003", "customer": "Initech", "amount": 32000.0, "currency": "USD", "orderDate": "2026-07-24", "dueDate": "2026-08-08", "status": "invoiced" },
+  { "id": "SO-5004", "customer": "Umbrella Inc", "amount": 9750.0, "currency": "USD", "orderDate": "2026-07-28", "dueDate": "2026-08-13", "status": "invoiced" },
+  { "id": "SO-5005", "customer": "Wayne Enterprises", "amount": 120000.0, "currency": "USD", "orderDate": "2026-07-30", "dueDate": "2026-08-18", "status": "invoiced" },
+  { "id": "SO-5006", "customer": "Stark Industries", "amount": 27500.0, "currency": "EUR", "orderDate": "2026-07-21", "dueDate": "2026-08-05", "status": "invoiced" },
+  { "id": "SO-5007", "customer": "Soylent Corp", "amount": 22000.0, "currency": "USD", "orderDate": "2026-07-29", "dueDate": "2026-08-16", "status": "invoiced" },
+  { "id": "SO-5008", "customer": "Cyberdyne Systems", "amount": 18400.0, "currency": "EUR", "orderDate": "2026-07-27", "dueDate": "2026-08-12", "status": "invoiced" }
+]

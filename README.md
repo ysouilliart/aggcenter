@@ -1,78 +1,88 @@
 # aggcenter
 
-**Aggregation Center** — a small [FastAPI](https://fastapi.tiangolo.com/) service that
-collects data *sources* and reports aggregated metrics across them, with a live
-dashboard UI.
+**Aggregation Center** — an operations aggregator for improving business
+efficiency across typical operational processes. The first vertical is
+**Cash Position** for the classic *Order-to-Cash* (O2C) and *Procure-to-Pay*
+(P2P) flows: consume bank statements, reconcile them against sales orders,
+purchase orders and remittances, and surface a cash-position dashboard plus an
+anomalies report.
+
+Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 
 ## Features
 
-- REST API to register sources and read aggregated stats
-- Category roll-ups (count / total / average)
-- Live dashboard (`/`) with auto-refresh and an "add source" form
-- Zero external services required — the store is in-memory and seeded on start
+- **Cash Position dashboard** — opening/closing balances, inflows (O2C) vs
+  outflows (P2P), running-balance trend and per-account breakdown, multi-currency.
+- **Reconciliation** — bank transactions matched to SO/PO by reference and
+  amount, with confidence scores and matched / partial / unmatched status.
+- **Anomalies** — duplicate payments, amount mismatches, large unmatched items,
+  missing customer receipts, statistical outliers and overdraft risk.
+- **Statements** — upload bank-statement CSVs; they are stored via the active
+  file provider and fed straight into the pipeline alongside bundled samples.
+- **Integrations** — pluggable adapters for **OCI Object Storage** (files),
+  **Snowflake** (reference data) and an optional external API, all defaulting to
+  safe local/sample implementations.
 
-## Requirements
+## Architecture
 
-- Python 3.12+
+```
+src/
+  app/                 # App Router pages + API route handlers
+    api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, ...
+  components/          # AppShell, UI primitives, SVG charts
+  lib/
+    domain/            # shared types
+    parse/             # CSV + bank-statement parsing
+    recon/             # reconciliation engine
+    cash/              # cash-position calculator
+    anomalies/         # anomaly detection
+    storage/           # StorageProvider: local (default) + OCI adapter
+    datasource/        # DataSource: local sample (default) + Snowflake adapter
+    service.ts         # ties data loading, uploads and computations together
+    config.ts          # env-driven configuration
+data/sample/           # sample accounts, SOs, POs, remittances and statement CSVs
+tests/                 # vitest unit tests
+```
+
+Integrations are chosen at runtime from environment variables (see
+`.env.example`). With no configuration the app runs fully on bundled sample data
+and local file storage; set the documented `OCI_*` / `SNOWFLAKE_*` variables
+(ideally via Cursor Secrets) to switch providers.
 
 ## Getting started
 
+Requires Node.js 20+.
+
 ```bash
-# 1. Install dependencies into a virtual environment
-./scripts/cloud-agent-install.sh
-
-# 2. Activate the environment
-source .venv/bin/activate
-
-# 3. Run the development server (http://localhost:8000)
-uvicorn app.main:app --reload
+npm ci          # install dependencies
+npm run dev     # start the dev server on http://localhost:3000
 ```
 
-Then open http://localhost:8000 for the dashboard, or explore the interactive API
-docs at http://localhost:8000/docs.
+Other scripts:
+
+```bash
+npm test         # run unit tests (vitest)
+npm run typecheck
+npm run lint
+npm run build    # production build
+```
 
 ## API
 
-| Method | Path                  | Description                          |
-| ------ | --------------------- | ------------------------------------ |
-| GET    | `/`                   | Dashboard UI                         |
-| GET    | `/api/health`         | Health check                         |
-| GET    | `/api/sources`        | List all registered sources          |
-| POST   | `/api/sources`        | Register a new source                |
-| GET    | `/api/sources/{id}`   | Fetch a single source                |
-| GET    | `/api/aggregate`      | Aggregated metrics across sources    |
+| Method | Path                  | Description                                  |
+| ------ | --------------------- | -------------------------------------------- |
+| GET    | `/api/health`         | Health check                                 |
+| GET    | `/api/cash-position`  | Cash position per currency                   |
+| GET    | `/api/reconciliation` | Reconciliation results + summary             |
+| GET    | `/api/anomalies`      | Detected anomalies                           |
+| GET    | `/api/statements`     | List statements (sample + uploaded)          |
+| POST   | `/api/statements`     | Upload a bank-statement CSV (multipart)      |
+| GET    | `/api/accounts`       | Bank accounts                                |
+| GET    | `/api/integrations`   | Active provider / configuration status       |
 
-Example:
+## Roadmap
 
-```bash
-curl -s localhost:8000/api/aggregate | python3 -m json.tool
-curl -s -X POST localhost:8000/api/sources \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"payments-api","category":"revenue","value":100}'
-```
-
-## Tests
-
-```bash
-source .venv/bin/activate
-pytest
-```
-
-## Project layout
-
-```
-app/
-  main.py         # FastAPI app + routes
-  aggregator.py   # in-memory store + aggregation logic
-  models.py       # Pydantic models
-  static/         # dashboard UI
-tests/            # pytest API tests
-scripts/          # install + dev-server helpers
-.cursor/          # Cloud Agent environment config
-```
-
-## Cloud Agent environment
-
-The [`.cursor/environment.json`](.cursor/environment.json) file configures the
-Cursor Cloud Agent environment: `install` provisions a virtualenv and installs
-dependencies, and a `dev-server` terminal runs the app on port `8000`.
+- Real OCI Object Storage and Snowflake client implementations (adapters and
+  env wiring are already in place).
+- Additional flows beyond cash position, and a workflow/approval layer.
+- Persistent database for uploaded statements and audit history.

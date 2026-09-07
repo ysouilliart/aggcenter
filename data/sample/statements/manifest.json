@@ -1,0 +1,16 @@
+[
+  {
+    "id": "STMT-USD-2026-08",
+    "file": "statements/operating-usd-2026-08.csv",
+    "accountId": "ACC-1001",
+    "periodStart": "2026-08-01",
+    "periodEnd": "2026-08-31"
+  },
+  {
+    "id": "STMT-EUR-2026-08",
+    "file": "statements/eur-collections-2026-08.csv",
+    "accountId": "ACC-2001",
+    "periodStart": "2026-08-01",
+    "periodEnd": "2026-08-31"
+  }
+]

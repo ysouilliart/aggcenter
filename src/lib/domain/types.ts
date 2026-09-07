@@ -1,0 +1,163 @@
+/**
+ * Core domain types for aggcenter.
+ *
+ * The first vertical ("cash position") models two classic operational flows:
+ *   - Order to Cash (O2C):  Sales Order -> Invoice -> Customer Remittance -> Bank credit (inflow)
+ *   - Procure to Pay (P2P): Purchase Order -> Vendor Bill -> Payment/Remittance -> Bank debit (outflow)
+ *
+ * Bank statements are the source of truth for actual cash movement; PO/SO/remittance
+ * records are the "expected" side that we reconcile against.
+ */
+
+export type Currency = "USD" | "EUR" | "GBP" | string;
+
+export type FlowType = "O2C" | "P2P";
+
+export interface BankAccount {
+  id: string;
+  name: string;
+  bank: string;
+  currency: Currency;
+  /** Opening balance at the start of the statement period. */
+  openingBalance: number;
+}
+
+export interface BankTransaction {
+  id: string;
+  accountId: string;
+  /** ISO date (YYYY-MM-DD) the transaction posted. */
+  date: string;
+  description: string;
+  /** Free-text reference, often carrying a PO/SO/invoice number. */
+  reference?: string;
+  counterparty?: string;
+  /** Signed amount: positive = credit/inflow, negative = debit/outflow. */
+  amount: number;
+  currency: Currency;
+  /** Running balance reported by the bank after this line, if provided. */
+  balanceAfter?: number;
+  /** Identifier of the statement this line came from. */
+  statementId: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  vendor: string;
+  amount: number;
+  currency: Currency;
+  orderDate: string;
+  dueDate: string;
+  status: "open" | "billed" | "paid" | "cancelled";
+}
+
+export interface SalesOrder {
+  id: string;
+  customer: string;
+  amount: number;
+  currency: Currency;
+  orderDate: string;
+  dueDate: string;
+  status: "open" | "invoiced" | "collected" | "cancelled";
+}
+
+export interface Remittance {
+  id: string;
+  /** customer = money in (O2C), vendor = money out (P2P). */
+  party: "customer" | "vendor";
+  name: string;
+  /** Reference to the related SO/PO/invoice. */
+  reference: string;
+  amount: number;
+  currency: Currency;
+  date: string;
+}
+
+export interface Statement {
+  id: string;
+  accountId: string;
+  fileName: string;
+  source: "sample" | "upload";
+  periodStart: string;
+  periodEnd: string;
+  transactionCount: number;
+  /** Object-storage key where the raw file lives (via the StorageProvider). */
+  storageKey?: string;
+  uploadedAt?: string;
+}
+
+export type MatchStatus = "matched" | "partial" | "unmatched";
+export type MatchedDocType = "SO" | "PO" | "remittance";
+
+export interface ReconciliationResult {
+  transactionId: string;
+  accountId: string;
+  date: string;
+  amount: number;
+  currency: Currency;
+  flow: FlowType;
+  status: MatchStatus;
+  matchedType?: MatchedDocType;
+  matchedId?: string;
+  /** 0..1 confidence score for the match. */
+  confidence: number;
+  /** Signed difference between bank amount and matched document amount. */
+  amountDiff: number;
+  reasons: string[];
+}
+
+export type AnomalySeverity = "high" | "medium" | "low";
+
+export type AnomalyType =
+  | "duplicate"
+  | "amount_mismatch"
+  | "unmatched_large"
+  | "missing_receipt"
+  | "outlier"
+  | "overdraft_risk";
+
+export interface Anomaly {
+  id: string;
+  type: AnomalyType;
+  severity: AnomalySeverity;
+  title: string;
+  description: string;
+  amount?: number;
+  currency?: Currency;
+  date?: string;
+  relatedIds: string[];
+}
+
+export interface AccountCashPosition {
+  accountId: string;
+  accountName: string;
+  bank: string;
+  currency: Currency;
+  openingBalance: number;
+  inflows: number;
+  outflows: number;
+  closingBalance: number;
+  transactionCount: number;
+}
+
+export interface CashFlowPoint {
+  date: string;
+  inflow: number;
+  outflow: number;
+  net: number;
+  /** Running balance across all accounts of the reporting currency. */
+  runningBalance: number;
+}
+
+export interface CashPosition {
+  currency: Currency;
+  openingBalance: number;
+  totalInflows: number;
+  totalOutflows: number;
+  netCashFlow: number;
+  closingBalance: number;
+  accounts: AccountCashPosition[];
+  series: CashFlowPoint[];
+  o2cInflows: number;
+  p2pOutflows: number;
+  generatedAt: string;
+}

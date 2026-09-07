@@ -1,10 +1,12 @@
 {
   "name": "aggcenter",
   "install": "npm ci",
+  "start": "true",
   "terminals": [
     {
       "name": "dev-server",
-      "command": "npm run dev"
+      "command": "npm run dev -- -H 0.0.0.0 -p 3000",
+      "description": "Next.js dev server on http://localhost:3000"
     }
   ],
   "ports": [3000]

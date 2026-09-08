@@ -84,15 +84,21 @@ npm run build    # production build
 
 File storage uses a pluggable provider. With no configuration it uses the local
 filesystem (`.data/storage`); set `STORAGE_PROVIDER=oci` plus the OCI settings to
-use an OCI bucket via the **OpenStack Swift API** (v1 token auth, no SDK).
+use an OCI bucket via the **OpenStack Swift API** with **HTTP Basic Auth**
+(Oracle "Approach 1"), i.e. `Authorization: Basic base64(user:auth-token)` against
+`https://swiftobjectstorage.<region>.oraclecloud.com/v1/<namespace>/<bucket>`. No SDK.
 
-Settings (from environment variables):
+Settings (from environment variables) — two equivalent ways to point at the bucket:
 
-- Non-secret: `OCI_BUCKET`, `OCI_NAMESPACE`, `OCI_REGION`, and optional
-  `OCI_SWIFT_BASE_URL` (derived from the region when omitted).
-- Secret: `OCI_SWIFT_USER` (the Swift username; a `<namespace>:` prefix is added
-  automatically if absent) and `OCI_SWIFT_PASSWORD` (the OCI auth token used as the
-  Swift password).
+- **Full container URL** (matches OCI's "storage URL"):
+  `OCI_SWIFT_BASE_URL=https://swiftobjectstorage.<region>.oraclecloud.com/v1/<namespace>/<bucket>`.
+  Namespace/bucket/region are then optional.
+- **Pieces**: `OCI_BUCKET`, `OCI_NAMESPACE`, `OCI_REGION` (and `OCI_SWIFT_BASE_URL`
+  becomes optional, derived from the region).
+
+Credentials (secret): `OCI_SWIFT_USER` — your identity-domain user, used verbatim,
+e.g. `oracleidentitycloudservice/<user>` — and `OCI_SWIFT_PASSWORD`, an OCI Auth
+Token generated in the console (used as the Basic Auth password).
 
 Secret handling rules:
 

@@ -100,13 +100,23 @@ describe("OCI Swift config auth-mode resolution", () => {
     expect(oci.configured).toBe(true);
   });
 
-  it("accepts an explicit base URL instead of a region", () => {
+  it("accepts a host base URL (with namespace + bucket) instead of a region", () => {
     process.env.OCI_BUCKET = "b";
     process.env.OCI_NAMESPACE = "ns";
     process.env.OCI_SWIFT_BASE_URL = "https://swiftobjectstorage.x.oraclecloud.com";
     process.env.OCI_SWIFT_USER = "domain/user";
     process.env.OCI_SWIFT_PASSWORD = "token";
     expect(getConfig().oci.configured).toBe(true);
+  });
+
+  it("accepts a full container base URL without separate namespace/bucket", () => {
+    process.env.OCI_SWIFT_BASE_URL =
+      "https://swiftobjectstorage.us-ashburn-1.oraclecloud.com/v1/ns/bucket";
+    process.env.OCI_SWIFT_USER = "oracleidentitycloudservice/user";
+    process.env.OCI_SWIFT_PASSWORD = "token";
+    const oci = getConfig().oci;
+    expect(oci.authMode).toBe("swift");
+    expect(oci.configured).toBe(true);
   });
 
   it("is unconfigured when the password is missing", () => {

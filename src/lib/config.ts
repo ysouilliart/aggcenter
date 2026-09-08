@@ -58,22 +58,26 @@ function resolveOciConfig(): OciConfig {
   const swiftUser = process.env.OCI_SWIFT_USER;
   const swiftPassword = process.env.OCI_SWIFT_PASSWORD;
   const swiftBaseUrl = process.env.OCI_SWIFT_BASE_URL;
+  const namespace = process.env.OCI_NAMESPACE;
+  const bucket = process.env.OCI_BUCKET;
+  const region = process.env.OCI_REGION;
 
-  // Swift needs credentials, a bucket, a namespace, and either an explicit base
-  // URL or a region to derive it from.
-  const hasSwift =
-    bool(swiftUser) &&
-    bool(swiftPassword) &&
-    bool(process.env.OCI_BUCKET) &&
-    bool(process.env.OCI_NAMESPACE) &&
-    (bool(swiftBaseUrl) || bool(process.env.OCI_REGION));
+  // A container URL can be resolved either from a full base URL (already
+  // containing /v1/{namespace}/{bucket}), or from host/region + namespace + bucket.
+  const hasFullPathBase = bool(swiftBaseUrl) && swiftBaseUrl!.includes("/v1/");
+  const canResolveUrl =
+    hasFullPathBase ||
+    ((bool(swiftBaseUrl) || bool(region)) && bool(namespace) && bool(bucket));
+
+  // Swift needs Basic Auth credentials plus a resolvable container URL.
+  const hasSwift = bool(swiftUser) && bool(swiftPassword) && canResolveUrl;
 
   const authMode: OciAuthMode = hasSwift ? "swift" : "none";
 
   return {
-    namespace: process.env.OCI_NAMESPACE,
-    bucket: process.env.OCI_BUCKET,
-    region: process.env.OCI_REGION,
+    namespace,
+    bucket,
+    region,
     swiftBaseUrl,
     swiftUser,
     swiftPassword,

@@ -23,6 +23,7 @@ interface IntegrationStatus {
     database?: string;
   };
   externalApi: { configured: boolean; baseUrl?: string };
+  database: { configured: boolean; provider: string };
 }
 
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
@@ -133,6 +134,29 @@ export default function IntegrationsPage() {
             </dl>
             <p className="mt-3 text-xs text-slate-400">
               Set EXTERNAL_API_BASE_URL to enable.
+            </p>
+          </Card>
+
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Database</h2>
+              <StatusPill
+                ok={data.database.configured}
+                label={data.database.configured ? "Postgres" : "Local JSON"}
+              />
+            </div>
+            <p className="text-sm text-slate-600">
+              Persistence for uploaded statements and transactions (schema{" "}
+              <span className="font-medium text-slate-900">aggc-cash</span>).
+              Currently using the{" "}
+              <span className="font-medium text-slate-900">
+                {data.database.provider}
+              </span>{" "}
+              store.
+            </p>
+            <p className="mt-3 text-xs text-slate-400">
+              Set DATABASE_URL (Neon or Postgres) and run{" "}
+              <code>npm run db:migrate</code> to activate.
             </p>
           </Card>
 

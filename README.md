@@ -80,6 +80,28 @@ npm run build    # production build
 | GET    | `/api/accounts`       | Bank accounts                                |
 | GET    | `/api/integrations`   | Active provider / configuration status       |
 
+## Database (Postgres / Neon)
+
+Uploaded statements and their parsed transactions persist to Postgres via
+[Drizzle ORM](https://orm.drizzle.team) when `DATABASE_URL` is set; otherwise a
+local JSON store (`.data/uploads.json`) is used so the app runs with no database.
+All tables live in a dedicated **`aggc-cash`** schema (created by the migration).
+
+Setup:
+
+1. Set `DATABASE_URL` (Neon pooled connection string, or a local Postgres URL) —
+   as a Cursor **Secret** in the cloud, or in `.env.local` for local dev.
+2. Create the schema and tables:
+   ```bash
+   DATABASE_URL=... npm run db:migrate   # applies drizzle/ migrations (creates the aggc-cash schema)
+   ```
+3. Run the app; uploads now persist to Postgres. `/api/integrations` reports the
+   active database provider (`postgres` vs `local-json`) without exposing the URL.
+
+Schema changes: edit `src/lib/db/schema.ts`, then `npm run db:generate` to create
+a new migration and `npm run db:migrate` to apply it. The connection uses TLS
+automatically for Neon / `sslmode=require`.
+
 ## Secrets & OCI Object Storage
 
 File storage uses a pluggable provider. With no configuration it uses the local

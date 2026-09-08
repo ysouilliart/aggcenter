@@ -1,10 +1,11 @@
-import { promises as fs } from "fs";
 import path from "path";
 
 import { getConfig } from "./config";
 import { getDataSource } from "./datasource";
 import { getStorageProvider } from "./storage";
 import type { StoredObject } from "./storage";
+import { getStatementRepository } from "./statements";
+import { isDatabaseConfigured } from "./db/client";
 import { parseBankStatementCsv } from "./parse/bankStatement";
 import { reconcile, summarize } from "./recon/reconcile";
 import { computeCashPosition } from "./cash/position";
@@ -17,27 +18,6 @@ import type {
   ReconciliationResult,
   Statement,
 } from "./domain/types";
-
-const UPLOADS_FILE = path.join(process.cwd(), ".data", "uploads.json");
-
-interface UploadRecord {
-  statement: Statement;
-  transactions: BankTransaction[];
-}
-
-async function readUploads(): Promise<UploadRecord[]> {
-  try {
-    const raw = await fs.readFile(UPLOADS_FILE, "utf8");
-    return JSON.parse(raw) as UploadRecord[];
-  } catch {
-    return [];
-  }
-}
-
-async function writeUploads(records: UploadRecord[]): Promise<void> {
-  await fs.mkdir(path.dirname(UPLOADS_FILE), { recursive: true });
-  await fs.writeFile(UPLOADS_FILE, JSON.stringify(records, null, 2), "utf8");
-}
 
 export async function getAccounts(): Promise<BankAccount[]> {
   return getDataSource().getAccounts();
@@ -82,19 +62,19 @@ async function getSampleData(): Promise<{
 }
 
 export async function getAllTransactions(): Promise<BankTransaction[]> {
-  const [{ transactions }, uploads] = await Promise.all([
+  const [{ transactions }, uploaded] = await Promise.all([
     getSampleData(),
-    readUploads(),
+    getStatementRepository().listTransactions(),
   ]);
-  return [...transactions, ...uploads.flatMap((u) => u.transactions)];
+  return [...transactions, ...uploaded];
 }
 
 export async function getStatements(): Promise<Statement[]> {
-  const [{ statements }, uploads] = await Promise.all([
+  const [{ statements }, uploaded] = await Promise.all([
     getSampleData(),
-    readUploads(),
+    getStatementRepository().listStatements(),
   ]);
-  return [...statements, ...uploads.map((u) => u.statement)];
+  return [...statements, ...uploaded];
 }
 
 export interface AddStatementParams {
@@ -138,9 +118,7 @@ export async function addUploadedStatement(
     uploadedAt: new Date().toISOString(),
   };
 
-  const uploads = await readUploads();
-  uploads.push({ statement, transactions });
-  await writeUploads(uploads);
+  await getStatementRepository().addUpload(statement, transactions);
 
   return { statement, errors };
 }
@@ -200,6 +178,7 @@ export interface IntegrationStatus {
   };
   snowflake: { active: boolean; configured: boolean; account?: string; database?: string };
   externalApi: { configured: boolean; baseUrl?: string };
+  database: { configured: boolean; provider: string };
   reportingCurrency: string;
 }
 
@@ -226,6 +205,10 @@ export function getIntegrationStatus(): IntegrationStatus {
     externalApi: {
       configured: Boolean(config.externalApiBaseUrl),
       baseUrl: config.externalApiBaseUrl,
+    },
+    database: {
+      configured: isDatabaseConfigured(),
+      provider: getStatementRepository().name,
     },
     reportingCurrency: config.reportingCurrency,
   };

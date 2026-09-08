@@ -80,7 +80,7 @@ export interface Statement {
   id: string;
   accountId: string;
   fileName: string;
-  source: "sample" | "upload";
+  source: "sample" | "upload" | "oci";
   periodStart: string;
   periodEnd: string;
   transactionCount: number;

@@ -135,6 +135,17 @@ To validate connectivity, open **Files** and click **View** on an object — the
 selected file is fetched from the active provider on request (size-capped, with a
 binary guard).
 
+### Auto-ingest statements from the bucket
+
+Drop bank-statement CSVs into the bucket under `inbox/<accountId>/<file>.csv`
+(the first path segment is the account id, e.g. `inbox/ACC-1001/aug.csv`), then
+click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`).
+Each file is parsed, attributed to its account, and persisted (to Postgres when
+configured). Ingestion is **idempotent** — files already imported (keyed by object
+path) are skipped on re-sync. Sample files to try are in
+[`data/sample/oci-inbox/`](data/sample/oci-inbox/). `accountId` must match a known
+account from the active data source.
+
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).

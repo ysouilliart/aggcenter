@@ -1,0 +1,5 @@
+date,description,reference,counterparty,amount,currency
+2026-09-02,Customer payment,SO-5007,Soylent Corp,22000.00,USD
+2026-09-04,Vendor payment,,Fresh Vendor LLC,-8000.00,USD
+2026-09-05,Incoming wire,,New Client Ltd,64000.00,USD
+2026-09-08,Bank fees,,First National Bank,-95.00,USD

@@ -1,160 +1,159 @@
 import type { OciConfig } from "../config";
 import type { StorageProvider, StoredObject } from "./types";
 
-// Type-only imports are erased at build time, so the heavy SDK is only loaded
-// at runtime (via dynamic import) when the OCI provider is actually used.
-type Common = typeof import("oci-common");
-type ObjectStorage = typeof import("oci-objectstorage");
-type Client = InstanceType<ObjectStorage["ObjectStorageClient"]>;
-
-interface Bundle {
-  client: Client;
-}
-
-/** Normalize a PEM key supplied via env: prefer base64, else fix escaped newlines. */
-function resolvePrivateKey(config: OciConfig): string | undefined {
-  if (config.privateKeyB64) {
-    return Buffer.from(config.privateKeyB64, "base64").toString("utf8");
-  }
-  if (config.privateKey) {
-    return config.privateKey.includes("\\n")
-      ? config.privateKey.replace(/\\n/g, "\n")
-      : config.privateKey;
-  }
-  return undefined;
-}
-
-async function readStreamToBuffer(value: unknown): Promise<Buffer> {
-  if (value == null) return Buffer.alloc(0);
-  // Blob / Response-like with arrayBuffer().
-  if (typeof (value as { arrayBuffer?: unknown }).arrayBuffer === "function") {
-    const ab = await (value as Blob).arrayBuffer();
-    return Buffer.from(ab);
-  }
-  // Async-iterable Node Readable / web ReadableStream.
-  const chunks: Buffer[] = [];
-  for await (const chunk of value as AsyncIterable<Buffer | Uint8Array | string>) {
-    chunks.push(Buffer.from(chunk as Uint8Array));
-  }
-  return Buffer.concat(chunks);
-}
-
 /**
- * OCI Object Storage provider.
+ * OCI Object Storage provider using the OpenStack **Swift** API (v1 auth).
  *
- * Auth is resolved from environment secrets (SimpleAuthenticationDetailsProvider)
- * or, if provided, an OCI config file. Credentials are read here on the server
- * only and are never logged or returned to clients.
+ * Flow (see Oracle's "Object Storage with the Swift API" docs):
+ *   1. GET {baseUrl}/auth/v1.0 with X-Storage-User / X-Storage-Pass
+ *      -> returns X-Auth-Token and X-Storage-Url
+ *   2. object/container ops against {storageUrl}/{bucket}[/{object}] with X-Auth-Token
+ *
+ * This is plain HTTPS (no SDK). Credentials come from environment secrets and are
+ * only used server-side; they are never logged or returned to clients.
  */
-export class OciStorageProvider implements StorageProvider {
+
+interface Session {
+  token: string;
+  storageUrl: string;
+}
+
+interface SwiftListItem {
+  name: string;
+  bytes?: number;
+  last_modified?: string;
+}
+
+function toIso(value: string | undefined): string {
+  if (!value) return new Date().toISOString();
+  // Swift timestamps are UTC but may omit the zone; assume Z when absent.
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+  const d = new Date(hasZone ? value : `${value}Z`);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+export class OciSwiftStorageProvider implements StorageProvider {
   readonly name = "oci";
-  private bundle?: Promise<Bundle>;
-  private namespaceCache?: string;
+  private session?: Session;
 
   constructor(private readonly config: OciConfig) {}
 
-  private async buildAuthProvider(common: Common) {
-    if (this.config.authMode === "simple") {
-      const privateKey = resolvePrivateKey(this.config);
-      if (!privateKey) throw new Error("OCI private key is missing.");
-      return new common.SimpleAuthenticationDetailsProvider(
-        this.config.tenancy!,
-        this.config.user!,
-        this.config.fingerprint!,
-        privateKey,
-        this.config.passphrase ?? null,
-        common.Region.fromRegionId(this.config.region!),
-      );
-    }
-    if (this.config.authMode === "configfile") {
-      return new common.ConfigFileAuthenticationDetailsProvider(
-        this.config.configFile,
-        this.config.configProfile,
-      );
-    }
-    throw new Error(
-      "OCI is not configured. Provide OCI_TENANCY/OCI_USER/OCI_FINGERPRINT/OCI_PRIVATE_KEY(_B64)/OCI_REGION " +
-        "or OCI_CONFIG_FILE (see .env.example).",
-    );
-  }
-
-  private async getBundle(): Promise<Bundle> {
-    if (!this.bundle) {
-      this.bundle = (async () => {
-        const common = (await import("oci-common")) as Common;
-        const os = (await import("oci-objectstorage")) as ObjectStorage;
-        const authenticationDetailsProvider = await this.buildAuthProvider(common);
-        const client = new os.ObjectStorageClient({ authenticationDetailsProvider });
-        return { client };
-      })();
-    }
-    return this.bundle;
-  }
-
-  private async namespace(client: Client): Promise<string> {
-    if (this.config.namespace) return this.config.namespace;
-    if (this.namespaceCache) return this.namespaceCache;
-    const res = await client.getNamespace({});
-    this.namespaceCache = res.value;
-    return res.value;
+  private baseUrl(): string {
+    const base =
+      this.config.swiftBaseUrl ||
+      (this.config.region
+        ? `https://swiftobjectstorage.${this.config.region}.oraclecloud.com`
+        : undefined);
+    if (!base) throw new Error("OCI Swift base URL or region is required.");
+    return base.replace(/\/+$/, "");
   }
 
   private bucket(): string {
-    if (!this.config.bucket) throw new Error("OCI_BUCKET is not set.");
+    if (!this.config.bucket) throw new Error("OCI_BUCKET is required.");
     return this.config.bucket;
   }
 
-  async put(key: string, data: Buffer, contentType?: string): Promise<StoredObject> {
-    const { client } = await this.getBundle();
-    const namespaceName = await this.namespace(client);
-    await client.putObject({
-      namespaceName,
-      bucketName: this.bucket(),
-      objectName: key,
-      putObjectBody: data,
-      contentLength: data.length,
-      contentType,
+  private storageUser(): string {
+    const user = this.config.swiftUser;
+    if (!user) throw new Error("OCI_SWIFT_USER is required.");
+    // OCI expects "<namespace>:<user>"; don't double-prefix if already namespaced.
+    if (user.includes(":")) return user;
+    if (!this.config.namespace) {
+      throw new Error("OCI_NAMESPACE is required for Swift authentication.");
+    }
+    return `${this.config.namespace}:${user}`;
+  }
+
+  private async authenticate(): Promise<Session> {
+    const res = await fetch(`${this.baseUrl()}/auth/v1.0`, {
+      method: "GET",
+      headers: {
+        "X-Storage-User": this.storageUser(),
+        "X-Storage-Pass": this.config.swiftPassword ?? "",
+      },
     });
+    if (!res.ok) {
+      throw new Error(`OCI Swift authentication failed (HTTP ${res.status}).`);
+    }
+    const token =
+      res.headers.get("x-auth-token") ?? res.headers.get("x-storage-token");
+    const storageUrl =
+      res.headers.get("x-storage-url") ??
+      `${this.baseUrl()}/v1/${this.config.namespace}`;
+    if (!token) throw new Error("OCI Swift auth did not return a token.");
+    this.session = { token, storageUrl: storageUrl.replace(/\/+$/, "") };
+    return this.session;
+  }
+
+  private async getSession(): Promise<Session> {
+    return this.session ?? this.authenticate();
+  }
+
+  private objectUrl(session: Session, key: string): string {
+    const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+    return `${session.storageUrl}/${encodeURIComponent(this.bucket())}/${encodedKey}`;
+  }
+
+  /** Issue an authenticated request; on 401 re-authenticate once and retry. */
+  private async send(
+    method: string,
+    urlFor: (s: Session) => string,
+    init: RequestInit = {},
+  ): Promise<Response> {
+    const attempt = (s: Session) =>
+      fetch(urlFor(s), {
+        ...init,
+        method,
+        headers: { ...(init.headers ?? {}), "X-Auth-Token": s.token },
+      });
+
+    let session = await this.getSession();
+    let res = await attempt(session);
+    if (res.status === 401) {
+      session = await this.authenticate();
+      res = await attempt(session);
+    }
+    return res;
+  }
+
+  async put(key: string, data: Buffer, contentType?: string): Promise<StoredObject> {
+    const res = await this.send("PUT", (s) => this.objectUrl(s, key), {
+      // Uint8Array is a valid BodyInit; Buffer is a Uint8Array at runtime.
+      body: new Uint8Array(data),
+      headers: contentType ? { "Content-Type": contentType } : {},
+    });
+    if (!res.ok) throw new Error(`OCI Swift put failed (HTTP ${res.status}).`);
     return { key, size: data.length, lastModified: new Date().toISOString() };
   }
 
   async get(key: string): Promise<Buffer> {
-    const { client } = await this.getBundle();
-    const namespaceName = await this.namespace(client);
-    const res = await client.getObject({
-      namespaceName,
-      bucketName: this.bucket(),
-      objectName: key,
-    });
-    return readStreamToBuffer(res.value);
+    const res = await this.send("GET", (s) => this.objectUrl(s, key));
+    if (!res.ok) throw new Error(`OCI Swift get failed (HTTP ${res.status}).`);
+    return Buffer.from(await res.arrayBuffer());
   }
 
   async list(prefix = ""): Promise<StoredObject[]> {
-    const { client } = await this.getBundle();
-    const namespaceName = await this.namespace(client);
-    const res = await client.listObjects({
-      namespaceName,
-      bucketName: this.bucket(),
-      prefix: prefix || undefined,
-      fields: "name,size,timeModified",
+    const res = await this.send("GET", (s) => {
+      const url = new URL(`${s.storageUrl}/${encodeURIComponent(this.bucket())}`);
+      url.searchParams.set("format", "json");
+      if (prefix) url.searchParams.set("prefix", prefix);
+      return url.toString();
     });
-    const objects = res.listObjects?.objects ?? [];
-    return objects.map((o) => ({
-      key: o.name,
-      size: o.size ?? 0,
-      lastModified: new Date(
-        (o.timeModified as Date | undefined) ?? Date.now(),
-      ).toISOString(),
-    }));
+    if (!res.ok) throw new Error(`OCI Swift list failed (HTTP ${res.status}).`);
+    const items = (await res.json()) as SwiftListItem[];
+    return items
+      .filter((o) => o && typeof o.name === "string")
+      .map((o) => ({
+        key: o.name,
+        size: o.bytes ?? 0,
+        lastModified: toIso(o.last_modified),
+      }));
   }
 
   async delete(key: string): Promise<void> {
-    const { client } = await this.getBundle();
-    const namespaceName = await this.namespace(client);
-    await client.deleteObject({
-      namespaceName,
-      bucketName: this.bucket(),
-      objectName: key,
-    });
+    const res = await this.send("DELETE", (s) => this.objectUrl(s, key));
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`OCI Swift delete failed (HTTP ${res.status}).`);
+    }
   }
 }

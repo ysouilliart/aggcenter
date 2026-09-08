@@ -62,15 +62,14 @@ describe("LocalStorageProvider", () => {
   });
 });
 
-describe("OCI config auth-mode resolution", () => {
+describe("OCI Swift config auth-mode resolution", () => {
   const KEYS = [
     "OCI_BUCKET",
+    "OCI_NAMESPACE",
     "OCI_REGION",
-    "OCI_TENANCY",
-    "OCI_USER",
-    "OCI_FINGERPRINT",
-    "OCI_PRIVATE_KEY_B64",
-    "OCI_CONFIG_FILE",
+    "OCI_SWIFT_BASE_URL",
+    "OCI_SWIFT_USER",
+    "OCI_SWIFT_PASSWORD",
   ];
   let saved: Record<string, string | undefined>;
 
@@ -90,23 +89,32 @@ describe("OCI config auth-mode resolution", () => {
     expect(getConfig().oci.configured).toBe(false);
   });
 
-  it("is 'simple' when env credentials are present", () => {
+  it("is 'swift' when credentials + bucket + namespace + region are present", () => {
     process.env.OCI_BUCKET = "b";
+    process.env.OCI_NAMESPACE = "ns";
     process.env.OCI_REGION = "us-ashburn-1";
-    process.env.OCI_TENANCY = "ocid.tenancy";
-    process.env.OCI_USER = "ocid.user";
-    process.env.OCI_FINGERPRINT = "aa:bb";
-    process.env.OCI_PRIVATE_KEY_B64 = "cGVt";
+    process.env.OCI_SWIFT_USER = "domain/user";
+    process.env.OCI_SWIFT_PASSWORD = "token";
     const oci = getConfig().oci;
-    expect(oci.authMode).toBe("simple");
+    expect(oci.authMode).toBe("swift");
     expect(oci.configured).toBe(true);
   });
 
-  it("is 'configfile' when only a config file is provided", () => {
+  it("accepts an explicit base URL instead of a region", () => {
     process.env.OCI_BUCKET = "b";
-    process.env.OCI_CONFIG_FILE = "/home/u/.oci/config";
-    const oci = getConfig().oci;
-    expect(oci.authMode).toBe("configfile");
-    expect(oci.configured).toBe(true);
+    process.env.OCI_NAMESPACE = "ns";
+    process.env.OCI_SWIFT_BASE_URL = "https://swiftobjectstorage.x.oraclecloud.com";
+    process.env.OCI_SWIFT_USER = "domain/user";
+    process.env.OCI_SWIFT_PASSWORD = "token";
+    expect(getConfig().oci.configured).toBe(true);
+  });
+
+  it("is unconfigured when the password is missing", () => {
+    process.env.OCI_BUCKET = "b";
+    process.env.OCI_NAMESPACE = "ns";
+    process.env.OCI_REGION = "us-ashburn-1";
+    process.env.OCI_SWIFT_USER = "domain/user";
+    expect(getConfig().oci.authMode).toBe("none");
+    expect(getConfig().oci.configured).toBe(false);
   });
 });

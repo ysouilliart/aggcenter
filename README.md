@@ -84,15 +84,15 @@ npm run build    # production build
 
 File storage uses a pluggable provider. With no configuration it uses the local
 filesystem (`.data/storage`); set `STORAGE_PROVIDER=oci` plus the OCI settings to
-use an OCI bucket.
+use an OCI bucket via the **OpenStack Swift API** (v1 token auth, no SDK).
 
-Authentication is resolved from environment variables (no key file needed):
+Settings (from environment variables):
 
-- Non-secret: `OCI_BUCKET`, `OCI_REGION`, optional `OCI_NAMESPACE`.
-- Secret: `OCI_TENANCY`, `OCI_USER`, `OCI_FINGERPRINT`, and the API private key as
-  `OCI_PRIVATE_KEY_B64` (base64 PEM, recommended) or `OCI_PRIVATE_KEY` (raw PEM),
-  optional `OCI_PRIVATE_KEY_PASSPHRASE`. A config file (`OCI_CONFIG_FILE`) is also
-  supported.
+- Non-secret: `OCI_BUCKET`, `OCI_NAMESPACE`, `OCI_REGION`, and optional
+  `OCI_SWIFT_BASE_URL` (derived from the region when omitted).
+- Secret: `OCI_SWIFT_USER` (the Swift username; a `<namespace>:` prefix is added
+  automatically if absent) and `OCI_SWIFT_PASSWORD` (the OCI auth token used as the
+  Swift password).
 
 Secret handling rules:
 

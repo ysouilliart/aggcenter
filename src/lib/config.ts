@@ -10,24 +10,20 @@
 export type StorageProviderName = "local" | "oci";
 export type DataSourceName = "local" | "snowflake";
 
-export type OciAuthMode = "simple" | "configfile" | "none";
+export type OciAuthMode = "swift" | "none";
 
 export interface OciConfig {
   namespace?: string;
   bucket?: string;
   region?: string;
-  /** Path to an OCI config/key file, when using file-based auth. */
-  configFile?: string;
-  configProfile?: string;
-  // --- Simple (env-based) auth. Secret values; never log or expose these. ---
-  tenancy?: string;
-  user?: string;
-  fingerprint?: string;
-  passphrase?: string;
-  /** PEM private key (may contain literal \n which we normalize). */
-  privateKey?: string;
-  /** Base64-encoded PEM private key (preferred for single-line env/secrets). */
-  privateKeyB64?: string;
+  // --- OCI Swift (OpenStack) API access ---
+  /** Base URL, e.g. https://swiftobjectstorage.us-ashburn-1.oraclecloud.com
+   *  (derived from region when omitted). Not secret. */
+  swiftBaseUrl?: string;
+  /** Swift username; "<namespace>:<user>" is built automatically if needed. */
+  swiftUser?: string;
+  /** Swift password / OCI auth token. Secret — never log or expose. */
+  swiftPassword?: string;
   /** Which auth strategy the current environment can support. */
   authMode: OciAuthMode;
   /** True when a bucket and a usable auth strategy are present. */
@@ -59,34 +55,30 @@ function bool(value: string | undefined): boolean {
 }
 
 function resolveOciConfig(): OciConfig {
-  const hasSimple =
-    bool(process.env.OCI_TENANCY) &&
-    bool(process.env.OCI_USER) &&
-    bool(process.env.OCI_FINGERPRINT) &&
-    (bool(process.env.OCI_PRIVATE_KEY) || bool(process.env.OCI_PRIVATE_KEY_B64)) &&
-    bool(process.env.OCI_REGION);
-  const hasConfigFile = bool(process.env.OCI_CONFIG_FILE);
+  const swiftUser = process.env.OCI_SWIFT_USER;
+  const swiftPassword = process.env.OCI_SWIFT_PASSWORD;
+  const swiftBaseUrl = process.env.OCI_SWIFT_BASE_URL;
 
-  const authMode: OciAuthMode = hasSimple
-    ? "simple"
-    : hasConfigFile
-      ? "configfile"
-      : "none";
+  // Swift needs credentials, a bucket, a namespace, and either an explicit base
+  // URL or a region to derive it from.
+  const hasSwift =
+    bool(swiftUser) &&
+    bool(swiftPassword) &&
+    bool(process.env.OCI_BUCKET) &&
+    bool(process.env.OCI_NAMESPACE) &&
+    (bool(swiftBaseUrl) || bool(process.env.OCI_REGION));
+
+  const authMode: OciAuthMode = hasSwift ? "swift" : "none";
 
   return {
     namespace: process.env.OCI_NAMESPACE,
     bucket: process.env.OCI_BUCKET,
     region: process.env.OCI_REGION,
-    configFile: process.env.OCI_CONFIG_FILE,
-    configProfile: process.env.OCI_CONFIG_PROFILE,
-    tenancy: process.env.OCI_TENANCY,
-    user: process.env.OCI_USER,
-    fingerprint: process.env.OCI_FINGERPRINT,
-    passphrase: process.env.OCI_PRIVATE_KEY_PASSPHRASE,
-    privateKey: process.env.OCI_PRIVATE_KEY,
-    privateKeyB64: process.env.OCI_PRIVATE_KEY_B64,
+    swiftBaseUrl,
+    swiftUser,
+    swiftPassword,
     authMode,
-    configured: bool(process.env.OCI_BUCKET) && authMode !== "none",
+    configured: authMode !== "none",
   };
 }
 

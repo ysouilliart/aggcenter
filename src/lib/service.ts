@@ -196,6 +196,7 @@ export interface IntegrationStatus {
     bucket?: string;
     region?: string;
     namespace?: string;
+    baseUrl?: string;
   };
   snowflake: { active: boolean; configured: boolean; account?: string; database?: string };
   externalApi: { configured: boolean; baseUrl?: string };
@@ -214,6 +215,7 @@ export function getIntegrationStatus(): IntegrationStatus {
       bucket: config.oci.bucket,
       region: config.oci.region,
       namespace: config.oci.namespace,
+      baseUrl: config.oci.swiftBaseUrl,
     },
     snowflake: {
       active: getDataSource().name === "snowflake",

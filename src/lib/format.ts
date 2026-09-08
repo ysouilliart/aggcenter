@@ -1,4 +1,8 @@
-export function formatCurrency(amount: number, currency = "USD"): string {
+import { fromCents } from "./money";
+
+/** Format an integer-cents amount as currency, e.g. 4825000 -> "$48,250.00". */
+export function formatCurrency(cents: number, currency = "USD"): string {
+  const amount = fromCents(cents);
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -10,7 +14,9 @@ export function formatCurrency(amount: number, currency = "USD"): string {
   }
 }
 
-export function formatCompact(amount: number, currency = "USD"): string {
+/** Format an integer-cents amount compactly, e.g. 4825000 -> "$4.8M". */
+export function formatCompact(cents: number, currency = "USD"): string {
+  const amount = fromCents(cents);
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",

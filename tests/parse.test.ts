@@ -31,12 +31,12 @@ describe("parseBankStatementCsv", () => {
     expect(transactions).toHaveLength(2);
     expect(transactions[0]).toMatchObject({
       id: "STMT-1-L1",
-      amount: 48250,
+      amount: 4825000, // cents
       reference: "SO-5001",
       counterparty: "Acme Corp",
       currency: "USD",
     });
-    expect(transactions[1].amount).toBe(-12000);
+    expect(transactions[1].amount).toBe(-1200000); // cents
   });
 
   it("derives amount from debit/credit columns and parenthesised negatives", () => {
@@ -52,9 +52,9 @@ describe("parseBankStatementCsv", () => {
       defaultCurrency: "EUR",
     });
 
-    expect(transactions[0].amount).toBe(1000);
+    expect(transactions[0].amount).toBe(100000); // 1000.00 in cents
     expect(transactions[0].currency).toBe("EUR");
-    expect(transactions[1].amount).toBe(-250.5);
+    expect(transactions[1].amount).toBe(-25050); // (250.50) in cents
   });
 
   it("reports errors for unparseable dates", () => {

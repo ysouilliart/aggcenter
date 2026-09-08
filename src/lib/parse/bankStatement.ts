@@ -1,4 +1,5 @@
 import type { BankTransaction, Currency } from "../domain/types";
+import { toCents } from "../money";
 import { parseCsv } from "./csv";
 
 export interface ParseOptions {
@@ -20,6 +21,7 @@ function pick(row: Record<string, string>, keys: string[]): string | undefined {
   return undefined;
 }
 
+/** Parse a monetary cell into integer cents (signed). Returns NaN if unparseable. */
 function parseAmount(value: string | undefined): number {
   if (!value) return NaN;
   // Strip currency symbols, thousands separators and spaces; support
@@ -28,7 +30,7 @@ function parseAmount(value: string | undefined): number {
   const cleaned = value.replace(/[(),$£€\s]/g, "");
   const num = Number(cleaned);
   if (Number.isNaN(num)) return NaN;
-  return negative ? -Math.abs(num) : num;
+  return toCents(negative ? -Math.abs(num) : num);
 }
 
 function normalizeDate(value: string | undefined): string | null {

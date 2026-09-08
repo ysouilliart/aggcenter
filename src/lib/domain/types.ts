@@ -7,6 +7,10 @@
  *
  * Bank statements are the source of truth for actual cash movement; PO/SO/remittance
  * records are the "expected" side that we reconcile against.
+ *
+ * MONEY: every monetary field below is an integer number of **minor units
+ * (cents)**. See `lib/money.ts` — integer math avoids floating-point drift in
+ * reconciliation and cash-position calculations.
  */
 
 export type Currency = "USD" | "EUR" | "GBP" | string;
@@ -18,7 +22,7 @@ export interface BankAccount {
   name: string;
   bank: string;
   currency: Currency;
-  /** Opening balance at the start of the statement period. */
+  /** Opening balance at the start of the statement period, in cents. */
   openingBalance: number;
 }
 
@@ -31,10 +35,10 @@ export interface BankTransaction {
   /** Free-text reference, often carrying a PO/SO/invoice number. */
   reference?: string;
   counterparty?: string;
-  /** Signed amount: positive = credit/inflow, negative = debit/outflow. */
+  /** Signed amount in cents: positive = credit/inflow, negative = debit/outflow. */
   amount: number;
   currency: Currency;
-  /** Running balance reported by the bank after this line, if provided. */
+  /** Running balance (cents) reported by the bank after this line, if provided. */
   balanceAfter?: number;
   /** Identifier of the statement this line came from. */
   statementId: string;

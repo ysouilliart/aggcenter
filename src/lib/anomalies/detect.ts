@@ -5,6 +5,7 @@ import type {
   ReconciliationResult,
   Remittance,
 } from "../domain/types";
+import { formatCentsPlain } from "../money";
 
 export interface AnomalyInput {
   transactions: BankTransaction[];
@@ -13,7 +14,9 @@ export interface AnomalyInput {
   accounts: BankAccount[];
 }
 
-const UNMATCHED_LARGE_THRESHOLD = 40000;
+// Monetary thresholds are in cents.
+const UNMATCHED_LARGE_THRESHOLD = 40_000_00;
+const UNMATCHED_HIGH_SEVERITY = 75_000_00;
 const OUTLIER_K = 2;
 const OUTLIER_MIN_SAMPLES = 5;
 const DUPLICATE_WINDOW_DAYS = 5;
@@ -22,10 +25,6 @@ function daysBetween(a: string, b: string): number {
   const da = new Date(a).getTime();
   const db = new Date(b).getTime();
   return Math.abs(da - db) / (1000 * 60 * 60 * 24);
-}
-
-function round(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 /**
@@ -46,7 +45,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   // 1) Duplicates: same account + amount + counterparty within a short window.
   const groups = new Map<string, BankTransaction[]>();
   for (const txn of transactions) {
-    const key = `${txn.accountId}|${round(txn.amount)}|${(
+    const key = `${txn.accountId}|${txn.amount}|${(
       txn.counterparty ??
       txn.reference ??
       ""
@@ -65,9 +64,9 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
           type: "duplicate",
           severity: "high",
           title: "Possible duplicate payment",
-          description: `${txn.counterparty ?? txn.reference ?? "Transaction"} of ${Math.abs(
-            txn.amount,
-          ).toLocaleString()} ${txn.currency} on ${txn.date} matches ${sorted[0].date} (${sorted[0].id}).`,
+          description: `${txn.counterparty ?? txn.reference ?? "Transaction"} of ${formatCentsPlain(
+            Math.abs(txn.amount),
+          )} ${txn.currency} on ${txn.date} matches ${sorted[0].date} (${sorted[0].id}).`,
           amount: Math.abs(txn.amount),
           currency: txn.currency,
           date: txn.date,
@@ -86,8 +85,8 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
         type: "amount_mismatch",
         severity: "medium",
         title: "Amount mismatch vs document",
-        description: `Bank amount for ${r.matchedId} differs by ${r.amountDiff.toFixed(
-          2,
+        description: `Bank amount for ${r.matchedId} differs by ${formatCentsPlain(
+          r.amountDiff,
         )} ${r.currency} (${txn?.counterparty ?? ""}).`,
         amount: Math.abs(r.amount),
         currency: r.currency,
@@ -105,11 +104,11 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
       anomalies.push({
         id: `AN-UNM-${r.transactionId}`,
         type: "unmatched_large",
-        severity: Math.abs(r.amount) >= 75000 ? "high" : "medium",
+        severity: Math.abs(r.amount) >= UNMATCHED_HIGH_SEVERITY ? "high" : "medium",
         title: "Large unmatched transaction",
         description: `${
           r.amount > 0 ? "Unidentified receipt" : "Unidentified payment"
-        } of ${Math.abs(r.amount).toLocaleString()} ${r.currency}${
+        } of ${formatCentsPlain(Math.abs(r.amount))} ${r.currency}${
           txn?.counterparty ? ` (${txn.counterparty})` : ""
         } has no matching ${r.flow === "O2C" ? "sales order" : "purchase order"}.`,
         amount: Math.abs(r.amount),
@@ -134,7 +133,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
         (t) =>
           t.amount > 0 &&
           t.currency === rem.currency &&
-          Math.abs(Math.abs(t.amount) - rem.amount) <= 0.01,
+          Math.abs(Math.abs(t.amount) - rem.amount) <= 1,
       );
     if (!hasReceipt) {
       anomalies.push({
@@ -142,7 +141,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
         type: "missing_receipt",
         severity: "medium",
         title: "Expected receipt not received",
-        description: `Remittance ${rem.id} from ${rem.name} for ${rem.reference} (${rem.amount.toLocaleString()} ${rem.currency}) has no matching bank credit.`,
+        description: `Remittance ${rem.id} from ${rem.name} for ${rem.reference} (${formatCentsPlain(rem.amount)} ${rem.currency}) has no matching bank credit.`,
         amount: rem.amount,
         currency: rem.currency,
         date: rem.date,
@@ -175,11 +174,11 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
             type: "outlier",
             severity: "low",
             title: "Statistical outlier",
-            description: `${txn.counterparty ?? txn.reference ?? "Transaction"} of ${Math.abs(
-              txn.amount,
-            ).toLocaleString()} ${txn.currency} is well above the typical ${
+            description: `${txn.counterparty ?? txn.reference ?? "Transaction"} of ${formatCentsPlain(
+              Math.abs(txn.amount),
+            )} ${txn.currency} is well above the typical ${
               direction === "in" ? "receipt" : "payment"
-            } (~${Math.round(mean).toLocaleString()} ${txn.currency}).`,
+            } (~${formatCentsPlain(Math.round(mean))} ${txn.currency}).`,
             amount: Math.abs(txn.amount),
             currency: txn.currency,
             date: txn.date,
@@ -201,8 +200,8 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
         type: "overdraft_risk",
         severity: "high",
         title: "Overdraft risk",
-        description: `${account.name} closing balance is ${round(closing).toLocaleString()} ${account.currency}.`,
-        amount: round(closing),
+        description: `${account.name} closing balance is ${formatCentsPlain(closing)} ${account.currency}.`,
+        amount: closing,
         currency: account.currency,
         relatedIds: [account.id],
       });

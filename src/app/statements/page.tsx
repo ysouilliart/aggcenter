@@ -18,6 +18,28 @@ export default function StatementsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch("/api/statements/ingest", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      setSyncMessage(
+        `Synced from ${json.provider} (${json.prefix}): ${json.ingested.length} ingested, ` +
+          `${json.skipped.length} skipped, ${json.errors.length} error(s).`,
+      );
+      statementsState.reload();
+    } catch (err) {
+      setSyncMessage(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   // Fall back to the first account until the user picks one explicitly.
   const accountId = selectedAccountId || accounts[0]?.id || "";
 
@@ -58,6 +80,22 @@ export default function StatementsPage() {
       <PageHeader
         title="Statements"
         subtitle="Bank statements consumed by the reconciliation engine (stored via the active file provider)"
+        actions={
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              {syncing ? "Syncing…" : "Sync from bucket"}
+            </button>
+            {syncMessage ? (
+              <span className="max-w-xs text-right text-xs text-slate-500">
+                {syncMessage}
+              </span>
+            ) : null}
+          </div>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -149,7 +187,9 @@ export default function StatementsPage() {
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             s.source === "upload"
                               ? "bg-indigo-50 text-indigo-700"
-                              : "bg-slate-100 text-slate-600"
+                              : s.source === "oci"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-slate-100 text-slate-600"
                           }`}
                         >
                           {s.source}

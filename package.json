@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "next": "16.3.4",
+    "oci-common": "^2.140.1",
+    "oci-objectstorage": "^2.140.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

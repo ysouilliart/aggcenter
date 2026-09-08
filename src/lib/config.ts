@@ -10,13 +10,27 @@
 export type StorageProviderName = "local" | "oci";
 export type DataSourceName = "local" | "snowflake";
 
+export type OciAuthMode = "simple" | "configfile" | "none";
+
 export interface OciConfig {
   namespace?: string;
   bucket?: string;
   region?: string;
   /** Path to an OCI config/key file, when using file-based auth. */
   configFile?: string;
-  /** True when the minimum settings to attempt a real connection are present. */
+  configProfile?: string;
+  // --- Simple (env-based) auth. Secret values; never log or expose these. ---
+  tenancy?: string;
+  user?: string;
+  fingerprint?: string;
+  passphrase?: string;
+  /** PEM private key (may contain literal \n which we normalize). */
+  privateKey?: string;
+  /** Base64-encoded PEM private key (preferred for single-line env/secrets). */
+  privateKeyB64?: string;
+  /** Which auth strategy the current environment can support. */
+  authMode: OciAuthMode;
+  /** True when a bucket and a usable auth strategy are present. */
   configured: boolean;
 }
 
@@ -44,17 +58,40 @@ function bool(value: string | undefined): boolean {
   return value != null && value.trim().length > 0;
 }
 
-export function getConfig(): AppConfig {
-  const oci: OciConfig = {
+function resolveOciConfig(): OciConfig {
+  const hasSimple =
+    bool(process.env.OCI_TENANCY) &&
+    bool(process.env.OCI_USER) &&
+    bool(process.env.OCI_FINGERPRINT) &&
+    (bool(process.env.OCI_PRIVATE_KEY) || bool(process.env.OCI_PRIVATE_KEY_B64)) &&
+    bool(process.env.OCI_REGION);
+  const hasConfigFile = bool(process.env.OCI_CONFIG_FILE);
+
+  const authMode: OciAuthMode = hasSimple
+    ? "simple"
+    : hasConfigFile
+      ? "configfile"
+      : "none";
+
+  return {
     namespace: process.env.OCI_NAMESPACE,
     bucket: process.env.OCI_BUCKET,
     region: process.env.OCI_REGION,
     configFile: process.env.OCI_CONFIG_FILE,
-    configured:
-      bool(process.env.OCI_NAMESPACE) &&
-      bool(process.env.OCI_BUCKET) &&
-      bool(process.env.OCI_REGION),
+    configProfile: process.env.OCI_CONFIG_PROFILE,
+    tenancy: process.env.OCI_TENANCY,
+    user: process.env.OCI_USER,
+    fingerprint: process.env.OCI_FINGERPRINT,
+    passphrase: process.env.OCI_PRIVATE_KEY_PASSPHRASE,
+    privateKey: process.env.OCI_PRIVATE_KEY,
+    privateKeyB64: process.env.OCI_PRIVATE_KEY_B64,
+    authMode,
+    configured: bool(process.env.OCI_BUCKET) && authMode !== "none",
   };
+}
+
+export function getConfig(): AppConfig {
+  const oci = resolveOciConfig();
 
   const snowflake: SnowflakeConfig = {
     account: process.env.SNOWFLAKE_ACCOUNT,

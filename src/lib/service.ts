@@ -4,6 +4,7 @@ import path from "path";
 import { getConfig } from "./config";
 import { getDataSource } from "./datasource";
 import { getStorageProvider } from "./storage";
+import type { StoredObject } from "./storage";
 import { parseBankStatementCsv } from "./parse/bankStatement";
 import { reconcile, summarize } from "./recon/reconcile";
 import { computeCashPosition } from "./cash/position";
@@ -188,7 +189,14 @@ export async function getAnomalies(): Promise<Anomaly[]> {
 export interface IntegrationStatus {
   storageProvider: string;
   dataSource: string;
-  oci: { active: boolean; configured: boolean; bucket?: string; region?: string };
+  oci: {
+    active: boolean;
+    configured: boolean;
+    authMode: string;
+    bucket?: string;
+    region?: string;
+    namespace?: string;
+  };
   snowflake: { active: boolean; configured: boolean; account?: string; database?: string };
   externalApi: { configured: boolean; baseUrl?: string };
   reportingCurrency: string;
@@ -202,8 +210,10 @@ export function getIntegrationStatus(): IntegrationStatus {
     oci: {
       active: getStorageProvider().name === "oci",
       configured: config.oci.configured,
+      authMode: config.oci.authMode,
       bucket: config.oci.bucket,
       region: config.oci.region,
+      namespace: config.oci.namespace,
     },
     snowflake: {
       active: getDataSource().name === "snowflake",
@@ -217,4 +227,72 @@ export function getIntegrationStatus(): IntegrationStatus {
     },
     reportingCurrency: config.reportingCurrency,
   };
+}
+
+// --- Object storage browsing / on-request file preview -----------------------
+
+/** Reject keys that could escape the bucket/root or contain control characters. */
+export function assertSafeKey(key: string): void {
+  if (!key || key.length > 1024) {
+    throw new Error("Invalid object key.");
+  }
+  if (
+    key.includes("\0") ||
+    key.includes("..") ||
+    key.startsWith("/") ||
+    key.startsWith("\\") ||
+    key.includes("\\")
+  ) {
+    throw new Error("Invalid object key.");
+  }
+}
+
+export interface StorageOverview {
+  provider: string;
+  objects: StoredObject[];
+}
+
+export async function listStorageObjects(prefix = ""): Promise<StorageOverview> {
+  const provider = getStorageProvider();
+  const objects = await provider.list(prefix);
+  return { provider: provider.name, objects };
+}
+
+const MAX_PREVIEW_BYTES = 512 * 1024; // 512 KiB
+
+export interface ObjectPreview {
+  key: string;
+  provider: string;
+  size: number;
+  truncated: boolean;
+  isBinary: boolean;
+  text: string;
+}
+
+/** Pure preview builder (size cap + binary guard); separated for testability. */
+export function buildObjectPreview(
+  key: string,
+  provider: string,
+  buffer: Buffer,
+): ObjectPreview {
+  const truncated = buffer.length > MAX_PREVIEW_BYTES;
+  const slice = truncated ? buffer.subarray(0, MAX_PREVIEW_BYTES) : buffer;
+  // Heuristic: a NUL byte in the sampled range indicates binary content.
+  const isBinary = slice.subarray(0, 8000).includes(0);
+  return {
+    key,
+    provider,
+    size: buffer.length,
+    truncated,
+    isBinary,
+    text: isBinary ? "" : slice.toString("utf8"),
+  };
+}
+
+/** Fetch a single object's content on request, with a size cap and binary guard. */
+export async function getStorageObjectPreview(key: string): Promise<ObjectPreview> {
+  assertSafeKey(key);
+  const provider = getStorageProvider();
+  const buffer = await provider.get(key);
+  return buildObjectPreview(key, provider.name, buffer);
 }

@@ -80,9 +80,35 @@ npm run build    # production build
 | GET    | `/api/accounts`       | Bank accounts                                |
 | GET    | `/api/integrations`   | Active provider / configuration status       |
 
+## Secrets & OCI Object Storage
+
+File storage uses a pluggable provider. With no configuration it uses the local
+filesystem (`.data/storage`); set `STORAGE_PROVIDER=oci` plus the OCI settings to
+use an OCI bucket.
+
+Authentication is resolved from environment variables (no key file needed):
+
+- Non-secret: `OCI_BUCKET`, `OCI_REGION`, optional `OCI_NAMESPACE`.
+- Secret: `OCI_TENANCY`, `OCI_USER`, `OCI_FINGERPRINT`, and the API private key as
+  `OCI_PRIVATE_KEY_B64` (base64 PEM, recommended) or `OCI_PRIVATE_KEY` (raw PEM),
+  optional `OCI_PRIVATE_KEY_PASSPHRASE`. A config file (`OCI_CONFIG_FILE`) is also
+  supported.
+
+Secret handling rules:
+
+- **Never commit secrets.** `.env*` is git-ignored (except `.env.example`), and CI
+  runs `gitleaks` to catch accidental commits.
+- In **Cursor Cloud Agents**, add these in the **Secrets** panel; they are injected
+  as environment variables into new agent runs.
+- Secrets are read only on the server and are **never logged or returned to the
+  browser** (the integration status exposes only bucket/region/auth-mode).
+
+To validate connectivity, open **Files** and click **View** on an object — the
+selected file is fetched from the active provider on request (size-capped, with a
+binary guard).
+
 ## Roadmap
 
-- Real OCI Object Storage and Snowflake client implementations (adapters and
-  env wiring are already in place).
+- Real Snowflake client implementation (adapter and env wiring already in place).
 - Additional flows beyond cash position, and a workflow/approval layer.
 - Persistent database for uploaded statements and audit history.

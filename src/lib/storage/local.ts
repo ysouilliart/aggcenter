@@ -19,7 +19,7 @@ export class LocalStorageProvider implements StorageProvider {
     return path.join(this.root, key);
   }
 
-  async put(key: string, data: Buffer): Promise<StoredObject> {
+  async put(key: string, data: Buffer, _contentType?: string): Promise<StoredObject> {
     const dest = this.full(key);
     await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.writeFile(dest, data);

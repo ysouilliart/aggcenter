@@ -7,7 +7,14 @@ interface IntegrationStatus {
   storageProvider: string;
   dataSource: string;
   reportingCurrency: string;
-  oci: { active: boolean; configured: boolean; bucket?: string; region?: string };
+  oci: {
+    active: boolean;
+    configured: boolean;
+    authMode: string;
+    bucket?: string;
+    region?: string;
+    namespace?: string;
+  };
   snowflake: {
     active: boolean;
     configured: boolean;
@@ -69,6 +76,7 @@ export default function IntegrationsPage() {
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row label="Configured" value={data.oci.configured ? "Yes" : "No"} />
+              <Row label="Auth mode" value={data.oci.authMode} />
               <Row label="Bucket" value={data.oci.bucket ?? "—"} />
               <Row label="Region" value={data.oci.region ?? "—"} />
             </dl>

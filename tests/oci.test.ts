@@ -139,6 +139,16 @@ describe("OciSwiftStorageProvider", () => {
     });
   });
 
+  it("prefixes the namespace to an identity-domain username", async () => {
+    const provider = new OciSwiftStorageProvider(
+      swiftConfig({ swiftUser: "oracleidentitycloudservice/jane.doe@example.com" }),
+    );
+    await provider.list();
+    expect((authCall()?.[1] as RequestInit).headers).toMatchObject({
+      "X-Storage-User": "ns123:oracleidentitycloudservice/jane.doe@example.com",
+    });
+  });
+
   it("derives the base URL from the region when not provided", async () => {
     const provider = new OciSwiftStorageProvider(
       swiftConfig({ swiftBaseUrl: undefined, region: "us-phoenix-1" }),

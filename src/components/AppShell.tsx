@@ -21,6 +21,11 @@ const NAV = [
     icon: "M6 3h9l4 4v14H6zM14 3v5h5",
   },
   {
+    href: "/files",
+    label: "Files",
+    icon: "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z",
+  },
+  {
     href: "/integrations",
     label: "Integrations",
     icon: "M12 3v6m0 6v6M3 12h6m6 0h6",

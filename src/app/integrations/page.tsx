@@ -7,7 +7,15 @@ interface IntegrationStatus {
   storageProvider: string;
   dataSource: string;
   reportingCurrency: string;
-  oci: { active: boolean; configured: boolean; bucket?: string; region?: string };
+  oci: {
+    active: boolean;
+    configured: boolean;
+    authMode: string;
+    bucket?: string;
+    region?: string;
+    namespace?: string;
+    baseUrl?: string;
+  };
   snowflake: {
     active: boolean;
     configured: boolean;
@@ -69,12 +77,15 @@ export default function IntegrationsPage() {
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row label="Configured" value={data.oci.configured ? "Yes" : "No"} />
+              <Row label="Auth mode" value={data.oci.authMode} />
               <Row label="Bucket" value={data.oci.bucket ?? "—"} />
+              <Row label="Namespace" value={data.oci.namespace ?? "—"} />
               <Row label="Region" value={data.oci.region ?? "—"} />
             </dl>
             <p className="mt-3 text-xs text-slate-400">
-              Set OCI_NAMESPACE, OCI_BUCKET, OCI_REGION and STORAGE_PROVIDER=oci
-              to activate.
+              Swift API. Set OCI_BUCKET, OCI_NAMESPACE, OCI_REGION,
+              OCI_SWIFT_USER, OCI_SWIFT_PASSWORD and STORAGE_PROVIDER=oci to
+              activate.
             </p>
           </Card>
 

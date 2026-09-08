@@ -10,13 +10,23 @@
 export type StorageProviderName = "local" | "oci";
 export type DataSourceName = "local" | "snowflake";
 
+export type OciAuthMode = "swift" | "none";
+
 export interface OciConfig {
   namespace?: string;
   bucket?: string;
   region?: string;
-  /** Path to an OCI config/key file, when using file-based auth. */
-  configFile?: string;
-  /** True when the minimum settings to attempt a real connection are present. */
+  // --- OCI Swift (OpenStack) API access ---
+  /** Base URL, e.g. https://swiftobjectstorage.us-ashburn-1.oraclecloud.com
+   *  (derived from region when omitted). Not secret. */
+  swiftBaseUrl?: string;
+  /** Swift username; "<namespace>:<user>" is built automatically if needed. */
+  swiftUser?: string;
+  /** Swift password / OCI auth token. Secret — never log or expose. */
+  swiftPassword?: string;
+  /** Which auth strategy the current environment can support. */
+  authMode: OciAuthMode;
+  /** True when a bucket and a usable auth strategy are present. */
   configured: boolean;
 }
 
@@ -44,17 +54,40 @@ function bool(value: string | undefined): boolean {
   return value != null && value.trim().length > 0;
 }
 
-export function getConfig(): AppConfig {
-  const oci: OciConfig = {
-    namespace: process.env.OCI_NAMESPACE,
-    bucket: process.env.OCI_BUCKET,
-    region: process.env.OCI_REGION,
-    configFile: process.env.OCI_CONFIG_FILE,
-    configured:
-      bool(process.env.OCI_NAMESPACE) &&
-      bool(process.env.OCI_BUCKET) &&
-      bool(process.env.OCI_REGION),
+function resolveOciConfig(): OciConfig {
+  const swiftUser = process.env.OCI_SWIFT_USER;
+  const swiftPassword = process.env.OCI_SWIFT_PASSWORD;
+  const swiftBaseUrl = process.env.OCI_SWIFT_BASE_URL;
+  const namespace = process.env.OCI_NAMESPACE;
+  const bucket = process.env.OCI_BUCKET;
+  const region = process.env.OCI_REGION;
+
+  // A container URL can be resolved either from a full base URL (already
+  // containing /v1/{namespace}/{bucket}), or from host/region + namespace + bucket.
+  const hasFullPathBase = bool(swiftBaseUrl) && swiftBaseUrl!.includes("/v1/");
+  const canResolveUrl =
+    hasFullPathBase ||
+    ((bool(swiftBaseUrl) || bool(region)) && bool(namespace) && bool(bucket));
+
+  // Swift needs Basic Auth credentials plus a resolvable container URL.
+  const hasSwift = bool(swiftUser) && bool(swiftPassword) && canResolveUrl;
+
+  const authMode: OciAuthMode = hasSwift ? "swift" : "none";
+
+  return {
+    namespace,
+    bucket,
+    region,
+    swiftBaseUrl,
+    swiftUser,
+    swiftPassword,
+    authMode,
+    configured: authMode !== "none",
   };
+}
+
+export function getConfig(): AppConfig {
+  const oci = resolveOciConfig();
 
   const snowflake: SnowflakeConfig = {
     account: process.env.SNOWFLAKE_ACCOUNT,

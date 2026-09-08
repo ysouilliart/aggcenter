@@ -1,6 +1,6 @@
 import { getConfig } from "../config";
 import { LocalStorageProvider } from "./local";
-import { OciStorageProvider } from "./oci";
+import { OciSwiftStorageProvider } from "./oci";
 import type { StorageProvider } from "./types";
 
 export type { StorageProvider, StoredObject } from "./types";
@@ -17,7 +17,7 @@ export function getStorageProvider(): StorageProvider {
 
   const config = getConfig();
   if (config.storageProvider === "oci" && config.oci.configured) {
-    cached = new OciStorageProvider(config.oci);
+    cached = new OciSwiftStorageProvider(config.oci);
   } else {
     cached = new LocalStorageProvider();
   }

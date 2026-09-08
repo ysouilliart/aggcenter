@@ -1,0 +1,12 @@
+# gitleaks configuration for aggcenter.
+# Keeps the full default ruleset and only allowlists a documentation file that,
+# by policy, contains placeholders (never real secrets).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation placeholders in .env.example are not secrets"
+paths = [
+  '''\.env\.example$''',
+]

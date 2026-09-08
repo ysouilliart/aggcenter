@@ -80,9 +80,41 @@ npm run build    # production build
 | GET    | `/api/accounts`       | Bank accounts                                |
 | GET    | `/api/integrations`   | Active provider / configuration status       |
 
+## Secrets & OCI Object Storage
+
+File storage uses a pluggable provider. With no configuration it uses the local
+filesystem (`.data/storage`); set `STORAGE_PROVIDER=oci` plus the OCI settings to
+use an OCI bucket via the **OpenStack Swift API** with **HTTP Basic Auth**
+(Oracle "Approach 1"), i.e. `Authorization: Basic base64(user:auth-token)` against
+`https://swiftobjectstorage.<region>.oraclecloud.com/v1/<namespace>/<bucket>`. No SDK.
+
+Settings (from environment variables) — two equivalent ways to point at the bucket:
+
+- **Full container URL** (matches OCI's "storage URL"):
+  `OCI_SWIFT_BASE_URL=https://swiftobjectstorage.<region>.oraclecloud.com/v1/<namespace>/<bucket>`.
+  Namespace/bucket/region are then optional.
+- **Pieces**: `OCI_BUCKET`, `OCI_NAMESPACE`, `OCI_REGION` (and `OCI_SWIFT_BASE_URL`
+  becomes optional, derived from the region).
+
+Credentials (secret): `OCI_SWIFT_USER` — your identity-domain user, used verbatim,
+e.g. `oracleidentitycloudservice/<user>` — and `OCI_SWIFT_PASSWORD`, an OCI Auth
+Token generated in the console (used as the Basic Auth password).
+
+Secret handling rules:
+
+- **Never commit secrets.** `.env*` is git-ignored (except `.env.example`), and CI
+  runs `gitleaks` to catch accidental commits.
+- In **Cursor Cloud Agents**, add these in the **Secrets** panel; they are injected
+  as environment variables into new agent runs.
+- Secrets are read only on the server and are **never logged or returned to the
+  browser** (the integration status exposes only bucket/region/auth-mode).
+
+To validate connectivity, open **Files** and click **View** on an object — the
+selected file is fetched from the active provider on request (size-capped, with a
+binary guard).
+
 ## Roadmap
 
-- Real OCI Object Storage and Snowflake client implementations (adapters and
-  env wiring are already in place).
+- Real Snowflake client implementation (adapter and env wiring already in place).
 - Additional flows beyond cash position, and a workflow/approval layer.
 - Persistent database for uploaded statements and audit history.

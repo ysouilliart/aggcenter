@@ -90,6 +90,21 @@ describe("reconcile", () => {
     expect(r.confidence).toBeCloseTo(0.7);
   });
 
+  it("marks an ambiguous amount match (multiple candidates) as partial", () => {
+    const twoSameAmount: SalesOrder[] = [
+      { ...salesOrders[0], id: "SO-1" },
+      { ...salesOrders[0], id: "SO-9" },
+    ];
+    const [r] = reconcile({
+      transactions: [txn({ id: "amb", amount: 1000, description: "wire" })],
+      salesOrders: twoSameAmount,
+      purchaseOrders,
+    });
+    expect(r.status).toBe("partial");
+    expect(r.matchedId).toBeUndefined();
+    expect(r.reasons[0]).toMatch(/ambiguous/);
+  });
+
   it("marks a transaction with no candidate as unmatched", () => {
     const [r] = reconcile({
       transactions: [txn({ id: "t5", amount: 250 })],

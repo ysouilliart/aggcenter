@@ -1,0 +1,8 @@
+# Default owner for everything.
+* @ysouilliart
+
+# Financial core logic — require explicit review.
+/src/lib/recon/       @ysouilliart
+/src/lib/cash/        @ysouilliart
+/src/lib/anomalies/   @ysouilliart
+/src/lib/parse/       @ysouilliart

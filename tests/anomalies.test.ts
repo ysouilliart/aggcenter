@@ -47,7 +47,8 @@ describe("detectAnomalies", () => {
     txn({ id: "dup1", amount: -100, counterparty: "Vendor X", date: "2026-08-01" }),
     txn({ id: "dup2", amount: -100, counterparty: "Vendor X", date: "2026-08-02" }),
     txn({ id: "mismatch", amount: 900, reference: "SO-1", date: "2026-08-03" }),
-    txn({ id: "biglarge", amount: 50000, description: "wire", date: "2026-08-04" }),
+    // 50,000.00 in cents — above the unmatched-large threshold ($40k).
+    txn({ id: "biglarge", amount: 5_000_000, description: "wire", date: "2026-08-04" }),
   ];
 
   const remittances: Remittance[] = [
@@ -90,7 +91,7 @@ describe("detectAnomalies", () => {
   it("detects large unmatched transactions", () => {
     const large = anomalies.find((a) => a.type === "unmatched_large");
     expect(large).toBeDefined();
-    expect(large?.amount).toBe(50000);
+    expect(large?.amount).toBe(5_000_000);
   });
 
   it("detects missing customer receipts", () => {

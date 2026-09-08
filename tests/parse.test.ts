@@ -31,12 +31,12 @@ describe("parseBankStatementCsv", () => {
     expect(transactions).toHaveLength(2);
     expect(transactions[0]).toMatchObject({
       id: "STMT-1-L1",
-      amount: 48250,
+      amount: 4825000, // cents
       reference: "SO-5001",
       counterparty: "Acme Corp",
       currency: "USD",
     });
-    expect(transactions[1].amount).toBe(-12000);
+    expect(transactions[1].amount).toBe(-1200000); // cents
   });
 
   it("derives amount from debit/credit columns and parenthesised negatives", () => {
@@ -52,9 +52,33 @@ describe("parseBankStatementCsv", () => {
       defaultCurrency: "EUR",
     });
 
-    expect(transactions[0].amount).toBe(1000);
+    expect(transactions[0].amount).toBe(100000); // 1000.00 in cents
     expect(transactions[0].currency).toBe("EUR");
-    expect(transactions[1].amount).toBe(-250.5);
+    expect(transactions[1].amount).toBe(-25050); // (250.50) in cents
+  });
+
+  it("normalizes DD/MM/YYYY dates and parses a balance column", () => {
+    const csv = [
+      "date,description,amount,balance,currency",
+      "03/08/2026,Opening deposit,1000.00,1000.00,USD",
+    ].join("\n");
+    const { transactions } = parseBankStatementCsv(csv, {
+      statementId: "S",
+      accountId: "A",
+    });
+    expect(transactions[0].date).toBe("2026-08-03");
+    expect(transactions[0].amount).toBe(100000); // cents
+    expect(transactions[0].balanceAfter).toBe(100000); // cents
+  });
+
+  it("defaults currency to USD when no currency column is present", () => {
+    const csv = "date,description,amount\n2026-08-01,Item,10.50";
+    const { transactions } = parseBankStatementCsv(csv, {
+      statementId: "S",
+      accountId: "A",
+    });
+    expect(transactions[0].currency).toBe("USD");
+    expect(transactions[0].amount).toBe(1050);
   });
 
   it("reports errors for unparseable dates", () => {

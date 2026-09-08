@@ -5,6 +5,7 @@ import type {
   ReconciliationResult,
   SalesOrder,
 } from "../domain/types";
+import { formatCentsPlain } from "../money";
 
 export interface ReconcileInput {
   transactions: BankTransaction[];
@@ -29,8 +30,9 @@ function extractRefs(txn: BankTransaction): string[] {
   return found.map((r) => r.toUpperCase());
 }
 
+// Amounts are integer cents. Tolerance is the greater of 1 cent or 0.5%.
 function amountsMatch(a: number, b: number): boolean {
-  const tolerance = Math.max(0.01, Math.abs(b) * 0.005);
+  const tolerance = Math.max(1, Math.round(Math.abs(b) * 0.005));
   return Math.abs(a - b) <= tolerance;
 }
 
@@ -75,7 +77,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       const doc = byId.get(ref);
       if (doc && doc.currency === txn.currency) {
         const docAmount = doc.amount;
-        const amountDiff = Number((abs - docAmount).toFixed(2));
+        const amountDiff = abs - docAmount;
         if (amountsMatch(abs, docAmount)) {
           return {
             ...base,
@@ -96,7 +98,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
           amountDiff,
           reasons: [
             "reference match",
-            `amount differs by ${amountDiff.toFixed(2)} ${txn.currency}`,
+            `amount differs by ${formatCentsPlain(amountDiff)} ${txn.currency}`,
           ],
         };
       }
@@ -114,7 +116,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         matchedType,
         matchedId: doc.id,
         confidence: 0.7,
-        amountDiff: Number((abs - doc.amount).toFixed(2)),
+        amountDiff: abs - doc.amount,
         reasons: ["unique amount match (no reference)"],
       };
     }

@@ -54,7 +54,7 @@ jobs:
           sudo mv gitleaks /usr/local/bin/gitleaks
 
       - name: Scan for committed secrets
-        run: gitleaks detect --source . --redact --no-banner --exit-code 1
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --exit-code 1
 
       - uses: actions/setup-node@v4
         with:

@@ -14,7 +14,7 @@ async function truncate() {
   const { sql } = await import("drizzle-orm");
   await getDb().execute(
     sql.raw(
-      'TRUNCATE "aggc-cash"."parse_events", "aggc-cash"."parse_jobs", "aggc-cash"."bank_transactions", "aggc-cash"."statements"',
+      'TRUNCATE "aggc-cash"."parse_events", "aggc-cash"."parse_jobs", "aggc-cash"."bank_transactions", "aggc-cash"."statements", "aggc-cash"."bank_accounts"',
     ),
   );
 }
@@ -166,5 +166,32 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
     expect(storedJob?.events.map((e) => e.stage)).toEqual(
       expect.arrayContaining(["header", "transaction", "persist"]),
     );
+  });
+
+  it("upserts a bank account and keeps the original opening balance", async () => {
+    await repo.upsertAccount({
+      id: "UK-HSBC-123456-00000001",
+      name: "ACME HOLDINGS LTD",
+      bank: "HSBC UK Bank PLC",
+      currency: "GBP",
+      openingBalance: 100_000,
+      iban: "GB00TEST00000000000000",
+      accountNumber: "123456-00000001",
+    });
+    const second = await repo.upsertAccount({
+      id: "UK-HSBC-123456-00000001",
+      name: "ACME HOLDINGS LTD",
+      bank: "HSBC UK Bank PLC",
+      currency: "GBP",
+      openingBalance: 999_999,
+      iban: "GB00TEST00000000000000",
+      accountNumber: "123456-00000001",
+      bic: "HBUKGB4B",
+    });
+    expect(second.openingBalance).toBe(100_000);
+    expect(second.bic).toBe("HBUKGB4B");
+    const listed = await repo.listAccounts();
+    expect(listed).toHaveLength(1);
+    expect(listed[0].openingBalance).toBe(100_000);
   });
 });

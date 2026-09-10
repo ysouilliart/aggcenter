@@ -1,4 +1,9 @@
-import type { BankTransaction, ParseJob, Statement } from "../domain/types";
+import type {
+  BankTransaction,
+  ParseJob,
+  ParseTraceEvent,
+  Statement,
+} from "../domain/types";
 import type { StatementParseResult } from "../parse/pdf";
 import { toBankTransactions } from "../parse/pdf";
 
@@ -82,4 +87,61 @@ export function recordsFromParseResult(
   };
 
   return { statement, transactions, job };
+}
+
+export interface FromParseFailureOptions extends FromParseOptions {
+  error: string;
+  parserId?: string;
+  parserVersion?: string;
+  trace?: ParseTraceEvent[];
+}
+
+/** Persist a parse failure so the UI can show why a file was rejected. */
+export function recordsFromParseFailure(
+  options: FromParseFailureOptions,
+): ParsedStatementRecords {
+  const finishedAt = new Date().toISOString();
+  const startedAt = options.startedAt ?? finishedAt;
+  const parserId = options.parserId ?? "unknown";
+  const parserVersion = options.parserVersion ?? "0";
+  const period = finishedAt.slice(0, 10);
+  const events: ParseTraceEvent[] = [
+    ...(options.trace ?? []),
+    { level: "error", stage: "extract", message: options.error },
+  ];
+
+  const statement: Statement = {
+    id: options.statementId,
+    accountId: options.accountId,
+    fileName: options.fileName,
+    source: options.source,
+    periodStart: period,
+    periodEnd: period,
+    transactionCount: 0,
+    storageKey: options.storageKey,
+    uploadedAt: options.uploadedAt ?? finishedAt,
+    bankCode: options.bankCode,
+    parserId,
+    parserVersion,
+    parseStatus: "failed",
+  };
+
+  const job: ParseJob = {
+    id: `${options.statementId}-JOB`,
+    statementId: options.statementId,
+    storageKey: options.storageKey,
+    parserId,
+    parserVersion,
+    status: "failed",
+    startedAt,
+    finishedAt,
+    transactionCount: 0,
+    warningCount: 0,
+    skippedNoise: 0,
+    skippedUnparsed: 0,
+    pageCount: 0,
+    events,
+  };
+
+  return { statement, transactions: [], job };
 }

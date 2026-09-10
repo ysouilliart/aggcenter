@@ -137,14 +137,23 @@ binary guard).
 
 ### Auto-ingest statements from the bucket
 
-Drop bank-statement CSVs into the bucket under `inbox/<accountId>/<file>.csv`
-(the first path segment is the account id, e.g. `inbox/ACC-1001/aug.csv`), then
-click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`).
-Each file is parsed, attributed to its account, and persisted (to Postgres when
-configured). Ingestion is **idempotent** — files already imported (keyed by object
-path) are skipped on re-sync. Sample files to try are in
-[`data/sample/oci-inbox/`](data/sample/oci-inbox/). `accountId` must match a known
-account from the active data source.
+Click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`)
+to import files from the active storage provider. Two layouts are scanned by
+default:
+
+**CSV** (`inbox/<accountId>/<file>.csv`) — the first path segment is the account
+id and must match a known account from the active data source. Sample files:
+[`data/sample/oci-inbox/`](data/sample/oci-inbox/).
+
+**PDF** (`aggCenter/bankStatements/<bankCode>/<file>.pdf`) — `UK-HSBC` is routed
+to the HSBC UK statement parser. Account identity comes from the PDF header
+(IBAN / account number), not the folder name; missing accounts are upserted.
+Parse failures are still persisted (with a parse job / trace) so the UI can show
+why. Override prefixes with `STATEMENT_CSV_PREFIX` / `STATEMENT_PDF_PREFIX`, or
+pass `{ "prefix": "..." }` in the ingest request body to scan a single prefix.
+
+Ingestion is **idempotent** — files already imported (keyed by object path) are
+skipped on re-sync.
 
 ## Roadmap
 

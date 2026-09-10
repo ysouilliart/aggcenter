@@ -2,13 +2,14 @@ import { promises as fs } from "fs";
 import path from "path";
 
 import type {
+  BankAccount,
   BankTransaction,
   ParseJob,
   ParseTraceEvent,
   Statement,
   StatementHeader,
 } from "../domain/types";
-import type { BankTransactionRow, StatementRow } from "../db/schema";
+import type { BankAccountRow, BankTransactionRow, StatementRow } from "../db/schema";
 
 /**
  * Persistence for uploaded statements and their parsed transactions.
@@ -34,6 +35,8 @@ export interface StatementRepository {
   getStatement(id: string): Promise<Statement | undefined>;
   listTransactionsForStatement(statementId: string): Promise<BankTransaction[]>;
   getParseJobForStatement(statementId: string): Promise<ParseJob | undefined>;
+  listAccounts(): Promise<BankAccount[]>;
+  upsertAccount(account: BankAccount): Promise<BankAccount>;
 }
 
 // --- mapping -----------------------------------------------------------------
@@ -172,6 +175,45 @@ function transactionInsertValues(t: BankTransaction) {
   };
 }
 
+function accountFromRow(r: BankAccountRow): BankAccount {
+  return {
+    id: r.id,
+    name: r.name,
+    bank: r.bank,
+    currency: r.currency,
+    openingBalance: r.openingBalance,
+    iban: r.iban ?? undefined,
+    accountNumber: r.accountNumber ?? undefined,
+    bic: r.bic ?? undefined,
+  };
+}
+
+function accountInsertValues(account: BankAccount) {
+  return {
+    id: account.id,
+    name: account.name,
+    bank: account.bank,
+    currency: account.currency,
+    openingBalance: account.openingBalance,
+    iban: account.iban ?? null,
+    accountNumber: account.accountNumber ?? null,
+    bic: account.bic ?? null,
+  };
+}
+
+function mergeAccount(existing: BankAccount, incoming: BankAccount): BankAccount {
+  return {
+    ...existing,
+    name: incoming.name || existing.name,
+    bank: incoming.bank || existing.bank,
+    currency: incoming.currency || existing.currency,
+    iban: incoming.iban ?? existing.iban,
+    accountNumber: incoming.accountNumber ?? existing.accountNumber,
+    bic: incoming.bic ?? existing.bic,
+    openingBalance: existing.openingBalance,
+  };
+}
+
 function withPersistEvent(job: ParseJob, transactionCount: number): ParseJob {
   const persist: ParseTraceEvent = {
     level: "info",
@@ -193,9 +235,11 @@ interface UploadRecord {
 export class LocalJsonStatementRepository implements StatementRepository {
   readonly name = "local-json";
   private readonly file: string;
+  private readonly accountsFile: string;
 
   constructor(file?: string) {
     this.file = file ?? path.join(process.cwd(), ".data", "uploads.json");
+    this.accountsFile = this.file.replace(/\.json$/i, ".accounts.json");
   }
 
   private async read(): Promise<UploadRecord[]> {
@@ -254,6 +298,26 @@ export class LocalJsonStatementRepository implements StatementRepository {
       (r) => r.job && r.statement.id === statementId,
     );
     return matches.at(-1)?.job;
+  }
+
+  async listAccounts(): Promise<BankAccount[]> {
+    try {
+      return JSON.parse(await fs.readFile(this.accountsFile, "utf8")) as BankAccount[];
+    } catch {
+      return [];
+    }
+  }
+
+  async upsertAccount(account: BankAccount): Promise<BankAccount> {
+    const accounts = await this.listAccounts();
+    const index = accounts.findIndex((a) => a.id === account.id);
+    const stored =
+      index === -1 ? account : mergeAccount(accounts[index], account);
+    if (index === -1) accounts.push(stored);
+    else accounts[index] = stored;
+    await fs.mkdir(path.dirname(this.accountsFile), { recursive: true });
+    await fs.writeFile(this.accountsFile, JSON.stringify(accounts, null, 2), "utf8");
+    return stored;
   }
 }
 
@@ -401,5 +465,40 @@ export class PostgresStatementRepository implements StatementRepository {
         detail: e.detail ? (JSON.parse(e.detail) as Record<string, unknown>) : undefined,
       })),
     };
+  }
+
+  async listAccounts(): Promise<BankAccount[]> {
+    const { getDb } = await import("../db/client");
+    const { bankAccounts } = await import("../db/schema");
+    const rows = await getDb().select().from(bankAccounts);
+    return rows.map(accountFromRow);
+  }
+
+  async upsertAccount(account: BankAccount): Promise<BankAccount> {
+    const { getDb } = await import("../db/client");
+    const { bankAccounts } = await import("../db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const existing = await db
+      .select()
+      .from(bankAccounts)
+      .where(eq(bankAccounts.id, account.id));
+    if (existing[0]) {
+      const merged = mergeAccount(accountFromRow(existing[0]), account);
+      await db
+        .update(bankAccounts)
+        .set({
+          name: merged.name,
+          bank: merged.bank,
+          currency: merged.currency,
+          iban: merged.iban ?? null,
+          accountNumber: merged.accountNumber ?? null,
+          bic: merged.bic ?? null,
+        })
+        .where(eq(bankAccounts.id, account.id));
+      return merged;
+    }
+    await db.insert(bankAccounts).values(accountInsertValues(account));
+    return account;
   }
 }

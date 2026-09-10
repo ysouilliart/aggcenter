@@ -3,7 +3,10 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 import type { StatementParseResult } from "@/lib/parse/pdf";
-import { recordsFromParseResult } from "@/lib/statements/fromParse";
+import {
+  recordsFromParseFailure,
+  recordsFromParseResult,
+} from "@/lib/statements/fromParse";
 import { LocalJsonStatementRepository } from "@/lib/statements/repository";
 
 function parsedResult(): StatementParseResult {
@@ -118,5 +121,28 @@ describe("recordsFromParseResult + LocalJsonStatementRepository", () => {
     expect(storedJob?.transactionCount).toBe(2);
     expect(storedJob?.events.some((e) => e.stage === "extract")).toBe(true);
     expect(storedJob?.events.some((e) => e.stage === "persist")).toBe(true);
+  });
+
+  it("records a failed parse with an error event and no transactions", async () => {
+    const repo = new LocalJsonStatementRepository(
+      path.join(os.tmpdir(), `aggc-parsed-fail-${Date.now()}.json`),
+    );
+    const { statement, transactions, job } = recordsFromParseFailure({
+      statementId: "STMT-FAIL-1",
+      accountId: "UNATTRIBUTED",
+      fileName: "broken.pdf",
+      source: "oci",
+      storageKey: "aggCenter/bankStatements/UK-HSBC/broken.pdf",
+      bankCode: "UK-HSBC",
+      error: "No PDF parser matched this file.",
+    });
+
+    expect(statement.parseStatus).toBe("failed");
+    expect(transactions).toHaveLength(0);
+    expect(job.status).toBe("failed");
+
+    await repo.addParsedStatement(statement, transactions, job);
+    const stored = await repo.getParseJobForStatement("STMT-FAIL-1");
+    expect(stored?.events.some((e) => e.level === "error")).toBe(true);
   });
 });

@@ -22,3 +22,10 @@ export {
   toBankTransactions,
   ukHsbcParser,
 } from "./ukHsbc";
+export {
+  PARSER_BY_BANK_CODE,
+  STATEMENT_PDF_PARSERS,
+  bankCodeFromObjectKey,
+  parserForBankCode,
+  parserForPdf,
+} from "./registry";

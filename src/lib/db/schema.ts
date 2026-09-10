@@ -7,6 +7,18 @@ import { bigint, index, integer, pgSchema, text } from "drizzle-orm/pg-core";
  */
 export const cashSchema = pgSchema("aggc-cash");
 
+export const bankAccounts = cashSchema.table("bank_accounts", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  bank: text("bank").notNull(),
+  currency: text("currency").notNull(),
+  /** cents */
+  openingBalance: bigint("opening_balance", { mode: "number" }).notNull().default(0),
+  iban: text("iban"),
+  accountNumber: text("account_number"),
+  bic: text("bic"),
+});
+
 export const statements = cashSchema.table(
   "statements",
   {
@@ -117,6 +129,7 @@ export const parseEvents = cashSchema.table(
   (t) => [index("parse_events_job_id_idx").on(t.jobId)],
 );
 
+export type BankAccountRow = typeof bankAccounts.$inferSelect;
 export type StatementRow = typeof statements.$inferSelect;
 export type BankTransactionRow = typeof bankTransactions.$inferSelect;
 export type ParseJobRow = typeof parseJobs.$inferSelect;

@@ -15,6 +15,13 @@
       "when": 1789029191161,
       "tag": "0001_statement-header-narrative-parse-jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789029715862,
+      "tag": "0002_bank-accounts",
+      "breakpoints": true
     }
   ]
 }

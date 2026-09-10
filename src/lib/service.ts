@@ -20,7 +20,14 @@ import type {
 } from "./domain/types";
 
 export async function getAccounts(): Promise<BankAccount[]> {
-  return getDataSource().getAccounts();
+  const [seed, persisted] = await Promise.all([
+    getDataSource().getAccounts(),
+    getStatementRepository().listAccounts(),
+  ]);
+  const byId = new Map<string, BankAccount>();
+  for (const account of seed) byId.set(account.id, account);
+  for (const account of persisted) byId.set(account.id, account);
+  return [...byId.values()];
 }
 
 /** Load and parse the bundled sample statements. */

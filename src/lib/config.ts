@@ -48,10 +48,18 @@ export interface AppConfig {
   snowflake: SnowflakeConfig;
   /** Optional base URL for pulling reference data from an external API. */
   externalApiBaseUrl?: string;
+  /** CSV ingest prefix (`inbox/<accountId>/<file>.csv`). */
+  statementCsvPrefix: string;
+  /** PDF ingest prefix (`aggCenter/bankStatements/<bankCode>/<file>.pdf`). */
+  statementPdfPrefix: string;
 }
 
 function bool(value: string | undefined): boolean {
   return value != null && value.trim().length > 0;
+}
+
+function withTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value : `${value}/`;
 }
 
 function resolveOciConfig(): OciConfig {
@@ -117,5 +125,11 @@ export function getConfig(): AppConfig {
     oci,
     snowflake,
     externalApiBaseUrl: process.env.EXTERNAL_API_BASE_URL,
+    statementCsvPrefix: withTrailingSlash(
+      process.env.STATEMENT_CSV_PREFIX || "inbox",
+    ),
+    statementPdfPrefix: withTrailingSlash(
+      process.env.STATEMENT_PDF_PREFIX || "aggCenter/bankStatements",
+    ),
   };
 }

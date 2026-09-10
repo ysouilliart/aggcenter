@@ -24,6 +24,10 @@ export interface BankAccount {
   currency: Currency;
   /** Opening balance at the start of the statement period, in cents. */
   openingBalance: number;
+  /** Used to match PDF statement headers to an existing account. */
+  iban?: string;
+  accountNumber?: string;
+  bic?: string;
 }
 
 export interface BankTransaction {

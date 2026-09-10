@@ -70,8 +70,10 @@ export function KpiCard({
 
 const STATUS_STYLES: Record<string, string> = {
   matched: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  parsed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   partial: "bg-amber-50 text-amber-700 ring-amber-600/20",
   unmatched: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
 };
 
 export function StatusBadge({ status }: { status: string }) {

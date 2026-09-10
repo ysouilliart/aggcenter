@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 
-import { Card, ErrorNote, PageHeader, Spinner } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, Spinner, StatusBadge } from "@/components/ui";
 import type { BankAccount, Statement } from "@/lib/domain/types";
 import { formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
@@ -73,7 +74,12 @@ export default function StatementsPage() {
     }
   }
 
-  const statements = statementsState.data?.statements ?? [];
+  const statements = (statementsState.data?.statements ?? []).slice().sort((a, b) => {
+    const uploaded = (b.uploadedAt ?? "").localeCompare(a.uploadedAt ?? "");
+    if (uploaded !== 0) return uploaded;
+    return b.periodEnd.localeCompare(a.periodEnd);
+  });
+  const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? id;
 
   return (
     <div>
@@ -170,18 +176,44 @@ export default function StatementsPage() {
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-5 py-3 font-medium">Statement</th>
                     <th className="px-5 py-3 font-medium">Account</th>
+                    <th className="px-5 py-3 font-medium">Bank</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
                     <th className="px-5 py-3 font-medium">Source</th>
                     <th className="px-5 py-3 font-medium">Period</th>
                     <th className="px-5 py-3 text-right font-medium">Txns</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {statements.map((s) => (
+                  {statements.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-400">
+                        No statements yet. Sync from the bucket or upload a CSV.
+                      </td>
+                    </tr>
+                  ) : (
+                    statements.map((s) => (
                     <tr key={s.id} className="hover:bg-slate-50">
                       <td className="px-5 py-3 font-medium text-slate-900">
-                        {s.fileName}
+                        <Link
+                          href={`/statements/${encodeURIComponent(s.id)}`}
+                          className="text-indigo-600 hover:text-indigo-500 hover:underline"
+                        >
+                          {s.fileName}
+                        </Link>
                       </td>
-                      <td className="px-5 py-3 text-slate-500">{s.accountId}</td>
+                      <td className="px-5 py-3 text-slate-500">
+                        {accountName(s.accountId)}
+                      </td>
+                      <td className="px-5 py-3 text-slate-500">
+                        {s.bankCode || s.header?.bankName || "—"}
+                      </td>
+                      <td className="px-5 py-3">
+                        {s.parseStatus ? (
+                          <StatusBadge status={s.parseStatus} />
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
                       <td className="px-5 py-3">
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
@@ -202,7 +234,8 @@ export default function StatementsPage() {
                         {s.transactionCount}
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

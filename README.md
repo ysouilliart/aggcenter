@@ -155,6 +155,10 @@ pass `{ "prefix": "..." }` in the ingest request body to scan a single prefix.
 Ingestion is **idempotent** — files already imported (keyed by object path) are
 skipped on re-sync.
 
+Open a statement from the list to see the parsed **header**, **transactions**
+(including the Narrative column), **parse trace**, and **source** metadata.
+PDFs stay binary on the Files page — they are not dumped as text.
+
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).

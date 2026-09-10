@@ -41,6 +41,16 @@ describe("buildObjectPreview", () => {
     expect(p.size).toBe(big.length);
     expect(p.text.length).toBe(512 * 1024);
   });
+
+  it("treats PDFs as binary even when they have no NUL bytes", () => {
+    const p = buildObjectPreview(
+      "aggCenter/bankStatements/UK-HSBC/stmt.pdf",
+      "oci",
+      Buffer.from("%PDF-1.4 text-only statement"),
+    );
+    expect(p.isBinary).toBe(true);
+    expect(p.text).toBe("");
+  });
 });
 
 describe("LocalStorageProvider", () => {

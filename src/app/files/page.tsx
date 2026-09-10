@@ -198,7 +198,9 @@ export default function FilesPage() {
                 </div>
                 {preview.isBinary ? (
                   <p className="text-sm text-slate-500">
-                    Binary content — preview not shown.
+                    {selected.toLowerCase().endsWith(".pdf")
+                      ? "PDF — binary preview not shown. Open the parsed statement from the Statements page (header, narrative, parse trace)."
+                      : "Binary content — preview not shown."}
                   </p>
                 ) : (
                   <pre className="max-h-[24rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-relaxed text-slate-100">

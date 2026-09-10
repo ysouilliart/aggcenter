@@ -16,11 +16,13 @@
     "coverage": "vitest run --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "parse:statement": "vite-node --config vitest.config.ts scripts/dump-statement-parse.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
     "next": "16.3.4",
+    "pdfjs-dist": "^4.10.38",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -35,6 +37,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "pdf-lib": "^1.17.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

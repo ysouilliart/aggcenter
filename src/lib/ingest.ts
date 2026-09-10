@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { getConfig } from "./config";
 import { getDataSource } from "./datasource";
 import type { BankAccount, Statement } from "./domain/types";
+import { openingFromRunningBalances } from "./cash/opening";
 import { resolveAccountFromHeader } from "./ingest/accounts";
 import { parseBankStatementCsv } from "./parse/bankStatement";
 import {
@@ -230,11 +231,20 @@ async function ingestPdf(input: {
     }
 
     const parsed = await routed.parser.parse(buffer, { fileName });
+    const openingBalance = openingFromRunningBalances(
+      parsed.transactions.map((t) => ({
+        date: t.postDate,
+        amount: t.amount,
+        balanceAfter: t.balanceAfter,
+        lineNumber: t.lineNumber,
+      })),
+    );
     const { account } = await resolveAccountFromHeader({
       header: parsed.header,
       bankCode: routed.bankCode,
       seed: deps.accounts,
       repo: deps.repo,
+      openingBalance,
     });
 
     const records = recordsFromParseResult(parsed, {

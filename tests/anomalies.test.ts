@@ -117,4 +117,42 @@ describe("detectAnomalies", () => {
     });
     expect(result.some((a) => a.type === "overdraft_risk")).toBe(true);
   });
+
+  it("does not false-flag overdraft when stored opening is the closing brought-forward", () => {
+    const result = detectAnomalies({
+      transactions: [
+        txn({
+          id: "L1",
+          accountId: "HSBC",
+          currency: "GBP",
+          date: "2026-08-28",
+          lineNumber: 1,
+          amount: -70_000,
+          balanceAfter: 20_000,
+        }),
+        txn({
+          id: "L2",
+          accountId: "HSBC",
+          currency: "GBP",
+          date: "2026-08-28",
+          lineNumber: 2,
+          amount: 10_000,
+          balanceAfter: 90_000,
+        }),
+      ],
+      reconciliation: [],
+      remittances: [],
+      accounts: [
+        {
+          id: "HSBC",
+          name: "GBP Current",
+          bank: "HSBC UK Bank PLC",
+          currency: "GBP",
+          // Newest running balance (period close), not the start-of-period opening.
+          openingBalance: 20_000,
+        },
+      ],
+    });
+    expect(result.some((a) => a.type === "overdraft_risk")).toBe(false);
+  });
 });

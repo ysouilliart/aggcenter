@@ -72,18 +72,22 @@ describe("account identity from statement header", () => {
   });
 
   it("creates an account from header fields", () => {
-    const created = accountFromHeader({
-      accountName: "ACME HOLDINGS LTD",
-      accountNumber: "123456-00000001",
-      bankName: "HSBC UK Bank PLC",
-      currency: "GBP",
-      iban: "GB00HBUK12345600000001",
-      closingLedgerBroughtForward: 100_000,
-    });
+    const created = accountFromHeader(
+      {
+        accountName: "ACME HOLDINGS LTD",
+        accountNumber: "123456-00000001",
+        bankName: "HSBC UK Bank PLC",
+        currency: "GBP",
+        iban: "GB00HBUK12345600000001",
+        closingLedgerBroughtForward: 100_000,
+      },
+      "UK-HSBC",
+      80_000,
+    );
     expect(created).toMatchObject({
       id: "UK-HSBC-123456-00000001",
       name: "ACME HOLDINGS LTD",
-      openingBalance: 100_000,
+      openingBalance: 80_000,
       currency: "GBP",
     });
   });
@@ -186,6 +190,7 @@ describe("ingestStatements", () => {
       iban: "GB00HBUK12345600000001",
       accountNumber: "123456-00000001",
     });
+    expect(persistedAccounts[0].openingBalance).toBe(80_000);
 
     const statements = await repo.listStatements();
     expect(statements[0]).toMatchObject({
@@ -206,10 +211,7 @@ describe("ingestStatements", () => {
     expect(job?.events.some((e) => e.stage === "persist")).toBe(true);
   });
 
-  it("reuses a previously upserted account for a later statement of the same IBAN", async () => {
-    await storage.put(PDF_KEY, fixturePdf);
-    await ingestStatements({ storage, repo, accounts });
-
+  it("replaces a stored opening that matches closing-ledger-brought-forward", async () => {
     await repo.upsertAccount({
       id: "UK-HSBC-123456-00000001",
       name: "ACME HOLDINGS LTD",
@@ -219,6 +221,15 @@ describe("ingestStatements", () => {
       iban: "GB00HBUK12345600000001",
       accountNumber: "123456-00000001",
     });
+    await storage.put(PDF_KEY, fixturePdf);
+    await ingestStatements({ storage, repo, accounts });
+    expect((await repo.listAccounts())[0].openingBalance).toBe(80_000);
+  });
+
+  it("reuses a previously upserted account for a later statement of the same IBAN", async () => {
+    await storage.put(PDF_KEY, fixturePdf);
+    await ingestStatements({ storage, repo, accounts });
+    expect((await repo.listAccounts())[0].openingBalance).toBe(80_000);
 
     const laterKey = "aggCenter/bankStatements/UK-HSBC/acme-sep-26.pdf";
     await storage.put(laterKey, fixturePdf);
@@ -227,7 +238,7 @@ describe("ingestStatements", () => {
     expect(result.ingested).toHaveLength(1);
     expect(result.ingested[0].accountId).toBe("UK-HSBC-123456-00000001");
     expect(await repo.listAccounts()).toHaveLength(1);
-    expect((await repo.listAccounts())[0].openingBalance).toBe(100_000);
+    expect((await repo.listAccounts())[0].openingBalance).toBe(80_000);
   });
 
   it("is idempotent for PDFs keyed by storage path", async () => {

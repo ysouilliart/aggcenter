@@ -36,7 +36,10 @@ export interface StatementRepository {
   listTransactionsForStatement(statementId: string): Promise<BankTransaction[]>;
   getParseJobForStatement(statementId: string): Promise<ParseJob | undefined>;
   listAccounts(): Promise<BankAccount[]>;
-  upsertAccount(account: BankAccount): Promise<BankAccount>;
+  upsertAccount(
+    account: BankAccount,
+    options?: { updateOpening?: boolean },
+  ): Promise<BankAccount>;
 }
 
 // --- mapping -----------------------------------------------------------------
@@ -201,7 +204,11 @@ function accountInsertValues(account: BankAccount) {
   };
 }
 
-function mergeAccount(existing: BankAccount, incoming: BankAccount): BankAccount {
+function mergeAccount(
+  existing: BankAccount,
+  incoming: BankAccount,
+  options?: { updateOpening?: boolean },
+): BankAccount {
   return {
     ...existing,
     name: incoming.name || existing.name,
@@ -210,7 +217,9 @@ function mergeAccount(existing: BankAccount, incoming: BankAccount): BankAccount
     iban: incoming.iban ?? existing.iban,
     accountNumber: incoming.accountNumber ?? existing.accountNumber,
     bic: incoming.bic ?? existing.bic,
-    openingBalance: existing.openingBalance,
+    openingBalance: options?.updateOpening
+      ? incoming.openingBalance
+      : existing.openingBalance,
   };
 }
 
@@ -308,11 +317,14 @@ export class LocalJsonStatementRepository implements StatementRepository {
     }
   }
 
-  async upsertAccount(account: BankAccount): Promise<BankAccount> {
+  async upsertAccount(
+    account: BankAccount,
+    options?: { updateOpening?: boolean },
+  ): Promise<BankAccount> {
     const accounts = await this.listAccounts();
     const index = accounts.findIndex((a) => a.id === account.id);
     const stored =
-      index === -1 ? account : mergeAccount(accounts[index], account);
+      index === -1 ? account : mergeAccount(accounts[index], account, options);
     if (index === -1) accounts.push(stored);
     else accounts[index] = stored;
     await fs.mkdir(path.dirname(this.accountsFile), { recursive: true });
@@ -474,7 +486,10 @@ export class PostgresStatementRepository implements StatementRepository {
     return rows.map(accountFromRow);
   }
 
-  async upsertAccount(account: BankAccount): Promise<BankAccount> {
+  async upsertAccount(
+    account: BankAccount,
+    options?: { updateOpening?: boolean },
+  ): Promise<BankAccount> {
     const { getDb } = await import("../db/client");
     const { bankAccounts } = await import("../db/schema");
     const { eq } = await import("drizzle-orm");
@@ -484,7 +499,7 @@ export class PostgresStatementRepository implements StatementRepository {
       .from(bankAccounts)
       .where(eq(bankAccounts.id, account.id));
     if (existing[0]) {
-      const merged = mergeAccount(accountFromRow(existing[0]), account);
+      const merged = mergeAccount(accountFromRow(existing[0]), account, options);
       await db
         .update(bankAccounts)
         .set({
@@ -494,6 +509,9 @@ export class PostgresStatementRepository implements StatementRepository {
           iban: merged.iban ?? null,
           accountNumber: merged.accountNumber ?? null,
           bic: merged.bic ?? null,
+          ...(options?.updateOpening
+            ? { openingBalance: merged.openingBalance }
+            : {}),
         })
         .where(eq(bankAccounts.id, account.id));
       return merged;

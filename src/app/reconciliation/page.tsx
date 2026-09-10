@@ -36,13 +36,22 @@ const FILTERS: (MatchStatus | "all")[] = [
 export default function ReconciliationPage() {
   const { data, error, loading } = useFetch<ReconResponse>("/api/reconciliation");
   const [filter, setFilter] = useState<MatchStatus | "all">("all");
+  const [currency, setCurrency] = useState<string>("all");
+
+  const currencies = useMemo(() => {
+    const found = [...new Set((data?.results ?? []).map((r) => r.currency))];
+    found.sort();
+    return found;
+  }, [data]);
 
   const results = useMemo(
     () =>
-      (data?.results ?? []).filter((r) =>
-        filter === "all" ? true : r.status === filter,
-      ),
-    [data, filter],
+      (data?.results ?? []).filter((r) => {
+        if (filter !== "all" && r.status !== filter) return false;
+        if (currency !== "all" && r.currency !== currency) return false;
+        return true;
+      }),
+    [data, filter, currency],
   );
 
   const summary = data?.summary;
@@ -96,9 +105,37 @@ export default function ReconciliationPage() {
           </div>
 
           <Card className="p-0">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
               <h2 className="font-semibold text-slate-900">Transactions</h2>
-              <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                {currencies.length > 1 ? (
+                  <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
+                    <button
+                      onClick={() => setCurrency("all")}
+                      className={`rounded-md px-3 py-1 font-medium ${
+                        currency === "all"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      All
+                    </button>
+                    {currencies.map((ccy) => (
+                      <button
+                        key={ccy}
+                        onClick={() => setCurrency(ccy)}
+                        className={`rounded-md px-3 py-1 font-medium ${
+                          currency === ccy
+                            ? "bg-slate-900 text-white"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {ccy}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
                 {FILTERS.map((f) => (
                   <button
                     key={f}
@@ -112,6 +149,7 @@ export default function ReconciliationPage() {
                     {f}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto">

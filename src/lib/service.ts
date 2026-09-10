@@ -180,10 +180,35 @@ export async function getCashPositions(): Promise<CashPosition[]> {
     getAccounts(),
     getAllTransactions(),
   ]);
-  const currencies = [...new Set(accounts.map((a) => a.currency))];
+  const merged = ensureAccountsForTransactions(accounts, transactions);
+  const reporting = getConfig().reportingCurrency;
+  const currencies = [...new Set(merged.map((a) => a.currency))];
+  currencies.sort((a, b) => {
+    if (a === reporting) return -1;
+    if (b === reporting) return 1;
+    return a.localeCompare(b);
+  });
   return currencies.map((currency) =>
-    computeCashPosition({ currency, accounts, transactions }),
+    computeCashPosition({ currency, accounts: merged, transactions }),
   );
+}
+
+function ensureAccountsForTransactions(
+  accounts: BankAccount[],
+  transactions: BankTransaction[],
+): BankAccount[] {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  for (const txn of transactions) {
+    if (byId.has(txn.accountId)) continue;
+    byId.set(txn.accountId, {
+      id: txn.accountId,
+      name: txn.accountId,
+      bank: "Unknown",
+      currency: txn.currency,
+      openingBalance: 0,
+    });
+  }
+  return [...byId.values()];
 }
 
 export async function getAnomalies(): Promise<Anomaly[]> {
@@ -198,7 +223,7 @@ export async function getAnomalies(): Promise<Anomaly[]> {
     transactions,
     reconciliation: recon.results,
     remittances,
-    accounts,
+    accounts: ensureAccountsForTransactions(accounts, transactions),
   });
 }
 

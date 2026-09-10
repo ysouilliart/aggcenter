@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   Card,
@@ -27,14 +27,29 @@ export default function AnomaliesPage() {
   const { data, error, loading } = useFetch<{ anomalies: Anomaly[] }>(
     "/api/anomalies",
   );
+  const [currency, setCurrency] = useState("all");
   const anomalies = useMemo(() => data?.anomalies ?? [], [data]);
+  const currencies = useMemo(() => {
+    const found = [
+      ...new Set(anomalies.map((a) => a.currency).filter((c): c is string => Boolean(c))),
+    ];
+    found.sort();
+    return found;
+  }, [anomalies]);
+  const visible = useMemo(
+    () =>
+      currency === "all"
+        ? anomalies
+        : anomalies.filter((a) => a.currency === currency),
+    [anomalies, currency],
+  );
 
   const counts = useMemo(() => {
-    const high = anomalies.filter((a) => a.severity === "high").length;
-    const medium = anomalies.filter((a) => a.severity === "medium").length;
-    const low = anomalies.filter((a) => a.severity === "low").length;
+    const high = visible.filter((a) => a.severity === "high").length;
+    const medium = visible.filter((a) => a.severity === "medium").length;
+    const low = visible.filter((a) => a.severity === "low").length;
     return { high, medium, low };
-  }, [anomalies]);
+  }, [visible]);
 
   return (
     <div>
@@ -49,14 +64,42 @@ export default function AnomaliesPage() {
       {data ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCard label="Total findings" value={String(anomalies.length)} />
+            <KpiCard label="Total findings" value={String(visible.length)} />
             <KpiCard label="High" value={String(counts.high)} tone="negative" />
             <KpiCard label="Medium" value={String(counts.medium)} />
             <KpiCard label="Low" value={String(counts.low)} tone="indigo" />
           </div>
 
+          {currencies.length > 1 ? (
+            <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm w-fit">
+              <button
+                onClick={() => setCurrency("all")}
+                className={`rounded-md px-3 py-1 font-medium ${
+                  currency === "all"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                All
+              </button>
+              {currencies.map((ccy) => (
+                <button
+                  key={ccy}
+                  onClick={() => setCurrency(ccy)}
+                  className={`rounded-md px-3 py-1 font-medium ${
+                    currency === ccy
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {ccy}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <div className="space-y-3">
-            {anomalies.map((a) => (
+            {visible.map((a) => (
               <Card key={a.id} className="flex items-start gap-4">
                 <div className="mt-0.5">
                   <SeverityBadge severity={a.severity} />
@@ -87,10 +130,12 @@ export default function AnomaliesPage() {
                 </div>
               </Card>
             ))}
-            {anomalies.length === 0 ? (
+            {visible.length === 0 ? (
               <Card>
                 <p className="text-sm text-slate-500">
-                  No anomalies detected. 🎉
+                  {anomalies.length === 0
+                    ? "No anomalies detected. 🎉"
+                    : "No anomalies for this currency."}
                 </p>
               </Card>
             ) : null}

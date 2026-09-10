@@ -230,6 +230,8 @@ export interface AccountCashPosition {
   outflows: number;
   closingBalance: number;
   transactionCount: number;
+  /** Newest bank running balance when the statement provided one. */
+  reportedClosingBalance?: number;
 }
 
 export interface CashFlowPoint {

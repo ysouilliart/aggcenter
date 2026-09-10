@@ -43,6 +43,7 @@ export function matchAccount(
 export function accountFromHeader(
   header: StatementHeader,
   bankCode = "UK-HSBC",
+  openingBalance = 0,
 ): BankAccount | undefined {
   const id = accountIdFromHeader(header, bankCode);
   if (!id) return undefined;
@@ -51,7 +52,7 @@ export function accountFromHeader(
     name: header.accountName || header.accountNumber || "Bank account",
     bank: header.bankName || (bankCode === "UK-HSBC" ? "HSBC UK Bank PLC" : bankCode),
     currency: header.currency || "GBP",
-    openingBalance: header.closingLedgerBroughtForward ?? 0,
+    openingBalance,
     iban: header.iban,
     accountNumber: header.accountNumber,
     bic: header.bic,
@@ -70,25 +71,48 @@ function enrichAccount(account: BankAccount, header: StatementHeader): BankAccou
   };
 }
 
+function openingLooksLikeClosingBroughtForward(
+  stored: number,
+  header: StatementHeader,
+): boolean {
+  if (stored === 0) return true;
+  return (
+    header.closingLedgerBroughtForward != null &&
+    stored === header.closingLedgerBroughtForward
+  );
+}
+
 export async function resolveAccountFromHeader(options: {
   header: StatementHeader;
   bankCode?: string;
   seed: BankAccount[];
   repo: StatementRepository;
+  openingBalance?: number;
 }): Promise<{ account: BankAccount; created: boolean }> {
   const bankCode = options.bankCode ?? "UK-HSBC";
+  const derivedOpening = options.openingBalance ?? 0;
   const persisted = await options.repo.listAccounts();
   const matched = matchAccount([...options.seed, ...persisted], options.header);
 
   if (matched) {
     const fromSeed = options.seed.some((a) => a.id === matched.id);
     if (fromSeed) return { account: matched, created: false };
-    const enriched = enrichAccount(matched, options.header);
-    await options.repo.upsertAccount(enriched);
-    return { account: enriched, created: false };
+    const enriched = {
+      ...enrichAccount(matched, options.header),
+      openingBalance: derivedOpening,
+    };
+    const fixOpening = openingLooksLikeClosingBroughtForward(
+      matched.openingBalance,
+      options.header,
+    );
+    await options.repo.upsertAccount(enriched, { updateOpening: fixOpening });
+    return {
+      account: fixOpening ? enriched : { ...enriched, openingBalance: matched.openingBalance },
+      created: false,
+    };
   }
 
-  const created = accountFromHeader(options.header, bankCode);
+  const created = accountFromHeader(options.header, bankCode, derivedOpening);
   if (!created) return { account: UNATTRIBUTED, created: false };
   await options.repo.upsertAccount(created);
   return { account: created, created: true };

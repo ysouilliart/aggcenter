@@ -159,6 +159,15 @@ Open a statement from the list to see the parsed **header**, **transactions**
 (including the Narrative column), **parse trace**, and **source** metadata.
 PDFs stay binary on the Files page — they are not dumped as text.
 
+Cash position for statements that carry a bank running balance (HSBC PDFs)
+uses the **oldest** `balanceAfter − amount` as the period opening. HSBC
+"Closing ledger brought forward" is the **newest** listed balance (period
+close), not the start-of-period opening — storing it as `BankAccount.openingBalance`
+would double-count the period’s flows. Sample CSVs have no running balance, so
+USD/EUR cash still uses each account’s stored opening. Reconciliation and
+Anomalies can filter by currency so a large GBP statement does not bury the
+sample USD/EUR rows.
+
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).

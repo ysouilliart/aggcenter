@@ -5,6 +5,7 @@ import type {
   ReconciliationResult,
   Remittance,
 } from "../domain/types";
+import { openingFromRunningBalances, toRunningBalanceLine } from "../cash/opening";
 import { formatCentsPlain } from "../money";
 
 export interface AnomalyInput {
@@ -192,8 +193,10 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   // 6) Overdraft risk: any account whose closing balance falls below zero.
   for (const account of accounts) {
     const txns = transactions.filter((t) => t.accountId === account.id);
-    const closing =
-      account.openingBalance + txns.reduce((s, t) => s + t.amount, 0);
+    const opening =
+      openingFromRunningBalances(txns.map(toRunningBalanceLine)) ??
+      account.openingBalance;
+    const closing = opening + txns.reduce((s, t) => s + t.amount, 0);
     if (closing < 0) {
       anomalies.push({
         id: `AN-OVR-${account.id}`,

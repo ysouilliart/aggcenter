@@ -10,7 +10,7 @@ import {
   PageHeader,
   Spinner,
 } from "@/components/ui";
-import type { CashPosition } from "@/lib/domain/types";
+import type { AccountCashPosition, CashPosition } from "@/lib/domain/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
 
@@ -76,7 +76,7 @@ export default function DashboardPage() {
               label="Closing balance"
               value={formatCurrency(active.closingBalance, active.currency)}
               tone="indigo"
-              sub={`Net ${formatCurrency(active.netCashFlow, active.currency)}`}
+              sub={closingKpiSub(active)}
             />
           </div>
 
@@ -163,6 +163,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-5 py-3 text-right font-medium tabular-nums">
                         {formatCurrency(a.closingBalance, a.currency)}
+                        <BankCloseNote account={a} />
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-slate-500">
                         {a.transactionCount}
@@ -175,6 +176,36 @@ export default function DashboardPage() {
           </Card>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function closingKpiSub(position: CashPosition): string {
+  const net = `Net ${formatCurrency(position.netCashFlow, position.currency)}`;
+  const reported = position.accounts.filter(
+    (a) => a.reportedClosingBalance != null,
+  );
+  if (reported.length === 0) return net;
+  const mismatch = reported.some(
+    (a) => a.reportedClosingBalance !== a.closingBalance,
+  );
+  return mismatch
+    ? `${net} · differs from bank running close`
+    : `${net} · matches bank running close`;
+}
+
+function BankCloseNote({ account }: { account: AccountCashPosition }) {
+  if (account.reportedClosingBalance == null) return null;
+  const matches = account.reportedClosingBalance === account.closingBalance;
+  return (
+    <div
+      className={`text-xs font-normal ${
+        matches ? "text-emerald-600" : "text-amber-600"
+      }`}
+    >
+      {matches
+        ? "matches bank close"
+        : `bank ${formatCurrency(account.reportedClosingBalance, account.currency)}`}
     </div>
   );
 }

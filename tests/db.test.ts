@@ -9,13 +9,22 @@ import type { StatementParseResult } from "@/lib/parse/pdf";
 // (locally / in a DB-enabled CI job). It is skipped otherwise.
 const run = describe.skipIf(!process.env.DATABASE_URL);
 
-async function truncate() {
+async function cleanup() {
   const { getDb } = await import("@/lib/db/client");
   const { sql } = await import("drizzle-orm");
   await getDb().execute(
-    sql.raw(
-      'TRUNCATE "aggc-cash"."parse_events", "aggc-cash"."parse_jobs", "aggc-cash"."bank_transactions", "aggc-cash"."statements", "aggc-cash"."bank_accounts"',
-    ),
+    sql.raw(`
+      DELETE FROM "aggc-cash"."parse_events"
+        WHERE job_id LIKE 'UP-test-%' OR job_id LIKE 'STMT-HSBC-%';
+      DELETE FROM "aggc-cash"."parse_jobs"
+        WHERE id LIKE 'UP-test-%' OR id LIKE 'STMT-HSBC-%';
+      DELETE FROM "aggc-cash"."bank_transactions"
+        WHERE statement_id LIKE 'UP-test-%' OR statement_id LIKE 'STMT-HSBC-%';
+      DELETE FROM "aggc-cash"."statements"
+        WHERE id LIKE 'UP-test-%' OR id LIKE 'STMT-HSBC-%';
+      DELETE FROM "aggc-cash"."bank_accounts"
+        WHERE id LIKE 'UK-HSBC-123456-%';
+    `),
   );
 }
 
@@ -59,10 +68,10 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
   const repo = new PostgresStatementRepository();
 
   beforeEach(async () => {
-    await truncate();
+    await cleanup();
   });
   afterAll(async () => {
-    await truncate();
+    await cleanup();
   });
 
   it("persists an uploaded statement and its transactions", async () => {

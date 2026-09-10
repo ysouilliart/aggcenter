@@ -4,6 +4,20 @@
  * Amounts are integer minor units (cents), matching the rest of the domain.
  */
 
+import type {
+  ParseTraceEvent,
+  ParseTraceLevel,
+  ParseTraceStage,
+  StatementHeader,
+} from "../../domain/types";
+
+export type {
+  ParseTraceEvent,
+  ParseTraceLevel,
+  ParseTraceStage,
+  StatementHeader,
+};
+
 export interface PdfTextItem {
   page: number;
   x: number;
@@ -14,54 +28,11 @@ export interface PdfTextItem {
   fontName?: string;
 }
 
-export type ParseTraceLevel = "info" | "warn" | "error";
-export type ParseTraceStage =
-  | "extract"
-  | "header"
-  | "transaction"
-  | "validate";
-
-export interface ParseTraceEvent {
-  level: ParseTraceLevel;
-  stage: ParseTraceStage;
-  message: string;
-  page?: number;
-  line?: number;
-  detail?: Record<string, unknown>;
-}
-
 export interface SkippedRow {
   page: number;
   y: number;
   reason: "noise" | "unparsed" | "chrome";
   text: string;
-}
-
-export interface StatementHeader {
-  accountName?: string;
-  accountNumber?: string;
-  /** Formatted sort code when the account number is `SSSSSS-AAAAAAAA`. */
-  sortCode?: string;
-  bankName?: string;
-  currency?: string;
-  location?: string;
-  bic?: string;
-  iban?: string;
-  accountStatus?: string;
-  accountType?: string;
-  periodStart?: string;
-  periodEnd?: string;
-  /** ISO date of the statement (footer / generation date). */
-  statementDate?: string;
-  /** Bank "As at" timestamp for current balances, e.g. "01 Sep 2026 10:31". */
-  currentBalanceAsAt?: string;
-  /** ISO date the closing balances were brought forward from. */
-  broughtForwardFrom?: string;
-  currentAvailableBalance?: number;
-  currentLedgerBalance?: number;
-  closingAvailableBroughtForward?: number;
-  closingLedgerBroughtForward?: number;
-  pageCount?: number;
 }
 
 export interface ParsedStatementTransaction {

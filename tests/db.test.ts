@@ -1,7 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { BankTransaction, Statement } from "@/lib/domain/types";
+import { recordsFromParseResult } from "@/lib/statements/fromParse";
 import { PostgresStatementRepository } from "@/lib/statements/repository";
+import type { StatementParseResult } from "@/lib/parse/pdf";
 
 // This integration test only runs when a Postgres DATABASE_URL is available
 // (locally / in a DB-enabled CI job). It is skipped otherwise.
@@ -11,7 +13,9 @@ async function truncate() {
   const { getDb } = await import("@/lib/db/client");
   const { sql } = await import("drizzle-orm");
   await getDb().execute(
-    sql.raw('TRUNCATE "aggc-cash"."bank_transactions", "aggc-cash"."statements"'),
+    sql.raw(
+      'TRUNCATE "aggc-cash"."parse_events", "aggc-cash"."parse_jobs", "aggc-cash"."bank_transactions", "aggc-cash"."statements"',
+    ),
   );
 }
 
@@ -96,5 +100,71 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
     );
     expect(await repo.listStatements()).toHaveLength(2);
     expect(await repo.listTransactions()).toHaveLength(3);
+  });
+
+  it("persists HSBC header, narrative column and parse-trace events", async () => {
+    const parsed: StatementParseResult = {
+      parserId: "uk-hsbc",
+      parserVersion: "1.0.0",
+      pageCount: 1,
+      header: {
+        accountName: "ACME HOLDINGS LTD",
+        iban: "GB00TEST00000000000000",
+        currency: "GBP",
+        periodStart: "2026-08-01",
+        periodEnd: "2026-08-31",
+        closingLedgerBroughtForward: 100_000,
+      },
+      transactions: [
+        {
+          lineNumber: 1,
+          page: 1,
+          postDate: "2026-08-28",
+          trnType: "BACS",
+          customerReference: "R0359X",
+          bankReference: "OGILVIE FLEET LTD",
+          debitAmount: 5_900,
+          amount: -5_900,
+          balanceAfter: 94_100,
+          narrative: "R0359X, OGILVIE FLEET LTD",
+        },
+      ],
+      warnings: [],
+      skipped: [],
+      perPageCounts: { 1: 1 },
+      trace: [
+        { level: "info", stage: "header", message: "Parsed header for ACME HOLDINGS LTD." },
+        { level: "info", stage: "transaction", message: "Parsed 1 transaction(s)." },
+      ],
+    };
+
+    const { statement, transactions: txns, job } = recordsFromParseResult(parsed, {
+      statementId: "STMT-HSBC-1",
+      accountId: "ACC-HSBC",
+      fileName: "uk-hsbc.pdf",
+      source: "oci",
+      storageKey: "aggCenter/bankStatements/UK-HSBC/uk-hsbc.pdf",
+      bankCode: "UK-HSBC",
+    });
+
+    await repo.addParsedStatement(statement, txns, job);
+
+    const stored = await repo.getStatement("STMT-HSBC-1");
+    expect(stored?.header?.accountName).toBe("ACME HOLDINGS LTD");
+    expect(stored?.header?.iban).toBe("GB00TEST00000000000000");
+    expect(stored?.parserId).toBe("uk-hsbc");
+    expect(stored?.bankCode).toBe("UK-HSBC");
+
+    const lines = await repo.listTransactionsForStatement("STMT-HSBC-1");
+    expect(lines).toHaveLength(1);
+    expect(lines[0].narrative).toBe("R0359X, OGILVIE FLEET LTD");
+    expect(lines[0].description).toBe("R0359X, OGILVIE FLEET LTD");
+    expect(lines[0].trnType).toBe("BACS");
+    expect(lines[0].debitAmount).toBe(5_900);
+
+    const storedJob = await repo.getParseJobForStatement("STMT-HSBC-1");
+    expect(storedJob?.events.map((e) => e.stage)).toEqual(
+      expect.arrayContaining(["header", "transaction", "persist"]),
+    );
   });
 });

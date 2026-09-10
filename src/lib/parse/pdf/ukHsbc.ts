@@ -526,5 +526,15 @@ export function toBankTransactions(
     currency,
     balanceAfter: txn.balanceAfter,
     statementId: options.statementId,
+    narrative: txn.narrative,
+    postDate: txn.postDate,
+    valueDate: txn.valueDate,
+    trnType: txn.trnType,
+    customerReference: txn.customerReference,
+    bankReference: txn.bankReference,
+    debitAmount: txn.debitAmount,
+    creditAmount: txn.creditAmount,
+    page: txn.page,
+    lineNumber: txn.lineNumber,
   }));
 }

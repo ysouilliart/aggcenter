@@ -42,6 +42,22 @@ export interface BankTransaction {
   balanceAfter?: number;
   /** Identifier of the statement this line came from. */
   statementId: string;
+  /**
+   * Full bank "Narrative" / details block. Own column so customer/supplier
+   * matching can use it without overloading `description`.
+   */
+  narrative?: string;
+  postDate?: string;
+  valueDate?: string;
+  trnType?: string;
+  customerReference?: string;
+  bankReference?: string;
+  /** Debit magnitude in cents (positive when present). */
+  debitAmount?: number;
+  /** Credit magnitude in cents (positive when present). */
+  creditAmount?: number;
+  page?: number;
+  lineNumber?: number;
 }
 
 export interface PurchaseOrder {
@@ -76,6 +92,53 @@ export interface Remittance {
   date: string;
 }
 
+export type ParseStatus = "parsed" | "partial" | "failed";
+
+export type ParseTraceLevel = "info" | "warn" | "error";
+export type ParseTraceStage =
+  | "extract"
+  | "header"
+  | "transaction"
+  | "validate"
+  | "persist";
+
+export interface ParseTraceEvent {
+  level: ParseTraceLevel;
+  stage: ParseTraceStage;
+  message: string;
+  page?: number;
+  line?: number;
+  detail?: Record<string, unknown>;
+}
+
+/** Header fields extracted from a bank statement (balances + account details). */
+export interface StatementHeader {
+  accountName?: string;
+  accountNumber?: string;
+  /** Formatted sort code when the account number is `SSSSSS-AAAAAAAA`. */
+  sortCode?: string;
+  bankName?: string;
+  currency?: string;
+  location?: string;
+  bic?: string;
+  iban?: string;
+  accountStatus?: string;
+  accountType?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  /** ISO date of the statement (footer / generation date). */
+  statementDate?: string;
+  /** Bank "As at" timestamp for current balances, e.g. "01 Sep 2026 10:31". */
+  currentBalanceAsAt?: string;
+  /** ISO date the closing balances were brought forward from. */
+  broughtForwardFrom?: string;
+  currentAvailableBalance?: number;
+  currentLedgerBalance?: number;
+  closingAvailableBroughtForward?: number;
+  closingLedgerBroughtForward?: number;
+  pageCount?: number;
+}
+
 export interface Statement {
   id: string;
   accountId: string;
@@ -87,6 +150,28 @@ export interface Statement {
   /** Object-storage key where the raw file lives (via the StorageProvider). */
   storageKey?: string;
   uploadedAt?: string;
+  bankCode?: string;
+  parserId?: string;
+  parserVersion?: string;
+  parseStatus?: ParseStatus;
+  header?: StatementHeader;
+}
+
+export interface ParseJob {
+  id: string;
+  statementId: string;
+  storageKey?: string;
+  parserId: string;
+  parserVersion: string;
+  status: ParseStatus;
+  startedAt: string;
+  finishedAt: string;
+  transactionCount: number;
+  warningCount: number;
+  skippedNoise: number;
+  skippedUnparsed: number;
+  pageCount: number;
+  events: ParseTraceEvent[];
 }
 
 export type MatchStatus = "matched" | "partial" | "unmatched";

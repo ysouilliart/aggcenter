@@ -151,7 +151,10 @@ describe("parseUkHsbcPdf (synthetic fixture)", () => {
       amount: 10_000,
       currency: "GBP",
       statementId: "STMT-1",
+      narrative: mapped[0].description,
+      trnType: "FBP",
     });
+    expect(mapped[0].narrative).toContain("/DbAcct/");
     expect(mapped[2].amount).toBe(-5_000);
   });
 

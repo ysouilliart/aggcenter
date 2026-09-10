@@ -25,7 +25,7 @@ export interface ReconciliationSummary {
 const REF_PATTERN = /\b(SO|PO)-\d+\b/gi;
 
 function extractRefs(txn: BankTransaction): string[] {
-  const haystack = `${txn.reference ?? ""} ${txn.description ?? ""}`;
+  const haystack = `${txn.reference ?? ""} ${txn.description ?? ""} ${txn.narrative ?? ""}`;
   const found = haystack.match(REF_PATTERN) ?? [];
   return found.map((r) => r.toUpperCase());
 }

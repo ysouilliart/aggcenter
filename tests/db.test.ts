@@ -77,7 +77,9 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
   it("persists an uploaded statement and its transactions", async () => {
     await repo.addUpload(statement, transactions);
 
-    const statements = await repo.listStatements();
+    const statements = (await repo.listStatements()).filter((s) =>
+      s.id.startsWith("UP-test-"),
+    );
     expect(statements).toHaveLength(1);
     expect(statements[0]).toMatchObject({
       id: "UP-test-1",
@@ -87,7 +89,9 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
       storageKey: "statements/UP-test-1-test.csv",
     });
 
-    const txns = await repo.listTransactions();
+    const txns = (await repo.listTransactions()).filter((t) =>
+      t.statementId.startsWith("UP-test-"),
+    );
     expect(txns).toHaveLength(2);
     const byId = Object.fromEntries(txns.map((t) => [t.id, t]));
     expect(byId["UP-test-1-L1"]).toMatchObject({
@@ -107,8 +111,14 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
       { ...statement, id: "UP-test-2" },
       [{ ...transactions[0], id: "UP-test-2-L1", statementId: "UP-test-2" }],
     );
-    expect(await repo.listStatements()).toHaveLength(2);
-    expect(await repo.listTransactions()).toHaveLength(3);
+    const statements = (await repo.listStatements()).filter((s) =>
+      s.id.startsWith("UP-test-"),
+    );
+    const txns = (await repo.listTransactions()).filter((t) =>
+      t.statementId.startsWith("UP-test-"),
+    );
+    expect(statements).toHaveLength(2);
+    expect(txns).toHaveLength(3);
   });
 
   it("persists HSBC header, narrative column and parse-trace events", async () => {
@@ -199,8 +209,25 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
     });
     expect(second.openingBalance).toBe(100_000);
     expect(second.bic).toBe("HBUKGB4B");
-    const listed = await repo.listAccounts();
+    const listed = (await repo.listAccounts()).filter((a) =>
+      a.id.startsWith("UK-HSBC-123456-"),
+    );
     expect(listed).toHaveLength(1);
     expect(listed[0].openingBalance).toBe(100_000);
+
+    const repaired = await repo.upsertAccount(
+      {
+        id: "UK-HSBC-123456-00000001",
+        name: "ACME HOLDINGS LTD",
+        bank: "HSBC UK Bank PLC",
+        currency: "GBP",
+        openingBalance: 80_000,
+        iban: "GB00TEST00000000000000",
+        accountNumber: "123456-00000001",
+        bic: "HBUKGB4B",
+      },
+      { updateOpening: true },
+    );
+    expect(repaired.openingBalance).toBe(80_000);
   });
 });

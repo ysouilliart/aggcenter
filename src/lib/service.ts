@@ -15,12 +15,20 @@ import type {
   BankAccount,
   BankTransaction,
   CashPosition,
+  ParseJob,
   ReconciliationResult,
   Statement,
 } from "./domain/types";
 
 export async function getAccounts(): Promise<BankAccount[]> {
-  return getDataSource().getAccounts();
+  const [seed, persisted] = await Promise.all([
+    getDataSource().getAccounts(),
+    getStatementRepository().listAccounts(),
+  ]);
+  const byId = new Map<string, BankAccount>();
+  for (const account of seed) byId.set(account.id, account);
+  for (const account of persisted) byId.set(account.id, account);
+  return [...byId.values()];
 }
 
 /** Load and parse the bundled sample statements. */
@@ -75,6 +83,36 @@ export async function getStatements(): Promise<Statement[]> {
     getStatementRepository().listStatements(),
   ]);
   return [...statements, ...uploaded];
+}
+
+export interface StatementDetail {
+  statement: Statement;
+  transactions: BankTransaction[];
+  job: ParseJob | null;
+  account: BankAccount | null;
+}
+
+/** One statement plus its lines and parse trace (sample or persisted). */
+export async function getStatementDetail(
+  id: string,
+): Promise<StatementDetail | null> {
+  if (!id) return null;
+  const repo = getStatementRepository();
+  const [uploaded, sample, accounts] = await Promise.all([
+    repo.getStatement(id),
+    getSampleData(),
+    getAccounts(),
+  ]);
+  const statement = uploaded ?? sample.statements.find((s) => s.id === id);
+  if (!statement) return null;
+
+  const transactions = uploaded
+    ? await repo.listTransactionsForStatement(id)
+    : sample.transactions.filter((t) => t.statementId === id);
+
+  const job = uploaded ? ((await repo.getParseJobForStatement(id)) ?? null) : null;
+  const account = accounts.find((a) => a.id === statement.accountId) ?? null;
+  return { statement, transactions, job, account };
 }
 
 export interface AddStatementParams {
@@ -142,10 +180,35 @@ export async function getCashPositions(): Promise<CashPosition[]> {
     getAccounts(),
     getAllTransactions(),
   ]);
-  const currencies = [...new Set(accounts.map((a) => a.currency))];
+  const merged = ensureAccountsForTransactions(accounts, transactions);
+  const reporting = getConfig().reportingCurrency;
+  const currencies = [...new Set(merged.map((a) => a.currency))];
+  currencies.sort((a, b) => {
+    if (a === reporting) return -1;
+    if (b === reporting) return 1;
+    return a.localeCompare(b);
+  });
   return currencies.map((currency) =>
-    computeCashPosition({ currency, accounts, transactions }),
+    computeCashPosition({ currency, accounts: merged, transactions }),
   );
+}
+
+function ensureAccountsForTransactions(
+  accounts: BankAccount[],
+  transactions: BankTransaction[],
+): BankAccount[] {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  for (const txn of transactions) {
+    if (byId.has(txn.accountId)) continue;
+    byId.set(txn.accountId, {
+      id: txn.accountId,
+      name: txn.accountId,
+      bank: "Unknown",
+      currency: txn.currency,
+      openingBalance: 0,
+    });
+  }
+  return [...byId.values()];
 }
 
 export async function getAnomalies(): Promise<Anomaly[]> {
@@ -160,7 +223,7 @@ export async function getAnomalies(): Promise<Anomaly[]> {
     transactions,
     reconciliation: recon.results,
     remittances,
-    accounts,
+    accounts: ensureAccountsForTransactions(accounts, transactions),
   });
 }
 
@@ -262,8 +325,11 @@ export function buildObjectPreview(
 ): ObjectPreview {
   const truncated = buffer.length > MAX_PREVIEW_BYTES;
   const slice = truncated ? buffer.subarray(0, MAX_PREVIEW_BYTES) : buffer;
+  const looksLikePdf =
+    key.toLowerCase().endsWith(".pdf") ||
+    slice.subarray(0, 5).toString("latin1") === "%PDF-";
   // Heuristic: a NUL byte in the sampled range indicates binary content.
-  const isBinary = slice.subarray(0, 8000).includes(0);
+  const isBinary = looksLikePdf || slice.subarray(0, 8000).includes(0);
   return {
     key,
     provider,

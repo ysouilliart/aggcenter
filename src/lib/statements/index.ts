@@ -6,6 +6,7 @@ import {
 } from "./repository";
 
 export type { StatementRepository } from "./repository";
+export { recordsFromParseFailure, recordsFromParseResult } from "./fromParse";
 
 let cached: StatementRepository | null = null;
 

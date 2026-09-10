@@ -51,6 +51,7 @@ describe("computeCashPosition", () => {
     expect(pos.closingBalance).toBe(1600);
     expect(pos.accounts).toHaveLength(1);
     expect(pos.accounts[0].closingBalance).toBe(1600);
+    expect(pos.accounts[0].reportedClosingBalance).toBeUndefined();
   });
 
   it("builds a running-balance time series", () => {
@@ -88,5 +89,66 @@ describe("computeCashPosition", () => {
     expect(pos.totalInflows).toBe(100);
     expect(pos.accounts).toHaveLength(1);
     expect(pos.accounts[0].accountId).toBe("E");
+  });
+
+  it("derives opening from oldest running balance on newest-first listings", () => {
+    const pos = computeCashPosition({
+      currency: "GBP",
+      accounts: [
+        {
+          id: "HSBC",
+          name: "GBP Current",
+          bank: "HSBC UK Bank PLC",
+          currency: "GBP",
+          // Wrong stored opening (closing-brought-forward of the newest line).
+          openingBalance: 100_000,
+        },
+      ],
+      transactions: [
+        txn({
+          id: "L1",
+          accountId: "HSBC",
+          currency: "GBP",
+          date: "2026-08-28",
+          lineNumber: 1,
+          amount: 10_000,
+          balanceAfter: 100_000,
+        }),
+        txn({
+          id: "L2",
+          accountId: "HSBC",
+          currency: "GBP",
+          date: "2026-08-28",
+          lineNumber: 2,
+          amount: 17_500,
+          balanceAfter: 90_000,
+        }),
+        txn({
+          id: "L3",
+          accountId: "HSBC",
+          currency: "GBP",
+          date: "2026-08-28",
+          lineNumber: 3,
+          amount: -5_000,
+          balanceAfter: 72_500,
+        }),
+        txn({
+          id: "L4",
+          accountId: "HSBC",
+          currency: "GBP",
+          date: "2026-08-28",
+          lineNumber: 4,
+          amount: -2_500,
+          balanceAfter: 77_500,
+        }),
+      ],
+    });
+
+    expect(pos.openingBalance).toBe(80_000);
+    expect(pos.totalInflows).toBe(27_500);
+    expect(pos.totalOutflows).toBe(7_500);
+    expect(pos.closingBalance).toBe(100_000);
+    expect(pos.accounts[0].reportedClosingBalance).toBe(100_000);
+    expect(pos.accounts[0].transactionCount).toBe(4);
   });
 });

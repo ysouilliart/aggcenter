@@ -7,7 +7,14 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { parseUkHsbcPdf } from "@/lib/parse/pdf";
+import { parseUkHsbcPdf, type ParsedStatementTransaction } from "@/lib/parse/pdf";
+
+function formatTxn(t: ParsedStatementTransaction): string[] {
+  return [
+    `  L${t.lineNumber} p${t.page} ${t.postDate} ${t.trnType ?? ""} amt=${t.amount} bal=${t.balanceAfter} ${t.customerReference ?? ""}`,
+    `    Narrative: ${t.narrative || "(none)"}`,
+  ];
+}
 
 function argValue(flag: string): string | undefined {
   const idx = process.argv.indexOf(flag);
@@ -37,6 +44,7 @@ async function main() {
     types[key] = (types[key] ?? 0) + 1;
   }
 
+  const withNarrative = parsed.transactions.filter((t) => t.narrative.length > 0).length;
   const dump = {
     file,
     parserId: parsed.parserId,
@@ -44,6 +52,8 @@ async function main() {
     pageCount: parsed.pageCount,
     header: parsed.header,
     transactionCount: parsed.transactions.length,
+    withNarrative,
+    missingNarrative: parsed.transactions.length - withNarrative,
     credits,
     debits,
     types,
@@ -57,8 +67,11 @@ async function main() {
     first: parsed.transactions.slice(0, 3),
     last: parsed.transactions.slice(-3),
     sampleDebit: parsed.transactions.find((t) => t.debitAmount),
+    sampleShortNarrative: parsed.transactions.find(
+      (t) => t.narrative.length > 0 && t.narrative.length < 40,
+    ),
     sampleWrappedNarrative: parsed.transactions.find(
-      (t) => (t.narrative ?? "").length > 160,
+      (t) => t.narrative.length > 160,
     ),
   };
 
@@ -80,19 +93,26 @@ async function main() {
     `Period: ${h.periodStart ?? "?"} → ${h.periodEnd ?? "?"}  statementDate=${h.statementDate ?? "?"}`,
     `Balances (cents): currentLedger=${h.currentLedgerBalance ?? "?"}  closingBF=${h.closingLedgerBroughtForward ?? "?"}`,
     `Transactions: ${parsed.transactions.length}  credits=${credits}  debits=${debits}  types=${JSON.stringify(types)}`,
+    `Narratives: ${withNarrative}/${parsed.transactions.length}` +
+      (dump.missingNarrative ? `  MISSING=${dump.missingNarrative}` : ""),
     `Warnings: ${parsed.warnings.length || "none"}`,
     `Skipped: noise=${dump.skipped.noise} unparsed=${dump.skipped.unparsed}`,
     "",
     "First 3:",
-    ...dump.first.map(
-      (t) =>
-        `  L${t.lineNumber} p${t.page} ${t.postDate} ${t.trnType ?? ""} amt=${t.amount} bal=${t.balanceAfter} ${t.customerReference ?? ""}`,
-    ),
+    ...dump.first.flatMap(formatTxn),
     "Last 3:",
-    ...dump.last.map(
-      (t) =>
-        `  L${t.lineNumber} p${t.page} ${t.postDate} ${t.trnType ?? ""} amt=${t.amount} bal=${t.balanceAfter} ${t.customerReference ?? ""}`,
-    ),
+    ...dump.last.flatMap(formatTxn),
+    "",
+    "Sample debit:",
+    ...(dump.sampleDebit ? formatTxn(dump.sampleDebit) : ["  (none)"]),
+    "Sample short narrative:",
+    ...(dump.sampleShortNarrative
+      ? formatTxn(dump.sampleShortNarrative)
+      : ["  (none)"]),
+    "Sample wrapped narrative:",
+    ...(dump.sampleWrappedNarrative
+      ? formatTxn(dump.sampleWrappedNarrative)
+      : ["  (none)"]),
     "",
     "Trace:",
     ...parsed.trace.map((e) => `  [${e.level}] ${e.stage}: ${e.message}`),

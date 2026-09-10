@@ -231,11 +231,16 @@ function appendNarrative(
 }
 
 function isBankRefWrap(
+  row: PdfRow,
   cells: Partial<Record<ColumnName, string>>,
   postDate: string | null,
   balance: number | null,
 ): boolean {
   if (postDate || balance != null) return false;
+  // True wraps continue the left-most column (x≈31). Narrative bodies sit
+  // around x≈82 and must not be concatenated onto bankReference.
+  const minX = Math.min(...row.items.map((i) => i.x));
+  if (minX > 50) return false;
   const filled = Object.entries(cells).filter(([, v]) => v && v.trim());
   return filled.length === 1 && filled[0][0] === "bankReference";
 }
@@ -376,19 +381,23 @@ export function parseUkHsbcFromItems(
           debitAmount: debitMag || undefined,
           amount: creditMag - debitMag,
           balanceAfter: balance,
+          narrative: "",
         };
         transactions.push(current);
         continue;
       }
 
-      if (current && isBankRefWrap(cells, postDate, balance)) {
-        current.bankReference =
-          (current.bankReference ?? "") + (cells.bankReference ?? "");
+      // Narrative body is indented (~x=82) under the posting. Classify it
+      // before bank-ref wraps; short narratives otherwise look like a single
+      // bankReference cell and get swallowed.
+      if (current && isNarrativeContinuation(row, postDate, balance)) {
+        appendNarrative(current, text);
         continue;
       }
 
-      if (current && isNarrativeContinuation(row, postDate, balance)) {
-        appendNarrative(current, text);
+      if (current && isBankRefWrap(row, cells, postDate, balance)) {
+        current.bankReference =
+          (current.bankReference ?? "") + (cells.bankReference ?? "");
         continue;
       }
 
@@ -421,11 +430,12 @@ export function parseUkHsbcFromItems(
     perPageCounts[txn.page] = (perPageCounts[txn.page] ?? 0) + 1;
   }
 
+  const withNarrative = transactions.filter((t) => t.narrative.length > 0).length;
   trace.push({
     level: "info",
     stage: "transaction",
-    message: `Parsed ${transactions.length} transaction(s).`,
-    detail: { count: transactions.length, perPageCounts },
+    message: `Parsed ${transactions.length} transaction(s) (${withNarrative} with narrative).`,
+    detail: { count: transactions.length, withNarrative, perPageCounts },
   });
 
   const warnings = [
@@ -509,7 +519,7 @@ export function toBankTransactions(
     id: `${options.statementId}-L${txn.lineNumber}`,
     accountId: options.accountId,
     date: txn.postDate,
-    description: txn.narrative ?? "",
+    description: txn.narrative,
     reference: txn.customerReference,
     counterparty: txn.bankReference,
     amount: txn.amount,

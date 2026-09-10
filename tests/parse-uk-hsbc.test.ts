@@ -90,10 +90,11 @@ describe("parseUkHsbcPdf (synthetic fixture)", () => {
       closingLedgerBroughtForward: 100_000,
     });
 
-    expect(result.transactions).toHaveLength(3);
+    expect(result.transactions).toHaveLength(4);
     expect(result.skipped.every((s) => s.reason === "noise")).toBe(true);
+    expect(result.transactions.every((t) => t.narrative.length > 0)).toBe(true);
 
-    const [creditIn, swift, debit] = result.transactions;
+    const [creditIn, swift, debit, shortNarr] = result.transactions;
     expect(creditIn).toMatchObject({
       postDate: "2026-08-28",
       valueDate: "2026-08-28",
@@ -116,6 +117,17 @@ describe("parseUkHsbcPdf (synthetic fixture)", () => {
       debitAmount: 5_000,
       amount: -5_000,
       balanceAfter: 72_500,
+    });
+    expect(debit.narrative).toContain("VAT TRANSFER");
+
+    expect(shortNarr).toMatchObject({
+      trnType: "BACS",
+      customerReference: "R0359X",
+      bankReference: "OGILVIE FLEET LTD",
+      debitAmount: 2_500,
+      amount: -2_500,
+      balanceAfter: 77_500,
+      narrative: "R0359X, OGILVIE FLEET LTD",
     });
 
     expect(result.header.closingLedgerBroughtForward).toBe(
@@ -245,6 +257,26 @@ describe("parseUkHsbcFromItems", () => {
     expect(result.transactions).toHaveLength(1);
     expect(result.skipped.some((s) => s.reason === "noise")).toBe(true);
   });
+
+  it("keeps a short Narrative body instead of appending it to bankReference", () => {
+    const items: PdfTextItem[] = [
+      ...colHeaders(),
+      item({ page: 1, x: 31.2, y: 236, str: "OGILVIE FLEET LTD" }),
+      item({ page: 1, x: 129.2, y: 236, str: "R0359X" }),
+      item({ page: 1, x: 227.2, y: 236, str: "BACS" }),
+      item({ page: 1, x: 325.2, y: 236, str: "28 Aug 2026" }),
+      item({ page: 1, x: 579.4, y: 236, width: 30, str: "-59.00" }),
+      item({ page: 1, x: 670, y: 236, width: 40, str: "100.00" }),
+      item({ page: 1, x: 717.2, y: 236, str: "28 Aug 2026" }),
+      item({ page: 1, x: 81.6, y: 211, width: 90, str: "R0359X, OGILVIE FLEET LTD" }),
+      item({ page: 1, x: 31.9, y: 210, str: "Narrative" }),
+    ];
+    const result = parseUkHsbcFromItems(items, 1);
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0].bankReference).toBe("OGILVIE FLEET LTD");
+    expect(result.transactions[0].customerReference).toBe("R0359X");
+    expect(result.transactions[0].narrative).toBe("R0359X, OGILVIE FLEET LTD");
+  });
 });
 
 describe.skipIf(!LIVE_PDF)("live HSBC UK statement PDF", () => {
@@ -276,7 +308,13 @@ describe.skipIf(!LIVE_PDF)("live HSBC UK statement PDF", () => {
     expect(debit?.amount).toBeLessThan(0);
     expect(credit?.amount).toBeGreaterThan(0);
 
-    const wrapped = result.transactions.find((t) => (t.narrative ?? "").length > 160);
+    const wrapped = result.transactions.find((t) => t.narrative.length > 160);
     expect(wrapped).toBeTruthy();
+    expect(result.transactions.every((t) => t.narrative.length > 0)).toBe(true);
+    expect(result.transactions[0].narrative).toContain("/DbAcct/");
+    const wages = result.transactions.find(
+      (t) => t.customerReference === "BACS" && t.bankReference === "WAGES",
+    );
+    expect(wages?.narrative).toBe("BACS, WAGES");
   });
 });

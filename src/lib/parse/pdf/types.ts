@@ -80,7 +80,11 @@ export interface ParsedStatementTransaction {
   amount: number;
   /** Running ledger balance after this posting, in cents. */
   balanceAfter?: number;
-  narrative?: string;
+  /**
+   * Full HSBC "Narrative" block printed under the posting row (including
+   * wrapped continuation lines). Empty string when the statement omitted one.
+   */
+  narrative: string;
 }
 
 export interface StatementParseResult {

@@ -262,5 +262,15 @@ export function defaultTransactions(): FixtureTxn[] {
       balance: "725.00",
       narrative: "/REMI/VAT TRANSFER /DAS/REF:45697IZ012UH/OCMT/EUR368",
     },
+    {
+      bankReference: "OGILVIE FLEET LTD",
+      customerReference: "R0359X",
+      trnType: "BACS",
+      valueDate: "28 Aug 2026",
+      postDate: "28 Aug 2026",
+      debit: "-25.00",
+      balance: "775.00",
+      narrative: "R0359X, OGILVIE FLEET LTD",
+    },
   ];
 }

@@ -525,7 +525,7 @@ function ViesScopeBlock({
         {hasVat ? <VatCheckBadge validity={check?.validity} /> : null}
       </div>
       <p className="font-mono text-xs text-slate-700">{dash(vatId)}</p>
-      {check ? (
+      {check && hasVat ? (
         <div className="mt-1 space-y-1 text-sm text-slate-700">
           <p>{check.message}</p>
           {check.registeredName ? (

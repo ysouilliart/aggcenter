@@ -10,10 +10,7 @@ function yn(value: string | undefined): boolean {
   return /^y|yes|true|1$/i.test(blank(value));
 }
 
-function statusFrom(inactiveDate: string | undefined, explicit?: string): SupplierStatus {
-  const flag = blank(explicit).toLowerCase();
-  if (flag === "inactive") return "inactive";
-  if (flag === "active") return "active";
+function statusFrom(inactiveDate: string | undefined): SupplierStatus {
   return blank(inactiveDate) ? "inactive" : "active";
 }
 
@@ -64,6 +61,8 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
   suppliers: Supplier[];
   sites: SupplierSite[];
 } {
+  // Record baseline is the site extract (one row per supplier site).
+  // VAT rows only overlay supplierVat/siteVat onto those sites.
   const now = new Date().toISOString();
   const profiles = input.profiles;
   const sites = input.sites;
@@ -71,12 +70,9 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
   const vatRows = input.vat;
 
   const profileByVid = new Map<string, Record<string, string>>();
-  const profileByNumber = new Map<string, Record<string, string>>();
   for (const row of profiles) {
     const vid = blank(row.vid);
-    const num = blank(row.supplier_number);
     if (vid) profileByVid.set(vid, row);
-    if (num) profileByNumber.set(num, row);
   }
 
   const addressByVidName = new Map<string, Record<string, string>>();
@@ -112,7 +108,6 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
 
   const suppliers = new Map<string, Supplier>();
   const outSites: SupplierSite[] = [];
-  const usedVatKeys = new Set<string>();
   const usedSiteIds = new Set<string>();
 
   function upsertSupplier(partial: Omit<Supplier, "version" | "updatedAt"> & { version?: number }): Supplier {
@@ -150,7 +145,6 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
       addressByVidName.get(`${vid}|${blank(row.address_name).toUpperCase()}`) ??
       addressByVid.get(vid)?.[0];
     const vatHits = vatByKey.get(siteKey(supplierNumber, blank(row.supplier_site))) ?? [];
-    if (vatHits.length) usedVatKeys.add(siteKey(supplierNumber, blank(row.supplier_site)));
     const vat = pickVat(vatHits);
 
     const supplier = upsertSupplier({
@@ -197,59 +191,6 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
       version: 1,
       updatedAt: now,
     });
-  }
-
-  for (const [num, rows] of vatByNumber) {
-    const unmatched = rows.filter((r) => !usedVatKeys.has(siteKey(num, blank(r.vendor_site_code))));
-    if (unmatched.length === 0) continue;
-    const profile = profileByNumber.get(num);
-    const sample = unmatched[0];
-    const supplierId = blank(profile?.vid) || `VAT-${num}`;
-    const vat = pickVat(unmatched);
-    const supplier = upsertSupplier({
-      id: supplierId,
-      supplierNumber: num,
-      name: blank(profile?.supplier_name) || blank(sample.supplier_name),
-      type: blank(profile?.tax_organization_type),
-      status: statusFrom(profile?.inactive_date, sample.supplier_status),
-      supplierVat: vat.supplierVat || blank(profile?.tax_registration_number) || blank(profile?.taxpayer_id),
-      taxRegistrationNumber: blank(profile?.tax_registration_number),
-      taxpayerId: blank(profile?.taxpayer_id),
-      oneTime: yn(profile?.one_time_supplier),
-      inactiveDate: blank(profile?.inactive_date) || undefined,
-      source: `${SOURCE}-vat`,
-    });
-
-    const seenSites = new Set<string>();
-    for (const row of unmatched) {
-      const code = blank(row.vendor_site_code);
-      const key = siteKey(num, code);
-      if (seenSites.has(key)) continue;
-      seenSites.add(key);
-      const rowVat = pickVat([row]);
-      outSites.push({
-        id: uniqueId(`VAT-${num}-${slug(code)}`, usedSiteIds),
-        supplierId: supplier.id,
-        siteCode: code,
-        addressName: code,
-        procurementBu: blank(row.operating_unit),
-        operatingUnit: blank(row.operating_unit) || undefined,
-        inactiveDate: blank(row.inactive_date) || undefined,
-        paymentTerms: "",
-        payGroup: "",
-        paymentMethod: "",
-        invoiceCurrency: "",
-        paymentCurrency: "",
-        country: "",
-        addressLine1: "",
-        city: "",
-        postalCode: "",
-        siteVat: rowVat.siteVat || rowVat.supplierVat,
-        source: `${SOURCE}-vat`,
-        version: 1,
-        updatedAt: now,
-      });
-    }
   }
 
   for (const supplier of suppliers.values()) {

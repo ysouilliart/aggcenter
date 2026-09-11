@@ -201,7 +201,10 @@ Suppliers). Load extracts from the `supplier/` prefix in the bucket (or
 - `Supplier_Profile_EBS_Extract.csv` — name, number, tax type, taxpayer id
 - `Supplier_Site_EBS_Extract.csv` — payment terms, pay group, payment method
 - `Supplier_Address_EBS_Extract.csv` — country, lines, city, postal code
-- `SupplierSiteVATID.csv` — supplier and site VAT IDs (overlaid by supplier number + site code)
+- `SupplierSiteVATID.csv` — supplier and site VAT IDs, overlaid onto the
+  site-extract rows by supplier number + site code. This file does **not** add
+  records; the list baseline is one row per supplier site. Unmatched VAT rows
+  are ignored.
 
 The overview shows distributions (terms, group, type, country) and issue counts.
 The records view is site-grained: filter by issue type, open a row, apply a
@@ -216,10 +219,11 @@ VAT IDs are checked two ways:
 2. The official EU **VIES** REST API (no key) —
    `POST https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number` —
    which confirms whether the number is registered and, when the member state
-   publishes it, returns the **registered name and address**. Lookups are stored
-   in `aggc-supplier.supplier_vat_checks`. GB numbers are not in VIES after
-   Brexit; member-state outages are recorded as inconclusive, not invalid.
-   Optional override: `VIES_API_URL`.
+   publishes it, returns the **registered name and address**. Native-script
+   results (Greek, Bulgarian, …) are **translated to English** when the check
+   runs. Lookups are stored in `aggc-supplier.supplier_vat_checks`. GB numbers
+   are not in VIES after Brexit; member-state outages are recorded as
+   inconclusive, not invalid. Optional override: `VIES_API_URL`.
 
 Re-ingest replaces the **working copy** only; version, audit, and VAT-check
 history are kept.

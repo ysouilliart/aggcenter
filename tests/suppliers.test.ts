@@ -14,6 +14,7 @@ import {
   resetSupplierRepositoryCache,
 } from "@/lib/suppliers/repository";
 import { LocalStorageProvider } from "@/lib/storage/local";
+import { translateToEnglish, hasNonLatinScript, transliterateToLatin } from "@/lib/suppliers/translate";
 import { assessVat, normalizeVat, splitVatNumber } from "@/lib/suppliers/vat";
 import {
   checkVatWithVies,
@@ -263,7 +264,7 @@ describe("mapSupplierExtracts", () => {
     expect(mapped.suppliers[0].supplierVat).toBe("NL814016479B01");
   });
 
-  it("keeps unmatched VAT-only suppliers", () => {
+  it("does not list unmatched VAT-only rows as records", () => {
     const mapped = mapSupplierExtracts({
       profiles: [],
       sites: [],
@@ -280,37 +281,52 @@ describe("mapSupplierExtracts", () => {
         },
       ],
     });
-    expect(mapped.suppliers).toHaveLength(1);
-    expect(mapped.sites[0].id).toContain("VAT-28888");
-    expect(mapped.suppliers[0].supplierVat).toBe("GB798912755");
+    expect(mapped.suppliers).toHaveLength(0);
+    expect(mapped.sites).toHaveLength(0);
   });
 
-  it("disambiguates VAT site ids that slug to the same value", () => {
+  it("overlays VAT onto site-extract rows and ignores leftover VAT sites", () => {
     const mapped = mapSupplierExtracts({
-      profiles: [],
-      sites: [],
+      profiles: [
+        {
+          vid: "1001",
+          supplier_name: "CMS",
+          supplier_number: "101774",
+        },
+      ],
+      sites: [
+        {
+          vid: "1001",
+          sid: "2001",
+          supplier_name: "CMS",
+          supplier_site: "UTRECHT",
+          address_name: "UTRECHT",
+          payment_terms: "30 Days",
+        },
+      ],
       addresses: [],
       vat: [
         {
-          supplier_number: "32233",
-          vendor_site_code: "Saint Priest",
-          supplier_name: "Dup",
-          supplier_vat: "FR92429771363",
-          site_vat: "",
-          operating_unit: "OU: ResMed EPN",
+          supplier_number: "101774",
+          vendor_site_code: "UTRECHT",
+          supplier_vat: "NL814016479B01",
+          site_vat: "NL814016479B01",
         },
         {
-          supplier_number: "32233",
-          vendor_site_code: "Saint-Priest",
-          supplier_name: "Dup",
-          supplier_vat: "FR92429771363",
-          site_vat: "",
-          operating_unit: "OU: ResMed EPN - Italy",
+          supplier_number: "28888",
+          vendor_site_code: "LONDON",
+          supplier_name: "Orphan",
+          supplier_vat: "GB798912755",
+          site_vat: "GB798912755",
         },
       ],
     });
-    const ids = mapped.sites.map((s) => s.id);
-    expect(new Set(ids).size).toBe(ids.length);
+    expect(mapped.suppliers).toHaveLength(1);
+    expect(mapped.sites).toHaveLength(1);
+    expect(mapped.sites[0].id).toBe("2001");
+    expect(mapped.sites[0].source).toBe("oci-supplier");
+    expect(mapped.suppliers[0].supplierVat).toBe("NL814016479B01");
+    expect(mapped.sites[0].siteVat).toBe("NL814016479B01");
   });
 });
 
@@ -583,6 +599,32 @@ describe("VIES client", () => {
     expect(result.addressMatch).toBe("mismatch");
   });
 
+  it("translates native-script VIES name and address to English", async () => {
+    const result = await checkVatWithVies(
+      { countryCode: "EL", vatNumber: "094259216" },
+      {
+        fetchImpl: async () =>
+          new Response(
+            JSON.stringify({
+              valid: true,
+              name: "ΕΛΛΗΝΙΚΑ ΠΕΤΡΕΛΑΙΑ Α.Ε.",
+              address: "ΛΕΩΦ. ΚΗΦΙΣΙΑΣ 8Α 15125 ΜΑΡΟΥΣΙ",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        translateImpl: async (text) =>
+          text.includes("ΠΕΤΡΕΛΑΙΑ")
+            ? "HELLENIC PETROLEUM S.A."
+            : "AVENUE KIFISIAS 8A 15125 MAROUSI",
+        baseUrl: "https://vies.test",
+      },
+    );
+    expect(result.status).toBe("valid");
+    expect(result.registeredName).toBe("HELLENIC PETROLEUM S.A.");
+    expect(result.registeredAddress).toBe("AVENUE KIFISIAS 8A 15125 MAROUSI");
+    expect(result.message).toMatch(/translated from ΕΛΛΗΝΙΚΑ ΠΕΤΡΕΛΑΙΑ/);
+  });
+
   it("treats member-state outages as inconclusive", async () => {
     const result = await checkVatWithVies(
       { countryCode: "FR", vatNumber: "92429771363" },
@@ -612,6 +654,40 @@ describe("VIES client", () => {
     });
     expect(vatRequestForRecord(sup, { ...s, siteVat: "" }, "site")).toMatchObject({
       error: expect.stringMatching(/site VAT/i),
+    });
+  });
+});
+
+describe("VIES English translation", () => {
+  it("detects Greek and Cyrillic as non-Latin", () => {
+    expect(hasNonLatinScript("ΕΛΛΗΝΙΚΑ ΠΕΤΡΕΛΑΙΑ")).toBe(true);
+    expect(hasNonLatinScript("ХЕЛЕНИК ПЕТРОЛЕУМ")).toBe(true);
+    expect(hasNonLatinScript("CMS DERKS STAR BUSMANN N.V.")).toBe(false);
+  });
+
+  it("transliterates Greek when the translate API is unavailable", async () => {
+    const latin = transliterateToLatin("Αθήνα");
+    expect(latin.toLowerCase()).toMatch(/ath/);
+    const result = await translateToEnglish("Αθήνα", {
+      fetchImpl: async () => new Response("nope", { status: 500 }),
+    });
+    expect(result.translated).toBe(true);
+    expect(result.original).toBe("Αθήνα");
+    expect(result.text).not.toMatch(/[Α-ω]/);
+  });
+
+  it("uses the translate payload when the API succeeds", async () => {
+    const result = await translateToEnglish("ΕΛΛΗΝΙΚΑ ΠΕΤΡΕΛΑΙΑ Α.Ε.", {
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify([[["HELLENIC PETROLEUM S.A.", "ΕΛΛΗΝΙΚΑ ΠΕΤΡΕΛΑΙΑ Α.Ε."]]]),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    });
+    expect(result).toMatchObject({
+      text: "HELLENIC PETROLEUM S.A.",
+      original: "ΕΛΛΗΝΙΚΑ ΠΕΤΡΕΛΑΙΑ Α.Ε.",
+      translated: true,
     });
   });
 });

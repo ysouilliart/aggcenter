@@ -221,3 +221,44 @@ export interface SupplierUpdateInput {
   actor?: string;
   reason?: string;
 }
+
+/** Outcome of an EU VIES (or equivalent) VAT registry lookup. */
+export type VatCheckValidity = "valid" | "invalid" | "inconclusive" | "unsupported";
+
+export type VatDetailMatch = "match" | "mismatch" | "unknown";
+
+export interface SupplierVatCheck {
+  id: string;
+  siteId: string;
+  supplierId: string;
+  vatNumber: string;
+  countryCode: string;
+  validity: VatCheckValidity;
+  registeredName?: string;
+  registeredAddress?: string;
+  requestDate?: string;
+  nameMatch: VatDetailMatch;
+  addressMatch: VatDetailMatch;
+  message: string;
+  actor: string;
+  createdAt: string;
+}
+
+export interface FieldChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
+/** One site that was edited, with net field changes for final review. */
+export interface SupplierReviewItem {
+  id: string;
+  supplier: Supplier;
+  site: SupplierSite;
+  changes: FieldChange[];
+  lastActor: string;
+  lastReason?: string;
+  lastUpdatedAt: string;
+  updateCount: number;
+  vatCheck?: SupplierVatCheck;
+}

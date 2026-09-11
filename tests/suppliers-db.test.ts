@@ -47,6 +47,10 @@ async function cleanup() {
   const { sql } = await import("drizzle-orm");
   await getDb().execute(
     sql.raw(`
+      DELETE FROM "aggc-supplier"."supplier_vat_checks"
+        WHERE site_id IN ('SITE-test-1', 'SITE-vat-1')
+           OR supplier_id IN ('SUP-test-1', 'SUP-vat-1')
+           OR id = 'VATCHK-test-1';
       DELETE FROM "aggc-supplier"."supplier_audit_events"
         WHERE record_id IN ('SITE-test-1', 'SUP-test-1')
            OR actor IN ('tester-suppliers-db', 'ingest-suppliers-db');
@@ -128,5 +132,62 @@ run("PostgresSupplierRepository (aggc-supplier schema)", () => {
       sites: [updated.site],
     });
     expect(analysed.records[0].issues.some((i) => i.field === "paymentTerms")).toBe(false);
+  });
+
+  it("persists a VAT registry check without wiping other rows", async () => {
+    const { getDb } = await import("@/lib/db/client");
+    const schema = await import("@/lib/db/schema");
+    const db = getDb();
+    await db.insert(schema.suppliers).values({
+      id: supplier.id,
+      supplierNumber: supplier.supplierNumber,
+      name: supplier.name,
+      type: supplier.type,
+      status: supplier.status,
+      supplierVat: supplier.supplierVat,
+      taxRegistrationNumber: supplier.taxRegistrationNumber,
+      taxpayerId: supplier.taxpayerId,
+      oneTime: "N",
+      source: supplier.source,
+      version: supplier.version,
+      updatedAt: supplier.updatedAt,
+    });
+    await db.insert(schema.supplierSites).values({
+      id: site.id,
+      supplierId: site.supplierId,
+      siteCode: site.siteCode,
+      addressName: site.addressName,
+      procurementBu: site.procurementBu,
+      paymentTerms: site.paymentTerms,
+      payGroup: site.payGroup,
+      paymentMethod: site.paymentMethod,
+      invoiceCurrency: site.invoiceCurrency,
+      paymentCurrency: site.paymentCurrency,
+      country: site.country,
+      addressLine1: site.addressLine1,
+      city: site.city,
+      postalCode: site.postalCode,
+      siteVat: site.siteVat,
+      source: site.source,
+      version: site.version,
+      updatedAt: site.updatedAt,
+    });
+    await repo.saveVatCheck({
+      id: "VATCHK-test-1",
+      siteId: site.id,
+      supplierId: supplier.id,
+      vatNumber: "NL814016479B01",
+      countryCode: "NL",
+      validity: "valid",
+      registeredName: "Test Registered",
+      registeredAddress: "Street 1, Utrecht",
+      nameMatch: "match",
+      addressMatch: "match",
+      message: "VAT ID is registered in VIES as Test Registered.",
+      actor: "tester-suppliers-db",
+      createdAt: "2026-09-11T12:00:00.000Z",
+    });
+    const checks = await repo.listVatChecks(site.id);
+    expect(checks[0]?.registeredName).toBe("Test Registered");
   });
 });

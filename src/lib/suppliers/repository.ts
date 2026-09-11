@@ -14,7 +14,10 @@ import {
   type SupplierSite,
   type SupplierStatus,
   type SupplierUpdateInput,
+  type SupplierVatCheck,
   type SupplierVersion,
+  type VatCheckValidity,
+  type VatDetailMatch,
 } from "./types";
 
 export type { SupplierUpdateInput };
@@ -24,6 +27,7 @@ export interface SupplierSnapshot {
   sites: SupplierSite[];
   versions: SupplierVersion[];
   audit: SupplierAuditEvent[];
+  vatChecks: SupplierVatCheck[];
   files: { key: string; rows: number }[];
   ingestedAt?: string;
 }
@@ -40,6 +44,8 @@ export interface SupplierRepository {
   getSupplier(id: string): Promise<Supplier | undefined>;
   listVersions(recordType?: SupplierRecordType, recordId?: string): Promise<SupplierVersion[]>;
   listAudit(recordId?: string): Promise<SupplierAuditEvent[]>;
+  listVatChecks(siteId?: string): Promise<SupplierVatCheck[]>;
+  saveVatCheck(check: SupplierVatCheck): Promise<void>;
   meta(): Promise<{ files: { key: string; rows: number }[]; ingestedAt?: string }>;
   updateRecord(siteId: string, input: SupplierUpdateInput): Promise<{
     supplier: Supplier;
@@ -61,7 +67,7 @@ function asStatus(value: string): SupplierStatus {
 }
 
 function empty(): SupplierSnapshot {
-  return { suppliers: [], sites: [], versions: [], audit: [], files: [] };
+  return { suppliers: [], sites: [], versions: [], audit: [], vatChecks: [], files: [] };
 }
 
 export class LocalJsonSupplierRepository implements SupplierRepository {
@@ -70,7 +76,12 @@ export class LocalJsonSupplierRepository implements SupplierRepository {
 
   private async read(): Promise<SupplierSnapshot> {
     try {
-      return JSON.parse(await fs.readFile(this.file, "utf8")) as SupplierSnapshot;
+      const parsed = JSON.parse(await fs.readFile(this.file, "utf8")) as Partial<SupplierSnapshot>;
+      return {
+        ...empty(),
+        ...parsed,
+        vatChecks: parsed.vatChecks ?? [],
+      };
     } catch {
       return empty();
     }
@@ -135,6 +146,18 @@ export class LocalJsonSupplierRepository implements SupplierRepository {
   async meta() {
     const snap = await this.read();
     return { files: snap.files, ingestedAt: snap.ingestedAt };
+  }
+
+  async listVatChecks(siteId?: string) {
+    const rows = (await this.read()).vatChecks;
+    const filtered = siteId ? rows.filter((c) => c.siteId === siteId) : rows;
+    return filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async saveVatCheck(check: SupplierVatCheck) {
+    const snap = await this.read();
+    snap.vatChecks.unshift(check);
+    await this.write(snap);
   }
 
   async updateRecord(siteId: string, input: SupplierUpdateInput) {
@@ -274,6 +297,27 @@ export class PostgresSupplierRepository implements SupplierRepository {
       }
     }
     return { files, ingestedAt: ingest?.createdAt };
+  }
+
+  async listVatChecks(siteId?: string): Promise<SupplierVatCheck[]> {
+    const { getDb } = await import("../db/client");
+    const { supplierVatChecks } = await import("../db/schema");
+    const { desc, eq } = await import("drizzle-orm");
+    const db = getDb();
+    const rows = siteId
+      ? await db
+          .select()
+          .from(supplierVatChecks)
+          .where(eq(supplierVatChecks.siteId, siteId))
+          .orderBy(desc(supplierVatChecks.createdAt))
+      : await db.select().from(supplierVatChecks).orderBy(desc(supplierVatChecks.createdAt));
+    return rows.map(vatCheckFromRow);
+  }
+
+  async saveVatCheck(check: SupplierVatCheck): Promise<void> {
+    const { getDb } = await import("../db/client");
+    const { supplierVatChecks } = await import("../db/schema");
+    await getDb().insert(supplierVatChecks).values(vatCheckInsert(check));
   }
 
   async updateRecord(siteId: string, input: SupplierUpdateInput) {
@@ -516,6 +560,59 @@ function auditFromRow(r: {
     reason: r.reason ?? undefined,
     createdAt: r.createdAt,
     version: r.version,
+  };
+}
+
+function vatCheckInsert(c: SupplierVatCheck) {
+  return {
+    id: c.id,
+    siteId: c.siteId,
+    supplierId: c.supplierId,
+    vatNumber: c.vatNumber,
+    countryCode: c.countryCode,
+    validity: c.validity,
+    registeredName: c.registeredName ?? null,
+    registeredAddress: c.registeredAddress ?? null,
+    requestDate: c.requestDate ?? null,
+    nameMatch: c.nameMatch,
+    addressMatch: c.addressMatch,
+    message: c.message,
+    actor: c.actor,
+    createdAt: c.createdAt,
+  };
+}
+
+function vatCheckFromRow(r: {
+  id: string;
+  siteId: string;
+  supplierId: string;
+  vatNumber: string;
+  countryCode: string;
+  validity: string;
+  registeredName: string | null;
+  registeredAddress: string | null;
+  requestDate: string | null;
+  nameMatch: string;
+  addressMatch: string;
+  message: string;
+  actor: string;
+  createdAt: string;
+}): SupplierVatCheck {
+  return {
+    id: r.id,
+    siteId: r.siteId,
+    supplierId: r.supplierId,
+    vatNumber: r.vatNumber,
+    countryCode: r.countryCode,
+    validity: r.validity as VatCheckValidity,
+    registeredName: r.registeredName ?? undefined,
+    registeredAddress: r.registeredAddress ?? undefined,
+    requestDate: r.requestDate ?? undefined,
+    nameMatch: r.nameMatch as VatDetailMatch,
+    addressMatch: r.addressMatch as VatDetailMatch,
+    message: r.message,
+    actor: r.actor,
+    createdAt: r.createdAt,
   };
 }
 

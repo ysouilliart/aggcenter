@@ -271,6 +271,28 @@ export const supplierAuditEvents = supplierSchema.table(
   (t) => [index("supplier_audit_events_record_idx").on(t.recordType, t.recordId)],
 );
 
+/** Persist VIES (or equivalent) VAT registry lookups against a site. */
+export const supplierVatChecks = supplierSchema.table(
+  "supplier_vat_checks",
+  {
+    id: text("id").primaryKey(),
+    siteId: text("site_id").notNull(),
+    supplierId: text("supplier_id").notNull(),
+    vatNumber: text("vat_number").notNull(),
+    countryCode: text("country_code").notNull(),
+    validity: text("validity").notNull(),
+    registeredName: text("registered_name"),
+    registeredAddress: text("registered_address"),
+    requestDate: text("request_date"),
+    nameMatch: text("name_match").notNull().default("unknown"),
+    addressMatch: text("address_match").notNull().default("unknown"),
+    message: text("message").notNull().default(""),
+    actor: text("actor").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("supplier_vat_checks_site_idx").on(t.siteId)],
+);
+
 export type BankAccountRow = typeof bankAccounts.$inferSelect;
 export type StatementRow = typeof statements.$inferSelect;
 export type BankTransactionRow = typeof bankTransactions.$inferSelect;
@@ -283,3 +305,4 @@ export type SupplierRow = typeof suppliers.$inferSelect;
 export type SupplierSiteRow = typeof supplierSites.$inferSelect;
 export type SupplierVersionRow = typeof supplierRecordVersions.$inferSelect;
 export type SupplierAuditRow = typeof supplierAuditEvents.$inferSelect;
+export type SupplierVatCheckRow = typeof supplierVatChecks.$inferSelect;

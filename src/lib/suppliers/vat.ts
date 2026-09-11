@@ -71,7 +71,7 @@ export function normalizeVat(value: string): string {
   return value.replace(/[\s.\-/]/g, "").toUpperCase();
 }
 
-function looksLikeVatPrefix(value: string): string | undefined {
+export function looksLikeVatPrefix(value: string): string | undefined {
   const two = value.slice(0, 2);
   if (PREFIXES.has(two) || PREFIXES.has(aliasCountry(two))) {
     return aliasCountry(two);
@@ -80,10 +80,28 @@ function looksLikeVatPrefix(value: string): string | undefined {
   return undefined;
 }
 
-function bodyFor(prefix: string, normalized: string): string {
+export function bodyFor(prefix: string, normalized: string): string {
   if (prefix === "AT" && normalized.startsWith("AT")) return normalized.slice(2);
   if (normalized.startsWith(prefix)) return normalized.slice(prefix.length);
   return normalized;
+}
+
+/** Split a VAT ID into VIES `countryCode` + `vatNumber` (body, no prefix). */
+export function splitVatNumber(
+  value: string,
+  country?: string,
+): { countryCode: string; vatNumber: string } | undefined {
+  const normalized = normalizeVat(value);
+  if (!normalized) return undefined;
+  const prefix = looksLikeVatPrefix(normalized);
+  if (prefix) {
+    return { countryCode: prefix, vatNumber: bodyFor(prefix, normalized) };
+  }
+  const inferred = inferVatPrefix(normalized, country);
+  if (inferred && formatOk(inferred, normalized)) {
+    return { countryCode: inferred, vatNumber: normalized };
+  }
+  return undefined;
 }
 
 function formatOk(prefix: string, body: string): boolean {

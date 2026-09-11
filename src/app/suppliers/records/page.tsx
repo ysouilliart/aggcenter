@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Card,
@@ -9,12 +9,15 @@ import {
   PageHeader,
   SeverityBadge,
   Spinner,
+  VatCheckBadge,
 } from "@/components/ui";
 import type {
   SupplierIssueType,
   SupplierPatchField,
   SupplierRecord,
+  SupplierVatCheck,
 } from "@/lib/suppliers/types";
+import { parseViesAddress } from "@/lib/suppliers/viesCompare";
 import { useFetch } from "@/lib/useFetch";
 
 const SOURCE_FILTERS: { id: string; label: string }[] = [
@@ -59,7 +62,7 @@ export default function SupplierRecordsPage() {
     <div>
       <PageHeader
         title="Supplier records"
-        subtitle="Inspect a site, apply a correction, and keep a versioned audit trail"
+        subtitle="Inspect a site, apply a correction, and keep a versioned audit trail. Final review of updates is under Review."
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -209,8 +212,27 @@ function RecordEditor({
   const [actor, setActor] = useState("operator");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [checkingVat, setCheckingVat] = useState(false);
+  const [vatCheck, setVatCheck] = useState<SupplierVatCheck | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!record) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/suppliers/${encodeURIComponent(record.id)}/vat-check`);
+        const json = await res.json();
+        if (!cancelled && json.vatCheck) setVatCheck(json.vatCheck as SupplierVatCheck);
+      } catch {
+        /* keep empty until the user runs a check */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [record]);
 
   if (!record) {
     return (
@@ -230,6 +252,43 @@ function RecordEditor({
   function applySuggestion(fieldName: string, value: string) {
     field(fieldName, value);
     if (!reason) setReason(`Apply suggested ${fieldName}`);
+  }
+
+  async function validateVat() {
+    setCheckingVat(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/suppliers/${encodeURIComponent(record!.id)}/vat-check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "VAT check failed");
+      setVatCheck(json.vatCheck as SupplierVatCheck);
+      setMessage((json.vatCheck as SupplierVatCheck).message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "VAT check failed");
+    } finally {
+      setCheckingVat(false);
+    }
+  }
+
+  function applyRegisteredName() {
+    if (!vatCheck?.registeredName) return;
+    field("name", vatCheck.registeredName);
+    if (!reason) setReason("Apply VIES registered name");
+  }
+
+  function applyRegisteredAddress() {
+    if (!vatCheck?.registeredAddress) return;
+    const parsed = parseViesAddress(vatCheck.registeredAddress);
+    if (parsed.addressLine1) field("addressLine1", parsed.addressLine1);
+    if (parsed.city) field("city", parsed.city);
+    if (parsed.postalCode) field("postalCode", parsed.postalCode);
+    if (!parsed.addressLine1 && !parsed.city) field("addressLine1", vatCheck.registeredAddress);
+    if (!reason) setReason("Apply VIES registered address");
   }
 
   async function save() {
@@ -295,6 +354,57 @@ function RecordEditor({
         ) : (
           <p className="text-sm text-emerald-700">No outstanding issues on this record.</p>
         )}
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              EU VIES
+            </span>
+            <VatCheckBadge validity={vatCheck?.validity} />
+          </div>
+          {vatCheck ? (
+            <div className="space-y-1 text-sm text-slate-700">
+              <p>{vatCheck.message}</p>
+              {vatCheck.registeredName ? (
+                <p>
+                  Registered name: {vatCheck.registeredName}
+                  <button
+                    type="button"
+                    className="ml-2 text-xs font-medium text-indigo-700 hover:underline"
+                    onClick={applyRegisteredName}
+                  >
+                    Apply name
+                  </button>
+                </p>
+              ) : null}
+              {vatCheck.registeredAddress ? (
+                <p>
+                  Registered address: {vatCheck.registeredAddress}
+                  <button
+                    type="button"
+                    className="ml-2 text-xs font-medium text-indigo-700 hover:underline"
+                    onClick={applyRegisteredAddress}
+                  >
+                    Apply address
+                  </button>
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Check this VAT ID against the official EU VIES registry (registered name and
+              address when the member state publishes them).
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={validateVat}
+            disabled={checkingVat}
+            className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+          >
+            {checkingVat ? "Checking VIES…" : "Validate VAT with VIES"}
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name" value={draft.name ?? ""} onChange={(v) => field("name", v)} />

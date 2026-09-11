@@ -57,6 +57,8 @@ export interface AppConfig {
   referenceRemittancePrefix: string;
   /** Supplier master-data prefix (`supplier/<extract>.csv`). */
   supplierPrefix: string;
+  /** EU VIES REST API base (no trailing path). Public, no key. */
+  viesApiUrl: string;
 }
 
 function bool(value: string | undefined): boolean {
@@ -146,5 +148,9 @@ export function getConfig(): AppConfig {
       process.env.REFERENCE_REMITTANCE_PREFIX || "aggCenter/remittance",
     ),
     supplierPrefix: withTrailingSlash(process.env.SUPPLIER_PREFIX || "supplier"),
+    viesApiUrl: (process.env.VIES_API_URL || "https://ec.europa.eu/taxation_customs/vies/rest-api").replace(
+      /\/+$/,
+      "",
+    ),
   };
 }

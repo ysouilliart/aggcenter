@@ -129,6 +129,39 @@ const ISSUE_STYLES: Record<string, string> = {
   rationalise: "bg-sky-50 text-sky-700 ring-sky-600/20",
 };
 
+const VAT_CHECK_STYLES: Record<string, string> = {
+  valid: "bg-emerald-50 text-emerald-800 ring-emerald-600/20",
+  invalid: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  inconclusive: "bg-amber-50 text-amber-800 ring-amber-600/20",
+  unsupported: "bg-slate-100 text-slate-700 ring-slate-600/20",
+  pending: "bg-slate-100 text-slate-600 ring-slate-600/15",
+};
+
+export function VatCheckBadge({
+  validity,
+}: {
+  validity?: string | null;
+}) {
+  const key = validity && VAT_CHECK_STYLES[validity] ? validity : "pending";
+  const label =
+    key === "valid"
+      ? "VIES valid"
+      : key === "invalid"
+        ? "VIES invalid"
+        : key === "inconclusive"
+          ? "VIES inconclusive"
+          : key === "unsupported"
+            ? "Not in VIES"
+            : "VAT not checked";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${VAT_CHECK_STYLES[key]}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function IssueBadge({ type }: { type: string }) {
   const cls = ISSUE_STYLES[type] ?? "bg-slate-100 text-slate-700 ring-slate-600/20";
   const label =

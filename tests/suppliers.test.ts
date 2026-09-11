@@ -14,8 +14,15 @@ import {
   resetSupplierRepositoryCache,
 } from "@/lib/suppliers/repository";
 import { LocalStorageProvider } from "@/lib/storage/local";
-import { assessVat, normalizeVat } from "@/lib/suppliers/vat";
-import type { Supplier, SupplierSite } from "@/lib/suppliers/types";
+import { assessVat, normalizeVat, splitVatNumber } from "@/lib/suppliers/vat";
+import {
+  checkVatWithVies,
+  compareTraderDetails,
+  parseViesAddress,
+  viesEndpoint,
+} from "@/lib/suppliers/vies";
+import { buildReviewItems, netFieldChanges } from "@/lib/suppliers/review";
+import type { Supplier, SupplierAuditEvent, SupplierSite } from "@/lib/suppliers/types";
 
 describe("VAT assessment", () => {
   it("accepts a valid NL number", () => {
@@ -56,6 +63,13 @@ describe("VAT assessment", () => {
 
   it("strips punctuation in normalizeVat", () => {
     expect(normalizeVat("PT 503-218.111")).toBe("PT503218111");
+  });
+
+  it("splits a prefixed VAT for the VIES request body", () => {
+    expect(splitVatNumber("NL814016479B01")).toEqual({
+      countryCode: "NL",
+      vatNumber: "814016479B01",
+    });
   });
 });
 
@@ -323,6 +337,32 @@ describe("applyUpdate + local repository", () => {
     );
   });
 
+  it("persists a VIES VAT check against a site", async () => {
+    await repo.replaceWorkingCopy({
+      suppliers: [supplier({ id: "1" })],
+      sites: [site({ id: "s1", supplierId: "1" })],
+      files: [],
+    });
+    await repo.saveVatCheck({
+      id: "VATCHK-1",
+      siteId: "s1",
+      supplierId: "1",
+      vatNumber: "NL814016479B01",
+      countryCode: "NL",
+      validity: "valid",
+      registeredName: "CMS DERKS STAR BUSMANN N.V.",
+      registeredAddress: "PARNASSUSWEG 00737 / 1077DG AMSTERDAM",
+      nameMatch: "unknown",
+      addressMatch: "mismatch",
+      message: "VAT ID is registered in VIES as CMS DERKS STAR BUSMANN N.V.",
+      actor: "tester",
+      createdAt: "2026-09-11T12:00:00.000Z",
+    });
+    const checks = await repo.listVatChecks("s1");
+    expect(checks).toHaveLength(1);
+    expect(checks[0].registeredName).toMatch(/CMS DERKS/);
+  });
+
   it("applyUpdate throws when nothing changed", () => {
     expect(() =>
       applyUpdate(supplier({ id: "1" }), site({ id: "s1", supplierId: "1" }), {
@@ -373,8 +413,179 @@ describe("ingestSuppliers", () => {
   });
 });
 
+describe("review grouping", () => {
+  it("nets repeated edits on the same field to original → current", () => {
+    const events: SupplierAuditEvent[] = [
+      {
+        id: "a1",
+        recordType: "site",
+        recordId: "s1",
+        action: "update",
+        field: "paymentTerms",
+        oldValue: "30 jours FM",
+        newValue: "30 Days",
+        actor: "op",
+        createdAt: "2026-09-11T10:00:00.000Z",
+        version: 2,
+      },
+      {
+        id: "a2",
+        recordType: "site",
+        recordId: "s1",
+        action: "update",
+        field: "paymentTerms",
+        oldValue: "30 Days",
+        newValue: "30 Days EOM",
+        actor: "op",
+        createdAt: "2026-09-11T11:00:00.000Z",
+        version: 3,
+      },
+    ];
+    expect(netFieldChanges(events)).toEqual([
+      { field: "paymentTerms", from: "30 jours FM", to: "30 Days EOM" },
+    ]);
+  });
+
+  it("builds one review row per updated site including header changes", () => {
+    const items = buildReviewItems({
+      suppliers: [supplier({ id: "1", name: "Acme NV", version: 2 })],
+      sites: [
+        site({ id: "s1", supplierId: "1", paymentTerms: "30 Days EOM", version: 2 }),
+        site({ id: "s2", supplierId: "1", siteCode: "OTHER" }),
+      ],
+      audit: [
+        {
+          id: "a1",
+          recordType: "site",
+          recordId: "s1",
+          action: "update",
+          field: "paymentTerms",
+          oldValue: "30 jours FM",
+          newValue: "30 Days EOM",
+          actor: "operator",
+          reason: "standardise terms",
+          createdAt: "2026-09-11T10:00:00.000Z",
+          version: 2,
+        },
+        {
+          id: "a2",
+          recordType: "supplier",
+          recordId: "1",
+          action: "update",
+          field: "name",
+          oldValue: "Acme",
+          newValue: "Acme NV",
+          actor: "operator",
+          createdAt: "2026-09-11T10:00:01.000Z",
+          version: 2,
+        },
+      ],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("s1");
+    expect(items[0].changes.map((c) => c.field).sort()).toEqual(["name", "paymentTerms"]);
+  });
+});
+
+describe("VIES client", () => {
+  it("compares registered name and address locally", () => {
+    const match = compareTraderDetails(
+      {
+        name: "CMS Derks Star Busmann",
+        street: "Newtonlaan 203",
+        city: "Utrecht",
+        postalCode: "3584 BH",
+      },
+      {
+        name: "CMS DERKS STAR BUSMANN N.V.",
+        address: "PARNASSUSWEG 00737 / 1077DG AMSTERDAM",
+      },
+    );
+    expect(match.nameMatch).toBe("match");
+    expect(match.addressMatch).toBe("mismatch");
+  });
+
+  it("parses a Dutch VIES address blob", () => {
+    const parsed = parseViesAddress("PARNASSUSWEG 00737 / 1077DG AMSTERDAM");
+    expect(parsed.postalCode?.replace(/\s+/g, "")).toBe("1077DG");
+    expect(parsed.city).toMatch(/AMSTERDAM/i);
+    expect(parsed.addressLine1).toMatch(/PARNASSUSWEG/i);
+  });
+
+  it("does not call VIES for GB numbers", async () => {
+    let called = false;
+    const result = await checkVatWithVies(
+      { countryCode: "GB", vatNumber: "798912755" },
+      {
+        fetchImpl: async () => {
+          called = true;
+          return new Response("{}", { status: 200 });
+        },
+      },
+    );
+    expect(called).toBe(false);
+    expect(result.status).toBe("unsupported");
+  });
+
+  it("maps a valid VIES payload to registered name and address", async () => {
+    const result = await checkVatWithVies(
+      {
+        countryCode: "NL",
+        vatNumber: "814016479B01",
+        traderName: "CMS Derks",
+        traderStreet: "Newtonlaan 203",
+        traderCity: "Utrecht",
+        traderPostalCode: "3584 BH",
+      },
+      {
+        fetchImpl: async (input, init) => {
+          expect(String(input)).toBe(viesEndpoint("https://vies.test"));
+          expect(init?.method).toBe("POST");
+          const body = JSON.parse(String(init?.body));
+          expect(body).toMatchObject({ countryCode: "NL", vatNumber: "814016479B01" });
+          return new Response(
+            JSON.stringify({
+              valid: true,
+              name: "CMS DERKS STAR BUSMANN N.V.",
+              address: "PARNASSUSWEG 00737 / 1077DG AMSTERDAM",
+              requestDate: "2026-09-11T12:00:00.000Z",
+              traderNameMatch: "NOT_PROCESSED",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        },
+        baseUrl: "https://vies.test",
+      },
+    );
+    expect(result.status).toBe("valid");
+    expect(result.registeredName).toBe("CMS DERKS STAR BUSMANN N.V.");
+    expect(result.nameMatch).toBe("match");
+    expect(result.addressMatch).toBe("mismatch");
+  });
+
+  it("treats member-state outages as inconclusive", async () => {
+    const result = await checkVatWithVies(
+      { countryCode: "FR", vatNumber: "92429771363" },
+      {
+        fetchImpl: async () =>
+          new Response(JSON.stringify({ actionSucceed: false, errorWrappers: [{ error: "MS_UNAVAILABLE" }] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        baseUrl: "https://vies.test",
+      },
+    );
+    expect(result.status).toBe("inconclusive");
+    expect(result.message).toMatch(/MS_UNAVAILABLE/);
+  });
+});
+
 describe("config", () => {
   it("defaults supplier prefix to supplier/", () => {
     expect(getConfig().supplierPrefix).toBe("supplier/");
+  });
+
+  it("defaults VIES to the official EU REST API", () => {
+    expect(getConfig().viesApiUrl).toBe("https://ec.europa.eu/taxation_customs/vies/rest-api");
   });
 });

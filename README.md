@@ -34,7 +34,7 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 src/
   app/                 # App Router pages + API route handlers
     api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, /suppliers, ...
-    suppliers/         #   Supplier workspace (overview, records, audit)
+    suppliers/         #   Supplier workspace (overview, records, review, audit)
   components/          # AppShell (Cash / Suppliers workspaces), UI primitives, SVG charts
   lib/
     domain/            # shared types
@@ -92,6 +92,9 @@ npm run build    # production build
 | GET    | `/api/suppliers/:id`  | One record plus its versions and audit       |
 | PATCH  | `/api/suppliers/:id`  | Update fields; writes a version + audit row  |
 | GET    | `/api/suppliers/audit` | Version snapshots and field-level history  |
+| GET    | `/api/suppliers/review` | Updated records with net before/after field changes |
+| POST   | `/api/suppliers/:id/vat-check` | Validate a VAT ID via EU VIES (name + address) |
+| POST   | `/api/suppliers/review/vat-check` | Batch VIES checks for review records (max 25) |
 
 ## Database (Postgres / Neon)
 
@@ -99,7 +102,7 @@ Uploaded statements and their parsed transactions persist to Postgres via
 [Drizzle ORM](https://orm.drizzle.team) when `DATABASE_URL` is set; otherwise a
 local JSON store (`.data/uploads.json`) is used so the app runs with no database.
 Cash tables live in a dedicated **`aggc-cash`** schema. Supplier working copies,
-versions and audit events live in **`aggc-supplier`**.
+versions, audit events and VAT registry checks live in **`aggc-supplier`**.
 
 Setup:
 
@@ -204,8 +207,22 @@ The overview shows distributions (terms, group, type, country) and issue counts.
 The records view is site-grained: filter by issue type, open a row, apply a
 suggested fix, and save. Each save writes the previous record into
 `aggc-supplier.supplier_record_versions` and field-level rows into
-`aggc-supplier.supplier_audit_events`. Re-ingest replaces the **working copy**
-only; version and audit history are kept.
+`aggc-supplier.supplier_audit_events`. **Review** (`/suppliers/review`) lists
+those updates as a final before/after pass.
+
+VAT IDs are checked two ways:
+
+1. Local format / checksum (`src/lib/suppliers/vat.ts`).
+2. The official EU **VIES** REST API (no key) —
+   `POST https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number` —
+   which confirms whether the number is registered and, when the member state
+   publishes it, returns the **registered name and address**. Lookups are stored
+   in `aggc-supplier.supplier_vat_checks`. GB numbers are not in VIES after
+   Brexit; member-state outages are recorded as inconclusive, not invalid.
+   Optional override: `VIES_API_URL`.
+
+Re-ingest replaces the **working copy** only; version, audit, and VAT-check
+history are kept.
 
 When the prefix is empty, bundled samples under [`data/sample/suppliers/`](data/sample/suppliers/)
 are used so the workspace still runs without OCI.

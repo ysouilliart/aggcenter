@@ -25,6 +25,11 @@ const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> 
       icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
     },
     {
+      href: "/suppliers/review",
+      label: "Review",
+      icon: "M9 5H7a2 2 0 00-2 2v12l3-1.5L11 19l3-1.5L17 19V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+    },
+    {
       href: "/suppliers/audit",
       label: "Audit",
       icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",

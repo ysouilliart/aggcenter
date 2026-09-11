@@ -19,6 +19,11 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
   missing customer receipts, statistical outliers and overdraft risk.
 - **Statements** — upload bank-statement CSVs; they are stored via the active
   file provider and fed straight into the pipeline alongside bundled samples.
+- **Supplier workspace** — separate from cash. Ingest OCI `supplier/` extracts
+  (profile, site, address, VAT ID), surface missing attributes, VAT-format and
+  address issues, plus rationalisation of payment terms / group / type. Edit a
+  record in place; each save writes a new version and an audit event in
+  `aggc-supplier`.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),
   **Snowflake** (reference data) and an optional external API, all defaulting to
   safe local/sample implementations.
@@ -28,19 +33,21 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 ```
 src/
   app/                 # App Router pages + API route handlers
-    api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, ...
-  components/          # AppShell, UI primitives, SVG charts
+    api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, /suppliers, ...
+    suppliers/         #   Supplier workspace (overview, records, audit)
+  components/          # AppShell (Cash / Suppliers workspaces), UI primitives, SVG charts
   lib/
     domain/            # shared types
     parse/             # CSV + bank-statement parsing
     recon/             # reconciliation engine
     cash/              # cash-position calculator
-    anomalies/         # anomaly detection
+    anomalies/         # cash anomaly detection
+    suppliers/         # supplier ingest, VAT/address checks, versions + audit
     storage/           # StorageProvider: local (default) + OCI adapter
     datasource/        # DataSource: local sample (default) + Snowflake adapter
     service.ts         # ties data loading, uploads and computations together
     config.ts          # env-driven configuration
-data/sample/           # sample accounts, SOs, POs, remittances and statement CSVs
+data/sample/           # sample accounts, SOs, POs, remittances, statements, suppliers
 tests/                 # vitest unit tests
 ```
 
@@ -79,13 +86,20 @@ npm run build    # production build
 | POST   | `/api/statements`     | Upload a bank-statement CSV (multipart)      |
 | GET    | `/api/accounts`       | Bank accounts                                |
 | GET    | `/api/integrations`   | Active provider / configuration status       |
+| GET    | `/api/suppliers/summary` | Supplier aggregates + issue / distribution counts |
+| GET    | `/api/suppliers`      | Site-grained records + issues (filterable)   |
+| POST   | `/api/suppliers/ingest` | Import `supplier/` extracts from object storage |
+| GET    | `/api/suppliers/:id`  | One record plus its versions and audit       |
+| PATCH  | `/api/suppliers/:id`  | Update fields; writes a version + audit row  |
+| GET    | `/api/suppliers/audit` | Version snapshots and field-level history  |
 
 ## Database (Postgres / Neon)
 
 Uploaded statements and their parsed transactions persist to Postgres via
 [Drizzle ORM](https://orm.drizzle.team) when `DATABASE_URL` is set; otherwise a
 local JSON store (`.data/uploads.json`) is used so the app runs with no database.
-All tables live in a dedicated **`aggc-cash`** schema (created by the migration).
+Cash tables live in a dedicated **`aggc-cash`** schema. Supplier working copies,
+versions and audit events live in **`aggc-supplier`**.
 
 Setup:
 
@@ -93,7 +107,7 @@ Setup:
    as a Cursor **Secret** in the cloud, or in `.env.local` for local dev.
 2. Create the schema and tables:
    ```bash
-   DATABASE_URL=... npm run db:migrate   # applies drizzle/ migrations (creates the aggc-cash schema)
+   DATABASE_URL=... npm run db:migrate   # applies drizzle/ migrations (creates the aggc-cash and aggc-supplier schemas)
    ```
 3. Run the app; uploads now persist to Postgres. `/api/integrations` reports the
    active database provider (`postgres` vs `local-json`) without exposing the URL.
@@ -175,8 +189,28 @@ USD/EUR cash still uses each account’s stored opening. Reconciliation and
 Anomalies can filter by currency so a large GBP statement does not bury the
 sample USD/EUR rows.
 
+### Supplier workspace
+
+Cash and supplier master-data are separate **workspaces** in the sidebar (Cash /
+Suppliers). Load extracts from the `supplier/` prefix in the bucket (or
+`POST /api/suppliers/ingest`):
+
+- `Supplier_Profile_EBS_Extract.csv` — name, number, tax type, taxpayer id
+- `Supplier_Site_EBS_Extract.csv` — payment terms, pay group, payment method
+- `Supplier_Address_EBS_Extract.csv` — country, lines, city, postal code
+- `SupplierSiteVATID.csv` — supplier and site VAT IDs (overlaid by supplier number + site code)
+
+The overview shows distributions (terms, group, type, country) and issue counts.
+The records view is site-grained: filter by issue type, open a row, apply a
+suggested fix, and save. Each save writes the previous record into
+`aggc-supplier.supplier_record_versions` and field-level rows into
+`aggc-supplier.supplier_audit_events`. Re-ingest replaces the **working copy**
+only; version and audit history are kept.
+
+When the prefix is empty, bundled samples under [`data/sample/suppliers/`](data/sample/suppliers/)
+are used so the workspace still runs without OCI.
+
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).
-- Additional flows beyond cash position, and a workflow/approval layer.
-- Persistent database for uploaded statements and audit history.
+- Additional operational workspaces beyond cash and suppliers, and a workflow/approval layer.

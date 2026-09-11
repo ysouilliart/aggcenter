@@ -174,8 +174,10 @@ export default function IntegrationsPage() {
               />
             </div>
             <p className="text-sm text-slate-600">
-              Persistence for uploaded statements and transactions (schema{" "}
-              <span className="font-medium text-slate-900">aggc-cash</span>).
+              Persistence for uploaded statements, transactions (schema{" "}
+              <span className="font-medium text-slate-900">aggc-cash</span>) and
+              supplier records (schema{" "}
+              <span className="font-medium text-slate-900">aggc-supplier</span>).
               Currently using the{" "}
               <span className="font-medium text-slate-900">
                 {data.database.provider}

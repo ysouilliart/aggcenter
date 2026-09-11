@@ -164,6 +164,12 @@ describe("reconcile remittances", () => {
     expect(r.status).toBe("matched");
     expect(r.matchedType).toBe("remittance");
     expect(r.matchedId).toBe("AR-9");
+    expect(r.matchPattern).toBe("remittance_invoice_ref");
+    expect(r.lookup?.soFound).toBe(false);
+    expect(r.lookup?.remittanceFound).toBe(true);
+    expect(r.lookup?.source).toMatch(/2000000001/);
+    expect(r.lookup?.target).toMatch(/remittance customer GBP/);
+    expect(r.remediation).toBeUndefined();
   });
 
   it("matches a unique remittance amount inside a 5-day window", () => {
@@ -174,7 +180,11 @@ describe("reconcile remittances", () => {
       remittances: [rem],
     });
     expect(r.status).toBe("matched");
+    expect(r.matchPattern).toBe("remittance_amount_window");
+    expect(r.lookup?.soFound).toBe(false);
+    expect(r.lookup?.remittanceFound).toBe(true);
     expect(r.reasons[0]).toMatch(/date window/);
+    expect(r.lookup?.approach).toMatch(/±5d/);
   });
 
   it("still matches sample SO references", () => {
@@ -208,5 +218,65 @@ describe("reconcile remittances", () => {
   it("extracts invoice-like tokens from mixed bank text", () => {
     expect(extractMatchTokens(["R0359X 2000859443 OGILVIE"])).toContain("2000859443");
     expect(extractMatchTokens(["SO-5001 customer"])).toContain("SO-5001");
+  });
+
+  it("explains a missing remittance token and proposes loading the invoice", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "miss",
+          amount: 4400,
+          narrative: "Receipt 064613",
+          customerReference: "064613",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [rem],
+    });
+    expect(r.status).toBe("unmatched");
+    expect(r.matchPattern).toBe("exhausted");
+    expect(r.lookup?.soFound).toBe(false);
+    expect(r.lookup?.remittanceFound).toBe(false);
+    expect(r.lookup?.tokens).toContain("064613");
+    expect(r.lookup?.source).toMatch(/064613/);
+    expect(r.lookup?.approach).toMatch(/remittance invoice\/payment ref → 0/);
+    expect(r.remediation).toMatch(/map bank customerReference → Oracle invoice/);
+  });
+
+  it("flags an ambiguous remittance amount window and asks for invoice numbers", () => {
+    const [r] = reconcile({
+      transactions: [txn({ id: "amb-rem", amount: 15000, date: "2026-08-12" })],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [
+        rem,
+        { ...rem, id: "AR-10", name: "Other Trust", invoiceNumbers: ["2000000099"] },
+      ],
+    });
+    expect(r.status).toBe("unmatched");
+    expect(r.lookup?.remittanceFound).toBe(true);
+    expect(r.lookup?.soFound).toBe(false);
+    expect(r.lookup?.approach).toMatch(/remittance amount ±5d → 2/);
+    expect(r.remediation).toMatch(/counterparty alias|invoice numbers/);
+  });
+
+  it("proposes a short-pay check when remittance ref hits but amount differs", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "short",
+          amount: 14000,
+          narrative: "Receipt 2000000001",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [rem],
+    });
+    expect(r.status).toBe("partial");
+    expect(r.matchPattern).toBe("remittance_invoice_ref");
+    expect(r.lookup?.remittanceFound).toBe(true);
+    expect(r.remediation).toMatch(/short-pay|split applications/);
   });
 });

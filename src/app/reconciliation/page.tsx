@@ -13,6 +13,10 @@ import {
 } from "@/components/ui";
 import type { MatchStatus, ReconciliationResult } from "@/lib/domain/types";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
+import {
+  MATCH_PATTERN_LABELS,
+  matchedDocLabel,
+} from "@/lib/recon/match-notes";
 import { useFetch } from "@/lib/useFetch";
 
 interface ReconResponse {
@@ -60,7 +64,7 @@ export default function ReconciliationPage() {
     <div>
       <PageHeader
         title="Reconciliation"
-        subtitle="Bank transactions matched to sales orders (O2C) and purchase orders (P2P)"
+        subtitle="Bank lines matched to SO/PO and remittances. Notes show the pattern, source, target, found status, and a remediation when the lookup fails."
       />
 
       {loading ? <Spinner /> : null}
@@ -160,6 +164,7 @@ export default function ReconciliationPage() {
                     <th className="px-5 py-3 font-medium">Flow</th>
                     <th className="px-5 py-3 text-right font-medium">Amount</th>
                     <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Pattern</th>
                     <th className="px-5 py-3 font-medium">Matched to</th>
                     <th className="px-5 py-3 text-right font-medium">Conf.</th>
                     <th className="px-5 py-3 font-medium">Notes</th>
@@ -192,22 +197,29 @@ export default function ReconciliationPage() {
                       <td className="px-5 py-3">
                         <StatusBadge status={r.status} />
                       </td>
+                      <td className="px-5 py-3">
+                        <span className="inline-flex max-w-[14rem] rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+                          {r.matchPattern
+                            ? MATCH_PATTERN_LABELS[r.matchPattern]
+                            : "—"}
+                        </span>
+                      </td>
                       <td className="px-5 py-3 font-medium text-slate-700">
-                        {r.matchedId ?? "—"}
+                        {matchedDocLabel(r.matchedType, r.matchedId)}
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-slate-500">
                         {r.confidence > 0
                           ? `${Math.round(r.confidence * 100)}%`
                           : "—"}
                       </td>
-                      <td className="px-5 py-3 text-xs text-slate-500">
-                        {r.reasons.join("; ")}
+                      <td className="max-w-xl px-5 py-3">
+                        <MatchNotes result={r} />
                       </td>
                     </tr>
                   ))}
                   {results.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-8 text-center text-slate-400">
+                      <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
                         No transactions for this filter.
                       </td>
                     </tr>
@@ -216,6 +228,56 @@ export default function ReconciliationPage() {
               </table>
             </div>
           </Card>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FoundChip({ label, found }: { label: string; found: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
+        found
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+          : "bg-slate-50 text-slate-500 ring-slate-200"
+      }`}
+    >
+      {label} {found ? "found" : "not found"}
+    </span>
+  );
+}
+
+function MatchNotes({ result }: { result: ReconciliationResult }) {
+  const lookup = result.lookup;
+  if (!lookup) {
+    return (
+      <div className="text-xs text-slate-500">{result.reasons.join(" · ")}</div>
+    );
+  }
+
+  const showSo = result.flow === "O2C";
+  const showPo = result.flow === "P2P";
+
+  return (
+    <div className="space-y-1 text-xs leading-relaxed text-slate-600">
+      <div className="flex flex-wrap gap-1">
+        {showSo ? <FoundChip label="SO" found={lookup.soFound} /> : null}
+        {showPo ? <FoundChip label="PO" found={lookup.poFound} /> : null}
+        <FoundChip label="Remittance" found={lookup.remittanceFound} />
+      </div>
+      <div>
+        <span className="font-medium text-slate-700">Source:</span> {lookup.source}
+      </div>
+      <div>
+        <span className="font-medium text-slate-700">Target:</span> {lookup.target}
+      </div>
+      <div>
+        <span className="font-medium text-slate-700">Lookup:</span> {lookup.approach}
+      </div>
+      {result.remediation ? (
+        <div className="text-amber-800">
+          <span className="font-medium">Next:</span> {result.remediation}
         </div>
       ) : null}
     </div>

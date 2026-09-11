@@ -119,8 +119,7 @@ export default function SupplierRecordsPage() {
                   <th className="px-4 py-3 font-medium">Supplier</th>
                   <th className="px-4 py-3 font-medium">Site</th>
                   <th className="px-4 py-3 font-medium">Terms / group</th>
-                  <th className="px-4 py-3 font-medium">Supplier VAT</th>
-                  <th className="px-4 py-3 font-medium">Site VAT</th>
+                  <th className="px-4 py-3 font-medium">VAT IDs</th>
                   <th className="px-4 py-3 font-medium">Issues</th>
                 </tr>
               </thead>
@@ -151,11 +150,19 @@ export default function SupplierRecordsPage() {
                         <div>{dash(r.site.paymentTerms)}</div>
                         <div>{dash(r.site.payGroup)}</div>
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs text-slate-700">
-                        {dash(r.supplier.supplierVat)}
-                      </td>
-                      <td className="px-4 py-2 font-mono text-xs text-slate-700">
-                        {dash(r.site.siteVat)}
+                      <td className="px-4 py-2 font-mono text-[11px] text-slate-700">
+                        <div>
+                          <span className="mr-1 font-sans text-[10px] uppercase tracking-wide text-slate-400">
+                            Sup
+                          </span>
+                          {dash(r.supplier.supplierVat)}
+                        </div>
+                        <div>
+                          <span className="mr-1 font-sans text-[10px] uppercase tracking-wide text-slate-400">
+                            Site
+                          </span>
+                          {dash(r.site.siteVat)}
+                        </div>
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex flex-wrap gap-1">

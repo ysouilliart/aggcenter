@@ -15,6 +15,7 @@
 
 import { getConfig } from "../config";
 import type { Supplier, SupplierSite, VatDetailMatch, VatScope } from "./types";
+import { translateToEnglish, type TranslateOptions } from "./translate";
 import { normalizeVat, splitVatNumber } from "./vat";
 import { compareTraderDetails } from "./viesCompare";
 
@@ -104,6 +105,9 @@ export interface ViesClientOptions {
   baseUrl?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  /** Override English translation of native-script VIES name/address. */
+  translateImpl?: (text: string) => Promise<string>;
+  translateFetch?: typeof fetch;
 }
 
 export { compareAddresses, compareNames, compareTraderDetails, parseViesAddress } from "./viesCompare";
@@ -190,8 +194,10 @@ export async function checkVatWithVies(
       };
     }
 
-    const registeredName = blank(data.name) || undefined;
-    const registeredAddress = blank(data.address) || undefined;
+    const nameTx = await englishize(data.name, options);
+    const addressTx = await englishize(data.address, options);
+    const registeredName = nameTx.text || undefined;
+    const registeredAddress = addressTx.text || undefined;
     const local = compareTraderDetails(
       {
         name: request.traderName ?? "",
@@ -222,7 +228,7 @@ export async function checkVatWithVies(
         nameMatch,
         addressMatch,
         message: registeredName
-          ? `VAT ID is registered in VIES as ${registeredName}.`
+          ? viesRegisteredMessage(registeredName, nameTx.original, nameTx.translated)
           : "VAT ID is registered in VIES. The member state did not return a name.",
         raw: data,
       };
@@ -266,6 +272,33 @@ export async function checkVatWithVies(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function viesRegisteredMessage(english: string, original: string, translated: boolean): string {
+  if (translated && original && original !== english) {
+    return `VAT ID is registered in VIES as ${english} (translated from ${original}).`;
+  }
+  return `VAT ID is registered in VIES as ${english}.`;
+}
+
+async function englishize(
+  value: string | undefined,
+  options: ViesClientOptions,
+): Promise<{ text: string; original: string; translated: boolean }> {
+  const original = blank(value);
+  if (!original) return { text: "", original: "", translated: false };
+  if (options.translateImpl) {
+    const text = blank(await options.translateImpl(original));
+    return {
+      text: text || original,
+      original,
+      translated: Boolean(text) && text !== original,
+    };
+  }
+  const translateOpts: TranslateOptions = {
+    fetchImpl: options.translateFetch,
+  };
+  return translateToEnglish(original, translateOpts);
 }
 
 export function vatRequestForRecord(

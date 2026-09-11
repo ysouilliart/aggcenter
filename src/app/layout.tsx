@@ -4,9 +4,9 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "aggcenter · Cash Position",
+  title: "aggcenter",
   description:
-    "Operational aggregation center — bank statement reconciliation, cash position and anomaly detection for Order-to-Cash and Procure-to-Pay.",
+    "Operational aggregation center — cash position, reconciliation, and supplier master-data quality.",
 };
 
 export default function RootLayout({

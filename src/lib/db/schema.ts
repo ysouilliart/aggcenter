@@ -1,9 +1,9 @@
 import { bigint, index, integer, pgSchema, text } from "drizzle-orm/pg-core";
 
 /**
- * All persistence lives in the dedicated `aggc-cash` Postgres schema (created by
+ * Cash persistence lives in the dedicated `aggc-cash` Postgres schema (created by
  * the migration). Monetary amounts are stored as integer minor units (cents),
- * matching the domain model.
+ * matching the domain model. Supplier master data lives in `aggc-supplier`.
  */
 export const cashSchema = pgSchema("aggc-cash");
 
@@ -182,6 +182,95 @@ export const remittances = cashSchema.table(
   (t) => [index("remittances_currency_date_idx").on(t.currency, t.date)],
 );
 
+export const supplierSchema = pgSchema("aggc-supplier");
+
+export const suppliers = supplierSchema.table(
+  "suppliers",
+  {
+    id: text("id").primaryKey(),
+    supplierNumber: text("supplier_number").notNull().default(""),
+    name: text("name").notNull(),
+    type: text("type").notNull().default(""),
+    status: text("status").notNull().default("active"),
+    supplierVat: text("supplier_vat").notNull().default(""),
+    taxRegistrationNumber: text("tax_registration_number").notNull().default(""),
+    taxpayerId: text("taxpayer_id").notNull().default(""),
+    oneTime: text("one_time").notNull().default("N"),
+    inactiveDate: text("inactive_date"),
+    source: text("source").notNull().default("oci-supplier"),
+    version: integer("version").notNull().default(1),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("suppliers_number_idx").on(t.supplierNumber)],
+);
+
+export const supplierSites = supplierSchema.table(
+  "supplier_sites",
+  {
+    id: text("id").primaryKey(),
+    supplierId: text("supplier_id").notNull(),
+    siteCode: text("site_code").notNull().default(""),
+    addressName: text("address_name").notNull().default(""),
+    procurementBu: text("procurement_bu").notNull().default(""),
+    operatingUnit: text("operating_unit"),
+    inactiveDate: text("inactive_date"),
+    paymentTerms: text("payment_terms").notNull().default(""),
+    payGroup: text("pay_group").notNull().default(""),
+    paymentMethod: text("payment_method").notNull().default(""),
+    invoiceCurrency: text("invoice_currency").notNull().default(""),
+    paymentCurrency: text("payment_currency").notNull().default(""),
+    country: text("country").notNull().default(""),
+    addressLine1: text("address_line_1").notNull().default(""),
+    addressLine2: text("address_line_2"),
+    city: text("city").notNull().default(""),
+    state: text("state"),
+    province: text("province"),
+    county: text("county"),
+    postalCode: text("postal_code").notNull().default(""),
+    siteVat: text("site_vat").notNull().default(""),
+    email: text("email"),
+    source: text("source").notNull().default("oci-supplier"),
+    version: integer("version").notNull().default(1),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("supplier_sites_supplier_id_idx").on(t.supplierId)],
+);
+
+/** Immutable snapshots of a supplier or site after each user (or ingest) change. */
+export const supplierRecordVersions = supplierSchema.table(
+  "supplier_record_versions",
+  {
+    id: text("id").primaryKey(),
+    recordType: text("record_type").notNull(),
+    recordId: text("record_id").notNull(),
+    version: integer("version").notNull(),
+    snapshot: text("snapshot").notNull(),
+    createdAt: text("created_at").notNull(),
+    actor: text("actor").notNull(),
+    reason: text("reason"),
+  },
+  (t) => [index("supplier_record_versions_record_idx").on(t.recordType, t.recordId)],
+);
+
+/** Field-level audit trail — separate from the working copy. */
+export const supplierAuditEvents = supplierSchema.table(
+  "supplier_audit_events",
+  {
+    id: text("id").primaryKey(),
+    recordType: text("record_type").notNull(),
+    recordId: text("record_id").notNull(),
+    action: text("action").notNull(),
+    field: text("field"),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    actor: text("actor").notNull(),
+    reason: text("reason"),
+    createdAt: text("created_at").notNull(),
+    version: integer("version").notNull(),
+  },
+  (t) => [index("supplier_audit_events_record_idx").on(t.recordType, t.recordId)],
+);
+
 export type BankAccountRow = typeof bankAccounts.$inferSelect;
 export type StatementRow = typeof statements.$inferSelect;
 export type BankTransactionRow = typeof bankTransactions.$inferSelect;
@@ -190,3 +279,7 @@ export type ParseEventRow = typeof parseEvents.$inferSelect;
 export type SalesOrderRow = typeof salesOrders.$inferSelect;
 export type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
 export type RemittanceRow = typeof remittances.$inferSelect;
+export type SupplierRow = typeof suppliers.$inferSelect;
+export type SupplierSiteRow = typeof supplierSites.$inferSelect;
+export type SupplierVersionRow = typeof supplierRecordVersions.$inferSelect;
+export type SupplierAuditRow = typeof supplierAuditEvents.$inferSelect;

@@ -55,6 +55,8 @@ export interface AppConfig {
   referenceApPrefix: string;
   referenceSalesOrderPrefix: string;
   referenceRemittancePrefix: string;
+  /** Supplier master-data prefix (`supplier/<extract>.csv`). */
+  supplierPrefix: string;
 }
 
 function bool(value: string | undefined): boolean {
@@ -143,5 +145,6 @@ export function getConfig(): AppConfig {
     referenceRemittancePrefix: withTrailingSlash(
       process.env.REFERENCE_REMITTANCE_PREFIX || "aggCenter/remittance",
     ),
+    supplierPrefix: withTrailingSlash(process.env.SUPPLIER_PREFIX || "supplier"),
   };
 }

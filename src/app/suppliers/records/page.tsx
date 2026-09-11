@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Card,
@@ -216,6 +216,23 @@ function RecordEditor({
   const [vatCheck, setVatCheck] = useState<SupplierVatCheck | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!record) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/suppliers/${encodeURIComponent(record.id)}/vat-check`);
+        const json = await res.json();
+        if (!cancelled && json.vatCheck) setVatCheck(json.vatCheck as SupplierVatCheck);
+      } catch {
+        /* keep empty until the user runs a check */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [record]);
 
   if (!record) {
     return (

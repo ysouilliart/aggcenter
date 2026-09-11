@@ -569,6 +569,7 @@ function vatCheckInsert(c: SupplierVatCheck) {
     siteId: c.siteId,
     supplierId: c.supplierId,
     vatNumber: c.vatNumber,
+    vatScope: c.vatScope,
     countryCode: c.countryCode,
     validity: c.validity,
     registeredName: c.registeredName ?? null,
@@ -587,6 +588,7 @@ function vatCheckFromRow(r: {
   siteId: string;
   supplierId: string;
   vatNumber: string;
+  vatScope?: string | null;
   countryCode: string;
   validity: string;
   registeredName: string | null;
@@ -603,6 +605,7 @@ function vatCheckFromRow(r: {
     siteId: r.siteId,
     supplierId: r.supplierId,
     vatNumber: r.vatNumber,
+    vatScope: r.vatScope === "supplier" ? "supplier" : "site",
     countryCode: r.countryCode,
     validity: r.validity as VatCheckValidity,
     registeredName: r.registeredName ?? undefined,

@@ -11,6 +11,7 @@ import type {
   SupplierSummary,
   SupplierUpdateInput,
   SupplierVatCheck,
+  VatScope,
 } from "./types";
 import { checkVatWithVies, vatRequestForRecord, type ViesClientOptions } from "./vies";
 
@@ -137,6 +138,7 @@ export async function checkSupplierVat(
   siteId: string,
   actor = "operator",
   viesOptions?: ViesClientOptions,
+  scope: VatScope = "site",
 ): Promise<SupplierVatCheck> {
   const repo = getSupplierRepository();
   const site = await repo.getSite(siteId);
@@ -144,14 +146,16 @@ export async function checkSupplierVat(
   const supplier = await repo.getSupplier(site.supplierId);
   if (!supplier) throw new Error(`Supplier ${site.supplierId} not found.`);
 
-  const request = vatRequestForRecord(supplier, site);
+  const request = vatRequestForRecord(supplier, site, scope);
   const createdAt = new Date().toISOString();
+  const label = scope === "site" ? "Site" : "Supplier";
   if ("error" in request) {
     const check: SupplierVatCheck = {
       id: `VATCHK-${randomUUID()}`,
       siteId: site.id,
       supplierId: supplier.id,
-      vatNumber: site.siteVat || supplier.supplierVat,
+      vatScope: scope,
+      vatNumber: scope === "site" ? site.siteVat : supplier.supplierVat,
       countryCode: site.country || "",
       validity: "unsupported",
       nameMatch: "unknown",
@@ -169,6 +173,7 @@ export async function checkSupplierVat(
     id: `VATCHK-${randomUUID()}`,
     siteId: site.id,
     supplierId: supplier.id,
+    vatScope: scope,
     vatNumber: `${result.countryCode}${result.vatNumber}`,
     countryCode: result.countryCode,
     validity: result.status,
@@ -177,7 +182,7 @@ export async function checkSupplierVat(
     requestDate: result.requestDate,
     nameMatch: result.nameMatch,
     addressMatch: result.addressMatch,
-    message: result.message,
+    message: `${label} VAT: ${result.message}`,
     actor: actor.trim() || "operator",
     createdAt,
   };
@@ -189,12 +194,13 @@ export async function checkSupplierVats(
   siteIds: string[],
   actor = "operator",
   viesOptions?: ViesClientOptions,
+  scope: VatScope = "site",
 ): Promise<{ checks: SupplierVatCheck[]; errors: { id: string; error: string }[] }> {
   const checks: SupplierVatCheck[] = [];
   const errors: { id: string; error: string }[] = [];
   for (const id of siteIds) {
     try {
-      checks.push(await checkSupplierVat(id, actor, viesOptions));
+      checks.push(await checkSupplierVat(id, actor, viesOptions, scope));
     } catch (err) {
       errors.push({ id, error: err instanceof Error ? err.message : "VAT check failed" });
     }

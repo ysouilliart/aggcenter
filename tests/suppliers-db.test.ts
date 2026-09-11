@@ -178,6 +178,7 @@ run("PostgresSupplierRepository (aggc-supplier schema)", () => {
       supplierId: supplier.id,
       vatNumber: "NL814016479B01",
       countryCode: "NL",
+      vatScope: "site",
       validity: "valid",
       registeredName: "Test Registered",
       registeredAddress: "Street 1, Utrecht",

@@ -53,6 +53,15 @@ function compact(value: string): string {
   return value.trim().toLowerCase().replace(/[\s._-]+/g, "");
 }
 
+/** Allowed payment terms when saving a streamlined record. */
+export const STANDARD_PAYMENT_TERMS = ["7 Days", "14 Days", "30 Days", "45 Days"] as const;
+
+export type StandardPaymentTerms = (typeof STANDARD_PAYMENT_TERMS)[number];
+
+export function isStandardPaymentTerms(value: string): value is StandardPaymentTerms {
+  return (STANDARD_PAYMENT_TERMS as readonly string[]).includes(value.trim());
+}
+
 export function canonicalPaymentTerms(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;

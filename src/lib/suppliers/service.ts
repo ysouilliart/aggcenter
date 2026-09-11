@@ -1,12 +1,18 @@
+import { randomUUID } from "crypto";
+
 import { analyseSuppliers } from "./analyse";
 import { ingestSuppliers } from "./ingest";
 import { getSupplierRepository } from "./repository";
+import { buildReviewItems } from "./review";
 import type {
   SupplierIssueType,
   SupplierRecord,
+  SupplierReviewItem,
   SupplierSummary,
   SupplierUpdateInput,
+  SupplierVatCheck,
 } from "./types";
+import { checkVatWithVies, vatRequestForRecord, type ViesClientOptions } from "./vies";
 
 export interface SupplierListQuery {
   q?: string;
@@ -89,9 +95,10 @@ export async function getSupplierRecord(id: string) {
   const supplier = await repo.getSupplier(site.supplierId);
   if (!supplier) return null;
   const { records } = analyseSuppliers({ suppliers: [supplier], sites: [site] });
-  const [versions, audit] = await Promise.all([
+  const [versions, audit, vatChecks] = await Promise.all([
     repo.listVersions("site", site.id),
     repo.listAudit(site.id),
+    repo.listVatChecks(site.id),
   ]);
   const supplierVersions = await repo.listVersions("supplier", supplier.id);
   const supplierAudit = await repo.listAudit(supplier.id);
@@ -101,6 +108,7 @@ export async function getSupplierRecord(id: string) {
       b.createdAt.localeCompare(a.createdAt),
     ),
     audit: [...audit, ...supplierAudit].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    vatCheck: vatChecks[0],
   };
 }
 
@@ -112,6 +120,86 @@ export async function updateSupplierRecord(id: string, input: SupplierUpdateInpu
     sites: [updated.site],
   });
   return { record: records[0], audit: updated.audit };
+}
+
+export async function listSupplierReview(): Promise<{ items: SupplierReviewItem[] }> {
+  const repo = getSupplierRepository();
+  const [suppliers, sites, audit, vatChecks] = await Promise.all([
+    repo.listSuppliers(),
+    repo.listSites(),
+    repo.listAudit(),
+    repo.listVatChecks(),
+  ]);
+  return { items: buildReviewItems({ suppliers, sites, audit, vatChecks }) };
+}
+
+export async function checkSupplierVat(
+  siteId: string,
+  actor = "operator",
+  viesOptions?: ViesClientOptions,
+): Promise<SupplierVatCheck> {
+  const repo = getSupplierRepository();
+  const site = await repo.getSite(siteId);
+  if (!site) throw new Error(`Site ${siteId} not found.`);
+  const supplier = await repo.getSupplier(site.supplierId);
+  if (!supplier) throw new Error(`Supplier ${site.supplierId} not found.`);
+
+  const request = vatRequestForRecord(supplier, site);
+  const createdAt = new Date().toISOString();
+  if ("error" in request) {
+    const check: SupplierVatCheck = {
+      id: `VATCHK-${randomUUID()}`,
+      siteId: site.id,
+      supplierId: supplier.id,
+      vatNumber: site.siteVat || supplier.supplierVat,
+      countryCode: site.country || "",
+      validity: "unsupported",
+      nameMatch: "unknown",
+      addressMatch: "unknown",
+      message: request.error,
+      actor: actor.trim() || "operator",
+      createdAt,
+    };
+    await repo.saveVatCheck(check);
+    return check;
+  }
+
+  const result = await checkVatWithVies(request, viesOptions);
+  const check: SupplierVatCheck = {
+    id: `VATCHK-${randomUUID()}`,
+    siteId: site.id,
+    supplierId: supplier.id,
+    vatNumber: `${result.countryCode}${result.vatNumber}`,
+    countryCode: result.countryCode,
+    validity: result.status,
+    registeredName: result.registeredName,
+    registeredAddress: result.registeredAddress,
+    requestDate: result.requestDate,
+    nameMatch: result.nameMatch,
+    addressMatch: result.addressMatch,
+    message: result.message,
+    actor: actor.trim() || "operator",
+    createdAt,
+  };
+  await repo.saveVatCheck(check);
+  return check;
+}
+
+export async function checkSupplierVats(
+  siteIds: string[],
+  actor = "operator",
+  viesOptions?: ViesClientOptions,
+): Promise<{ checks: SupplierVatCheck[]; errors: { id: string; error: string }[] }> {
+  const checks: SupplierVatCheck[] = [];
+  const errors: { id: string; error: string }[] = [];
+  for (const id of siteIds) {
+    try {
+      checks.push(await checkSupplierVat(id, actor, viesOptions));
+    } catch (err) {
+      errors.push({ id, error: err instanceof Error ? err.message : "VAT check failed" });
+    }
+  }
+  return { checks, errors };
 }
 
 export { ingestSuppliers };

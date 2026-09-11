@@ -34,7 +34,14 @@
       "idx": 4,
       "version": "7",
       "when": 1789200000000,
-      "tag": "0004_supplier-workspace",
+      "tag": "0004-supplier-workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789300000000,
+      "tag": "0005_supplier-vat-checks",
       "breakpoints": true
     }
   ]

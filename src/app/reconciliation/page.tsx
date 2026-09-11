@@ -36,7 +36,7 @@ const FILTERS: (MatchStatus | "all")[] = [
 export default function ReconciliationPage() {
   const { data, error, loading } = useFetch<ReconResponse>("/api/reconciliation");
   const [filter, setFilter] = useState<MatchStatus | "all">("all");
-  const [currency, setCurrency] = useState<string>("all");
+  const [currency, setCurrency] = useState<string>("GBP");
 
   const currencies = useMemo(() => {
     const found = [...new Set((data?.results ?? []).map((r) => r.currency))];

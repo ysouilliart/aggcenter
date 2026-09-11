@@ -137,6 +137,13 @@ binary guard).
 
 ### Auto-ingest statements from the bucket
 
+Click **Load from bucket** on Integrations (or `POST /api/reference/ingest`)
+to import UK reference documents from `aggCenter/APInvoices`,
+`aggCenter/salesOrder`, and `aggCenter/remittance`. AP invoices keep
+taxation country `GB`; remittances keep `OU: ResMed UK` and are stored as
+one payment per remittance id (invoice numbers kept for matching).
+Reconciliation uses those rows plus the bundled sample SO/PO set.
+
 Click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`)
 to import files from the active storage provider. Two layouts are scanned by
 default:

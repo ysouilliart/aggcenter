@@ -22,6 +22,13 @@ const OUTLIER_K = 2;
 const OUTLIER_MIN_SAMPLES = 5;
 const DUPLICATE_WINDOW_DAYS = 5;
 
+function addIsoDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function daysBetween(a: string, b: string): number {
   const da = new Date(a).getTime();
   const db = new Date(b).getTime();
@@ -121,6 +128,10 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   }
 
   // 4) Missing customer receipts: remittance advised but no bank credit seen.
+  // Limit to the bank-statement window so a full AR extract does not flood the list.
+  const txnDates = transactions.map((t) => t.date).sort();
+  const periodStart = txnDates[0];
+  const periodEnd = txnDates[txnDates.length - 1];
   const matchedRefs = new Set(
     reconciliation
       .filter((r) => r.matchedId && r.status !== "unmatched")
@@ -128,8 +139,16 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   );
   for (const rem of remittances) {
     if (rem.party !== "customer") continue;
+    if (
+      periodStart &&
+      periodEnd &&
+      (rem.date < periodStart || rem.date > addIsoDays(periodEnd, 14))
+    ) {
+      continue;
+    }
     const hasReceipt =
       matchedRefs.has(rem.reference) ||
+      matchedRefs.has(rem.id) ||
       transactions.some(
         (t) =>
           t.amount > 0 &&

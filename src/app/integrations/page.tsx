@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Card, ErrorNote, PageHeader, Spinner } from "@/components/ui";
 import { useFetch } from "@/lib/useFetch";
 
@@ -45,6 +47,32 @@ function StatusPill({ ok, label }: { ok: boolean; label: string }) {
 
 export default function IntegrationsPage() {
   const { data, error, loading } = useFetch<IntegrationStatus>("/api/integrations");
+  const reference = useFetch<{
+    salesOrders: number;
+    purchaseOrders: number;
+    remittances: number;
+    provider: string;
+  }>("/api/reference");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  async function handleReferenceSync() {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch("/api/reference/ingest", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      setSyncMessage(
+        `Loaded ${json.purchaseOrders} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.`,
+      );
+      reference.reload();
+    } catch (err) {
+      setSyncMessage(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
     <div>
@@ -158,6 +186,54 @@ export default function IntegrationsPage() {
               Set DATABASE_URL (Neon or Postgres) and run{" "}
               <code>npm run db:migrate</code> to activate.
             </p>
+          </Card>
+
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">
+                Reference documents
+              </h2>
+              <button
+                type="button"
+                onClick={handleReferenceSync}
+                disabled={syncing}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {syncing ? "Loading…" : "Load from bucket"}
+              </button>
+            </div>
+            <p className="text-sm text-slate-600">
+              UK AP invoices, sales orders, and remittances from{" "}
+              <span className="font-medium text-slate-900">
+                aggCenter/APInvoices
+              </span>
+              ,{" "}
+              <span className="font-medium text-slate-900">
+                aggCenter/salesOrder
+              </span>{" "}
+              and{" "}
+              <span className="font-medium text-slate-900">
+                aggCenter/remittance
+              </span>
+              . AP rows keep taxation country GB; remittances keep OU ResMed UK.
+            </p>
+            <dl className="mt-4 space-y-1 text-sm">
+              <Row
+                label="UK remittances"
+                value={String(reference.data?.remittances ?? "—")}
+              />
+              <Row
+                label="UK AP invoices"
+                value={String(reference.data?.purchaseOrders ?? "—")}
+              />
+              <Row
+                label="Sales orders"
+                value={String(reference.data?.salesOrders ?? "—")}
+              />
+            </dl>
+            {syncMessage ? (
+              <p className="mt-3 text-xs text-slate-500">{syncMessage}</p>
+            ) : null}
           </Card>
 
           <Card>

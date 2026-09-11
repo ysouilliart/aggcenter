@@ -27,7 +27,7 @@ export default function AnomaliesPage() {
   const { data, error, loading } = useFetch<{ anomalies: Anomaly[] }>(
     "/api/anomalies",
   );
-  const [currency, setCurrency] = useState("all");
+  const [currency, setCurrency] = useState("GBP");
   const anomalies = useMemo(() => data?.anomalies ?? [], [data]);
   const currencies = useMemo(() => {
     const found = [

@@ -5,6 +5,7 @@ import { getDataSource } from "./datasource";
 import { getStorageProvider } from "./storage";
 import type { StoredObject } from "./storage";
 import { getStatementRepository } from "./statements";
+import { getReferenceRepository } from "./reference/repository";
 import { isDatabaseConfigured } from "./db/client";
 import { parseBankStatementCsv } from "./parse/bankStatement";
 import { reconcile, summarize } from "./recon/reconcile";
@@ -16,7 +17,10 @@ import type {
   BankTransaction,
   CashPosition,
   ParseJob,
+  PurchaseOrder,
   ReconciliationResult,
+  Remittance,
+  SalesOrder,
   Statement,
 } from "./domain/types";
 
@@ -161,17 +165,44 @@ export async function addUploadedStatement(
   return { statement, errors };
 }
 
+async function getExpectedDocuments(): Promise<{
+  salesOrders: SalesOrder[];
+  purchaseOrders: PurchaseOrder[];
+  remittances: Remittance[];
+}> {
+  const ds = getDataSource();
+  const repo = getReferenceRepository();
+  const [salesOrders, purchaseOrders, remittances, persisted] = await Promise.all([
+    ds.getSalesOrders(),
+    ds.getPurchaseOrders(),
+    ds.getRemittances(),
+    Promise.all([
+      repo.listSalesOrders(),
+      repo.listPurchaseOrders(),
+      repo.listRemittances(),
+    ]).then(([so, po, rem]) => ({ so, po, rem })),
+  ]);
+  return {
+    salesOrders: [...salesOrders, ...persisted.so],
+    purchaseOrders: [...purchaseOrders, ...persisted.po],
+    remittances: [...remittances, ...persisted.rem],
+  };
+}
+
 export async function getReconciliation(): Promise<{
   results: ReconciliationResult[];
   summary: ReturnType<typeof summarize>;
 }> {
-  const ds = getDataSource();
-  const [transactions, salesOrders, purchaseOrders] = await Promise.all([
+  const [transactions, expected] = await Promise.all([
     getAllTransactions(),
-    ds.getSalesOrders(),
-    ds.getPurchaseOrders(),
+    getExpectedDocuments(),
   ]);
-  const results = reconcile({ transactions, salesOrders, purchaseOrders });
+  const results = reconcile({
+    transactions,
+    salesOrders: expected.salesOrders,
+    purchaseOrders: expected.purchaseOrders,
+    remittances: expected.remittances,
+  });
   return { results, summary: summarize(results) };
 }
 
@@ -212,17 +243,16 @@ function ensureAccountsForTransactions(
 }
 
 export async function getAnomalies(): Promise<Anomaly[]> {
-  const ds = getDataSource();
-  const [transactions, remittances, accounts, recon] = await Promise.all([
+  const [transactions, expected, accounts, recon] = await Promise.all([
     getAllTransactions(),
-    ds.getRemittances(),
+    getExpectedDocuments(),
     getAccounts(),
     getReconciliation(),
   ]);
   return detectAnomalies({
     transactions,
     reconciliation: recon.results,
-    remittances,
+    remittances: expected.remittances,
     accounts: ensureAccountsForTransactions(accounts, transactions),
   });
 }

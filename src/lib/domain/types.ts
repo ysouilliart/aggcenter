@@ -72,6 +72,11 @@ export interface PurchaseOrder {
   orderDate: string;
   dueDate: string;
   status: "open" | "billed" | "paid" | "cancelled";
+  /** Supplier invoice number when this row came from an AP extract. */
+  invoiceNumber?: string;
+  poNumbers?: string[];
+  operatingUnit?: string;
+  country?: string;
 }
 
 export interface SalesOrder {
@@ -82,6 +87,8 @@ export interface SalesOrder {
   orderDate: string;
   dueDate: string;
   status: "open" | "invoiced" | "collected" | "cancelled";
+  customerPo?: string;
+  operatingUnit?: string;
 }
 
 export interface Remittance {
@@ -94,6 +101,10 @@ export interface Remittance {
   amount: number;
   currency: Currency;
   date: string;
+  remittanceNumber?: string;
+  invoiceNumbers?: string[];
+  operatingUnit?: string;
+  status?: string;
 }
 
 export type ParseStatus = "parsed" | "partial" | "failed";

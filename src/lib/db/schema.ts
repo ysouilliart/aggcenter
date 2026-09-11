@@ -129,8 +129,64 @@ export const parseEvents = cashSchema.table(
   (t) => [index("parse_events_job_id_idx").on(t.jobId)],
 );
 
+export const salesOrders = cashSchema.table(
+  "sales_orders",
+  {
+    id: text("id").primaryKey(),
+    customer: text("customer").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    currency: text("currency").notNull(),
+    orderDate: text("order_date").notNull(),
+    dueDate: text("due_date").notNull(),
+    status: text("status").notNull(),
+    customerPo: text("customer_po"),
+    operatingUnit: text("operating_unit"),
+    source: text("source").notNull().default("oci-uk"),
+  },
+);
+
+export const purchaseOrders = cashSchema.table(
+  "purchase_orders",
+  {
+    id: text("id").primaryKey(),
+    vendor: text("vendor").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    currency: text("currency").notNull(),
+    orderDate: text("order_date").notNull(),
+    dueDate: text("due_date").notNull(),
+    status: text("status").notNull(),
+    invoiceNumber: text("invoice_number"),
+    poNumbers: text("po_numbers"),
+    operatingUnit: text("operating_unit"),
+    country: text("country"),
+    source: text("source").notNull().default("oci-uk"),
+  },
+);
+
+export const remittances = cashSchema.table(
+  "remittances",
+  {
+    id: text("id").primaryKey(),
+    party: text("party").notNull(),
+    name: text("name").notNull(),
+    reference: text("reference").notNull().default(""),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    currency: text("currency").notNull(),
+    date: text("date").notNull(),
+    remittanceNumber: text("remittance_number"),
+    invoiceNumbers: text("invoice_numbers"),
+    operatingUnit: text("operating_unit"),
+    status: text("status"),
+    source: text("source").notNull().default("oci-uk"),
+  },
+  (t) => [index("remittances_currency_date_idx").on(t.currency, t.date)],
+);
+
 export type BankAccountRow = typeof bankAccounts.$inferSelect;
 export type StatementRow = typeof statements.$inferSelect;
 export type BankTransactionRow = typeof bankTransactions.$inferSelect;
 export type ParseJobRow = typeof parseJobs.$inferSelect;
 export type ParseEventRow = typeof parseEvents.$inferSelect;
+export type SalesOrderRow = typeof salesOrders.$inferSelect;
+export type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
+export type RemittanceRow = typeof remittances.$inferSelect;

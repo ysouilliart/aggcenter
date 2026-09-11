@@ -52,6 +52,9 @@ export interface AppConfig {
   statementCsvPrefix: string;
   /** PDF ingest prefix (`aggCenter/bankStatements/<bankCode>/<file>.pdf`). */
   statementPdfPrefix: string;
+  referenceApPrefix: string;
+  referenceSalesOrderPrefix: string;
+  referenceRemittancePrefix: string;
 }
 
 function bool(value: string | undefined): boolean {
@@ -130,6 +133,15 @@ export function getConfig(): AppConfig {
     ),
     statementPdfPrefix: withTrailingSlash(
       process.env.STATEMENT_PDF_PREFIX || "aggCenter/bankStatements",
+    ),
+    referenceApPrefix: withTrailingSlash(
+      process.env.REFERENCE_AP_PREFIX || "aggCenter/APInvoices",
+    ),
+    referenceSalesOrderPrefix: withTrailingSlash(
+      process.env.REFERENCE_SO_PREFIX || "aggCenter/salesOrder",
+    ),
+    referenceRemittancePrefix: withTrailingSlash(
+      process.env.REFERENCE_REMITTANCE_PREFIX || "aggCenter/remittance",
     ),
   };
 }

@@ -192,6 +192,31 @@ export interface ParseJob {
 export type MatchStatus = "matched" | "partial" | "unmatched";
 export type MatchedDocType = "SO" | "PO" | "remittance";
 
+/** Winning (or last) lookup pattern used for a bank line. */
+export type MatchPattern =
+  | "so_po_id"
+  | "po_invoice_number"
+  | "remittance_invoice_ref"
+  | "remittance_amount_window"
+  | "remittance_amount_name"
+  | "so_po_unique_amount"
+  | "exhausted";
+
+/** What was searched, how, and whether SO / remittance / PO rows were found. */
+export interface MatchLookup {
+  /** Bank fields (and tokens) used as the source of the lookup. */
+  source: string;
+  /** Expected-side pool searched (SO/PO + remittance, currency, counts). */
+  target: string;
+  /** Lookup steps tried, with hit counts. */
+  approach: string;
+  soFound: boolean;
+  remittanceFound: boolean;
+  poFound: boolean;
+  candidateCount: number;
+  tokens: string[];
+}
+
 export interface ReconciliationResult {
   transactionId: string;
   accountId: string;
@@ -206,7 +231,12 @@ export interface ReconciliationResult {
   confidence: number;
   /** Signed difference between bank amount and matched document amount. */
   amountDiff: number;
+  /** Human-readable diagnostic lines (pattern, source, target, found, next). */
   reasons: string[];
+  matchPattern?: MatchPattern;
+  lookup?: MatchLookup;
+  /** Proposed next step when status is partial or unmatched. */
+  remediation?: string;
 }
 
 export type AnomalySeverity = "high" | "medium" | "low";

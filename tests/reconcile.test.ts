@@ -56,6 +56,11 @@ describe("reconcile", () => {
     expect(r.matchedType).toBe("SO");
     expect(r.matchedId).toBe("SO-1");
     expect(r.confidence).toBeGreaterThan(0.9);
+    expect(r.matchPattern).toBe("so_po_id");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.remittanceFound).toBe(false);
+    expect(r.reasons[0]).toMatch(/SO\/PO id token/);
+    expect(r.remediation).toBeUndefined();
   });
 
   it("flags a reference match with wrong amount as partial", () => {
@@ -66,6 +71,9 @@ describe("reconcile", () => {
     });
     expect(r.status).toBe("partial");
     expect(r.amountDiff).toBe(-100);
+    expect(r.matchPattern).toBe("so_po_id");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.remediation).toMatch(/partial collection|FX/);
   });
 
   it("matches a debit to a purchase order", () => {
@@ -88,6 +96,9 @@ describe("reconcile", () => {
     expect(r.status).toBe("matched");
     expect(r.matchedId).toBe("SO-1");
     expect(r.confidence).toBeCloseTo(0.7);
+    expect(r.matchPattern).toBe("so_po_unique_amount");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.source).toMatch(/no invoice token/);
   });
 
   it("marks an ambiguous amount match (multiple candidates) as partial", () => {
@@ -102,7 +113,11 @@ describe("reconcile", () => {
     });
     expect(r.status).toBe("partial");
     expect(r.matchedId).toBeUndefined();
-    expect(r.reasons[0]).toMatch(/ambiguous/);
+    expect(r.matchPattern).toBe("exhausted");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.candidateCount).toBe(2);
+    expect(r.remediation).toMatch(/ambiguous/);
+    expect(r.reasons.join(" ")).toMatch(/ambiguous/);
   });
 
   it("marks a transaction with no candidate as unmatched", () => {
@@ -112,6 +127,12 @@ describe("reconcile", () => {
       purchaseOrders,
     });
     expect(r.status).toBe("unmatched");
+    expect(r.matchPattern).toBe("exhausted");
+    expect(r.lookup?.soFound).toBe(false);
+    expect(r.lookup?.remittanceFound).toBe(false);
+    expect(r.lookup?.source).toMatch(/no invoice token/);
+    expect(r.lookup?.target).toMatch(/SO USD/);
+    expect(r.remediation).toMatch(/payroll\/tax\/internal|missing remittance/);
   });
 
   it("summarizes counts and value-weighted match rate", () => {

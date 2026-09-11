@@ -17,6 +17,17 @@ function statusFrom(inactiveDate: string | undefined, explicit?: string): Suppli
   return blank(inactiveDate) ? "inactive" : "active";
 }
 
+function uniqueId(base: string, used: Set<string>): string {
+  let id = base || "site";
+  let n = 2;
+  while (used.has(id)) {
+    id = `${base}-${n}`;
+    n += 1;
+  }
+  used.add(id);
+  return id;
+}
+
 function slug(value: string): string {
   const s = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return s.slice(0, 40) || "site";
@@ -102,6 +113,7 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
   const suppliers = new Map<string, Supplier>();
   const outSites: SupplierSite[] = [];
   const usedVatKeys = new Set<string>();
+  const usedSiteIds = new Set<string>();
 
   function upsertSupplier(partial: Omit<Supplier, "version" | "updatedAt"> & { version?: number }): Supplier {
     const existing = suppliers.get(partial.id);
@@ -128,7 +140,10 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
 
   for (const row of sites) {
     const vid = blank(row.vid);
-    const sid = blank(row.sid) || `${vid}-${slug(blank(row.supplier_site))}`;
+    const sid = uniqueId(
+      blank(row.sid) || `${vid}-${slug(blank(row.supplier_site))}`,
+      usedSiteIds,
+    );
     const profile = profileByVid.get(vid);
     const supplierNumber = blank(profile?.supplier_number);
     const address =
@@ -213,7 +228,7 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
       seenSites.add(key);
       const rowVat = pickVat([row]);
       outSites.push({
-        id: `VAT-${num}-${slug(code)}`,
+        id: uniqueId(`VAT-${num}-${slug(code)}`, usedSiteIds),
         supplierId: supplier.id,
         siteCode: code,
         addressName: code,

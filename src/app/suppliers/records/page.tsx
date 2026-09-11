@@ -17,6 +17,11 @@ import type {
 } from "@/lib/suppliers/types";
 import { useFetch } from "@/lib/useFetch";
 
+const SOURCE_FILTERS: { id: string; label: string }[] = [
+  { id: "oci-supplier", label: "Conversion" },
+  { id: "", label: "All sources" },
+];
+
 const ISSUE_FILTERS: { id: "" | "any" | SupplierIssueType; label: string }[] = [
   { id: "", label: "All" },
   { id: "any", label: "Has issues" },
@@ -35,15 +40,17 @@ function dash(value: string | undefined): string {
 export default function SupplierRecordsPage() {
   const [q, setQ] = useState("");
   const [issue, setIssue] = useState<"" | "any" | SupplierIssueType>("any");
+  const [source, setSource] = useState("oci-supplier");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const url = useMemo(() => {
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
     if (issue) params.set("issue", issue);
+    if (source) params.set("source", source);
     params.set("limit", "200");
     return `/api/suppliers?${params.toString()}`;
-  }, [q, issue]);
+  }, [q, issue, source]);
 
   const list = useFetch<ListResponse>(url);
   const records = list.data?.records ?? [];
@@ -62,6 +69,20 @@ export default function SupplierRecordsPage() {
           placeholder="Search name, number, VAT, city…"
           className="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
         />
+        <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
+          {SOURCE_FILTERS.map((f) => (
+            <button
+              key={f.id || "all-sources"}
+              type="button"
+              onClick={() => setSource(f.id)}
+              className={`rounded-md px-3 py-1 font-medium ${
+                source === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
           {ISSUE_FILTERS.map((f) => (
             <button

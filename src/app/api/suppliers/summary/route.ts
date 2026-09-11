@@ -5,9 +5,10 @@ import { getSupplierWorkspace } from "@/lib/suppliers/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const source = new URL(request.url).searchParams.get("source") ?? undefined;
   try {
-    const { summary } = await getSupplierWorkspace();
+    const { summary } = await getSupplierWorkspace(source);
     return NextResponse.json(summary);
   } catch (err) {
     return NextResponse.json(

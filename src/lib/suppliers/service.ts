@@ -23,16 +23,19 @@ export interface SupplierListResult {
   records: SupplierRecord[];
 }
 
-export async function getSupplierWorkspace(): Promise<{
+export async function getSupplierWorkspace(source?: string): Promise<{
   records: SupplierRecord[];
   summary: SupplierSummary;
 }> {
   const repo = getSupplierRepository();
-  const [suppliers, sites, meta] = await Promise.all([
+  const [allSuppliers, allSites, meta] = await Promise.all([
     repo.listSuppliers(),
     repo.listSites(),
     repo.meta(),
   ]);
+  const sites = source ? allSites.filter((s) => s.source === source) : allSites;
+  const supplierIds = new Set(sites.map((s) => s.supplierId));
+  const suppliers = allSuppliers.filter((s) => supplierIds.has(s.id));
   const analysed = analyseSuppliers({ suppliers, sites });
   return {
     records: analysed.records,
@@ -47,7 +50,7 @@ export async function getSupplierWorkspace(): Promise<{
 export async function listSupplierRecords(
   query: SupplierListQuery = {},
 ): Promise<SupplierListResult> {
-  const { records } = await getSupplierWorkspace();
+  const { records } = await getSupplierWorkspace(query.source);
   const q = query.q?.trim().toLowerCase();
   const filtered = records.filter((r) => {
     if (query.issue === "any" && r.issues.length === 0) return false;

@@ -262,6 +262,34 @@ describe("mapSupplierExtracts", () => {
     expect(mapped.sites[0].id).toContain("VAT-28888");
     expect(mapped.suppliers[0].supplierVat).toBe("GB798912755");
   });
+
+  it("disambiguates VAT site ids that slug to the same value", () => {
+    const mapped = mapSupplierExtracts({
+      profiles: [],
+      sites: [],
+      addresses: [],
+      vat: [
+        {
+          supplier_number: "32233",
+          vendor_site_code: "Saint Priest",
+          supplier_name: "Dup",
+          supplier_vat: "FR92429771363",
+          site_vat: "",
+          operating_unit: "OU: ResMed EPN",
+        },
+        {
+          supplier_number: "32233",
+          vendor_site_code: "Saint-Priest",
+          supplier_name: "Dup",
+          supplier_vat: "FR92429771363",
+          site_vat: "",
+          operating_unit: "OU: ResMed EPN - Italy",
+        },
+      ],
+    });
+    const ids = mapped.sites.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });
 
 describe("applyUpdate + local repository", () => {

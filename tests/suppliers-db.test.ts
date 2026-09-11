@@ -68,12 +68,45 @@ run("PostgresSupplierRepository (aggc-supplier schema)", () => {
     await cleanup();
   });
 
-  it("persists working copy, versions and audit on update", async () => {
-    await repo.replaceWorkingCopy({
-      suppliers: [supplier],
-      sites: [site],
-      files: [{ key: "supplier/test.csv", rows: 1 }],
-    }, "ingest-suppliers-db");
+  it("persists versions and audit on update without wiping other rows", async () => {
+    const { getDb } = await import("@/lib/db/client");
+    const schema = await import("@/lib/db/schema");
+    const db = getDb();
+    await db.insert(schema.suppliers).values({
+      id: supplier.id,
+      supplierNumber: supplier.supplierNumber,
+      name: supplier.name,
+      type: supplier.type,
+      status: supplier.status,
+      supplierVat: supplier.supplierVat,
+      taxRegistrationNumber: supplier.taxRegistrationNumber,
+      taxpayerId: supplier.taxpayerId,
+      oneTime: "N",
+      source: supplier.source,
+      version: supplier.version,
+      updatedAt: supplier.updatedAt,
+    });
+    await db.insert(schema.supplierSites).values({
+      id: site.id,
+      supplierId: site.supplierId,
+      siteCode: site.siteCode,
+      addressName: site.addressName,
+      procurementBu: site.procurementBu,
+      paymentTerms: site.paymentTerms,
+      payGroup: site.payGroup,
+      paymentMethod: site.paymentMethod,
+      invoiceCurrency: site.invoiceCurrency,
+      paymentCurrency: site.paymentCurrency,
+      country: site.country,
+      addressLine1: site.addressLine1,
+      city: site.city,
+      postalCode: site.postalCode,
+      siteVat: site.siteVat,
+      source: site.source,
+      version: site.version,
+      updatedAt: site.updatedAt,
+    });
+
     const listed = await repo.listSites();
     expect(listed.some((s) => s.id === "SITE-test-1")).toBe(true);
 

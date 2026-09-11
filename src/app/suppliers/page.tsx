@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   Card,
@@ -15,7 +15,12 @@ import { formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
 
 export default function SupplierOverviewPage() {
-  const summary = useFetch<SupplierSummary>("/api/suppliers/summary");
+  const [source, setSource] = useState<"oci-supplier" | "">("oci-supplier");
+  const summaryUrl = useMemo(
+    () => (source ? `/api/suppliers/summary?source=${encodeURIComponent(source)}` : "/api/suppliers/summary"),
+    [source],
+  );
+  const summary = useFetch<SupplierSummary>(summaryUrl);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -57,6 +62,27 @@ export default function SupplierOverviewPage() {
           </button>
         }
       />
+
+      <div className="mb-4 flex rounded-lg border border-slate-200 bg-white p-1 text-sm w-fit">
+        <button
+          type="button"
+          onClick={() => setSource("oci-supplier")}
+          className={`rounded-md px-3 py-1 font-medium ${
+            source === "oci-supplier" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          Conversion extract
+        </button>
+        <button
+          type="button"
+          onClick={() => setSource("")}
+          className={`rounded-md px-3 py-1 font-medium ${
+            source === "" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          All sources
+        </button>
+      </div>
 
       {summary.loading ? <Spinner /> : null}
       {summary.error ? <ErrorNote message={summary.error} /> : null}

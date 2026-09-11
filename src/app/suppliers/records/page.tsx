@@ -355,6 +355,57 @@ function RecordEditor({
           <p className="text-sm text-emerald-700">No outstanding issues on this record.</p>
         )}
 
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              EU VIES
+            </span>
+            <VatCheckBadge validity={vatCheck?.validity} />
+          </div>
+          {vatCheck ? (
+            <div className="space-y-1 text-sm text-slate-700">
+              <p>{vatCheck.message}</p>
+              {vatCheck.registeredName ? (
+                <p>
+                  Registered name: {vatCheck.registeredName}
+                  <button
+                    type="button"
+                    className="ml-2 text-xs font-medium text-indigo-700 hover:underline"
+                    onClick={applyRegisteredName}
+                  >
+                    Apply name
+                  </button>
+                </p>
+              ) : null}
+              {vatCheck.registeredAddress ? (
+                <p>
+                  Registered address: {vatCheck.registeredAddress}
+                  <button
+                    type="button"
+                    className="ml-2 text-xs font-medium text-indigo-700 hover:underline"
+                    onClick={applyRegisteredAddress}
+                  >
+                    Apply address
+                  </button>
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Check this VAT ID against the official EU VIES registry (registered name and
+              address when the member state publishes them).
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={validateVat}
+            disabled={checkingVat}
+            className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+          >
+            {checkingVat ? "Checking VIES…" : "Validate VAT with VIES"}
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name" value={draft.name ?? ""} onChange={(v) => field("name", v)} />
           <Field label="Type" value={draft.type ?? ""} onChange={(v) => field("type", v)} />
@@ -415,66 +466,14 @@ function RecordEditor({
         {error ? <ErrorNote message={error} /> : null}
         {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              EU VIES
-            </span>
-            <VatCheckBadge validity={vatCheck?.validity} />
-          </div>
-          {vatCheck ? (
-            <div className="space-y-1 text-sm text-slate-700">
-              {vatCheck.registeredName ? (
-                <p>
-                  Registered name: {vatCheck.registeredName}
-                  <button
-                    type="button"
-                    className="ml-2 text-xs font-medium text-indigo-700 hover:underline"
-                    onClick={applyRegisteredName}
-                  >
-                    Apply name
-                  </button>
-                </p>
-              ) : null}
-              {vatCheck.registeredAddress ? (
-                <p>
-                  Registered address: {vatCheck.registeredAddress}
-                  <button
-                    type="button"
-                    className="ml-2 text-xs font-medium text-indigo-700 hover:underline"
-                    onClick={applyRegisteredAddress}
-                  >
-                    Apply address
-                  </button>
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">
-              Check this VAT ID against the official EU VIES registry (registered name and
-              address when the member state publishes them).
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save new version"}
-          </button>
-          <button
-            type="button"
-            onClick={validateVat}
-            disabled={checkingVat}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
-          >
-            {checkingVat ? "Checking VIES…" : "Validate VAT with VIES"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save new version"}
+        </button>
       </div>
     </Card>
   );

@@ -26,22 +26,22 @@ interface ReviewResponse {
 export default function SupplierReviewPage() {
   const state = useFetch<ReviewResponse>("/api/suppliers/review");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
+  const [checking, setChecking] = useState<string | null>(null);
   const [batchMessage, setBatchMessage] = useState<string | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
 
   const items = state.data?.items ?? [];
   const selected = items.find((i) => i.id === selectedId) ?? items[0] ?? null;
 
-  async function validateIds(ids: string[]) {
-    setChecking(true);
+  async function validateIds(ids: string[], scope?: "supplier" | "site") {
+    setChecking(scope ?? "batch");
     setBatchError(null);
     setBatchMessage(null);
     try {
       const res = await fetch("/api/suppliers/review/vat-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, actor: "operator" }),
+        body: JSON.stringify({ ids, actor: "operator", scope }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "VAT check failed");
@@ -56,7 +56,7 @@ export default function SupplierReviewPage() {
     } catch (err) {
       setBatchError(err instanceof Error ? err.message : "VAT check failed");
     } finally {
-      setChecking(false);
+      setChecking(null);
     }
   }
 
@@ -69,10 +69,10 @@ export default function SupplierReviewPage() {
           <button
             type="button"
             onClick={() => validateIds(items.map((i) => i.id))}
-            disabled={checking || items.length === 0}
+            disabled={Boolean(checking) || items.length === 0}
             className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
           >
-            {checking ? "Checking VIES…" : "Validate VAT on listed records"}
+            {checking === "batch" ? "Checking VIES…" : "Validate VAT on listed records"}
           </button>
         }
       />
@@ -98,6 +98,7 @@ export default function SupplierReviewPage() {
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3 font-medium">Supplier</th>
                     <th className="px-4 py-3 font-medium">Changed</th>
+                    <th className="px-4 py-3 font-medium">VAT IDs</th>
                     <th className="px-4 py-3 font-medium">VAT registry</th>
                     <th className="px-4 py-3 font-medium">Updated</th>
                   </tr>
@@ -122,8 +123,17 @@ export default function SupplierReviewPage() {
                         <td className="px-4 py-2 text-xs text-slate-600">
                           {item.changes.map((c) => fieldLabel(c.field)).join(", ")}
                         </td>
+                        <td className="px-4 py-2 font-mono text-[11px] text-slate-700">
+                          <div>Sup {dash(item.supplier.supplierVat)}</div>
+                          <div>Site {dash(item.site.siteVat)}</div>
+                        </td>
                         <td className="px-4 py-2">
                           <VatCheckBadge validity={item.vatCheck?.validity} />
+                          {item.vatCheck?.vatScope ? (
+                            <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">
+                              {item.vatCheck.vatScope} VAT
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-4 py-2 text-xs text-slate-500">
                           {formatDate(item.lastUpdatedAt)}
@@ -141,7 +151,7 @@ export default function SupplierReviewPage() {
             <ReviewDetail
               item={selected}
               checking={checking}
-              onValidate={() => validateIds([selected.id])}
+              onValidate={(scope) => validateIds([selected.id], scope)}
             />
           ) : null}
         </div>
@@ -156,11 +166,13 @@ function ReviewDetail({
   onValidate,
 }: {
   item: SupplierReviewItem;
-  checking: boolean;
-  onValidate: () => void;
+  checking: string | null;
+  onValidate: (scope: "supplier" | "site") => void;
 }) {
   const check = item.vatCheck;
   const parsed = check?.registeredAddress ? parseViesAddress(check.registeredAddress) : {};
+  const supplierVat = item.supplier.supplierVat.trim();
+  const siteVat = item.site.siteVat.trim();
 
   return (
     <Card className="p-0">
@@ -202,11 +214,16 @@ function ReviewDetail({
             <VatCheckBadge validity={check?.validity} />
           </div>
           <p className="font-mono text-xs text-slate-700">
-            {dash(item.site.siteVat || item.supplier.supplierVat)}
+            Supplier {dash(supplierVat)} · Site {dash(siteVat)}
           </p>
           {check ? (
             <div className="mt-2 space-y-1 text-sm text-slate-700">
-              <p>{check.message}</p>
+              <p>
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {check.vatScope ?? "VAT"} check ·{" "}
+                </span>
+                {check.message}
+              </p>
               {check.registeredName ? (
                 <p>
                   <span className="text-xs font-medium text-slate-500">Registered name · </span>
@@ -234,14 +251,24 @@ function ReviewDetail({
               address on file when the member state publishes them.
             </p>
           )}
-          <button
-            type="button"
-            onClick={onValidate}
-            disabled={checking}
-            className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
-          >
-            {checking ? "Checking…" : "Validate this VAT ID"}
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onValidate("supplier")}
+              disabled={Boolean(checking) || !supplierVat}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+            >
+              {checking === "supplier" ? "Checking…" : "Validate supplier VAT"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onValidate("site")}
+              disabled={Boolean(checking) || !siteVat}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+            >
+              {checking === "site" ? "Checking…" : "Validate site VAT"}
+            </button>
+          </div>
         </div>
       </div>
     </Card>

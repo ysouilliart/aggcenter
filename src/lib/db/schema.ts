@@ -279,6 +279,7 @@ export const supplierVatChecks = supplierSchema.table(
     siteId: text("site_id").notNull(),
     supplierId: text("supplier_id").notNull(),
     vatNumber: text("vat_number").notNull(),
+    vatScope: text("vat_scope").notNull().default("site"),
     countryCode: text("country_code").notNull(),
     validity: text("validity").notNull(),
     registeredName: text("registered_name"),

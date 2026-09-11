@@ -7,7 +7,7 @@ import { assessAddress } from "@/lib/suppliers/address";
 import { analyseSuppliers } from "@/lib/suppliers/analyse";
 import { mapSupplierExtracts } from "@/lib/suppliers/fromExtracts";
 import { ingestSuppliers } from "@/lib/suppliers/ingest";
-import { assessRationalisation, canonicalPaymentTerms } from "@/lib/suppliers/rationalise";
+import { assessRationalisation, canonicalPaymentTerms, isStandardPaymentTerms } from "@/lib/suppliers/rationalise";
 import {
   LocalJsonSupplierRepository,
   applyUpdate,
@@ -19,6 +19,7 @@ import {
   checkVatWithVies,
   compareTraderDetails,
   parseViesAddress,
+  vatRequestForRecord,
   viesEndpoint,
 } from "@/lib/suppliers/vies";
 import { buildReviewItems, netFieldChanges } from "@/lib/suppliers/review";
@@ -109,6 +110,13 @@ describe("rationalisation", () => {
     expect(canonicalPaymentTerms("30 jours FM")).toBe("30 Days EOM");
     expect(canonicalPaymentTerms("Sofort")).toBe("Immediate");
     expect(canonicalPaymentTerms("30 TN")).toBe("30 Days");
+  });
+
+  it("treats only 7/14/30/45 Days as save-panel standard terms", () => {
+    expect(isStandardPaymentTerms("30 Days")).toBe(true);
+    expect(isStandardPaymentTerms("7 Days")).toBe(true);
+    expect(isStandardPaymentTerms("30 Days EOM")).toBe(false);
+    expect(isStandardPaymentTerms("30 jours FM")).toBe(false);
   });
 
   it("flags a rare pay group", () => {
@@ -349,6 +357,7 @@ describe("applyUpdate + local repository", () => {
       supplierId: "1",
       vatNumber: "NL814016479B01",
       countryCode: "NL",
+      vatScope: "site",
       validity: "valid",
       registeredName: "CMS DERKS STAR BUSMANN N.V.",
       registeredAddress: "PARNASSUSWEG 00737 / 1077DG AMSTERDAM",
@@ -369,6 +378,17 @@ describe("applyUpdate + local repository", () => {
         fields: { paymentTerms: "30 Days" },
       }),
     ).toThrow(/No changes/);
+  });
+
+  it("sets an inactive date on the site", () => {
+    const result = applyUpdate(supplier({ id: "1" }), site({ id: "s1", supplierId: "1" }), {
+      fields: { inactiveDate: "2026-09-11" },
+      reason: "Make site inactive",
+    });
+    expect(result.site.inactiveDate).toBe("2026-09-11");
+    expect(result.audit.some((e) => e.field === "inactiveDate" && e.newValue === "2026-09-11")).toBe(
+      true,
+    );
   });
 });
 
@@ -577,6 +597,22 @@ describe("VIES client", () => {
     );
     expect(result.status).toBe("inconclusive");
     expect(result.message).toMatch(/MS_UNAVAILABLE/);
+  });
+
+  it("builds a VIES request for supplier vs site VAT", () => {
+    const sup = supplier({ id: "1", supplierVat: "NL814016479B01" });
+    const s = site({ id: "s1", supplierId: "1", siteVat: "FR92429771363" });
+    expect(vatRequestForRecord(sup, s, "supplier")).toMatchObject({
+      countryCode: "NL",
+      vatNumber: "814016479B01",
+    });
+    expect(vatRequestForRecord(sup, s, "site")).toMatchObject({
+      countryCode: "FR",
+      vatNumber: "92429771363",
+    });
+    expect(vatRequestForRecord(sup, { ...s, siteVat: "" }, "site")).toMatchObject({
+      error: expect.stringMatching(/site VAT/i),
+    });
   });
 });
 

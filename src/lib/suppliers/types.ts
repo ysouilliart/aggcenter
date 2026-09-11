@@ -157,7 +157,8 @@ export type SupplierPatchField =
   | "province"
   | "postalCode"
   | "siteVat"
-  | "email";
+  | "email"
+  | "inactiveDate";
 
 export const SUPPLIER_PATCH_FIELDS: readonly SupplierPatchField[] = [
   "name",
@@ -184,6 +185,7 @@ export const SUPPLIER_PATCH_FIELDS: readonly SupplierPatchField[] = [
   "postalCode",
   "siteVat",
   "email",
+  "inactiveDate",
 ] as const;
 
 export const SUPPLIER_HEADER_FIELDS: ReadonlySet<SupplierPatchField> = new Set([
@@ -214,6 +216,7 @@ export const SITE_FIELDS: ReadonlySet<SupplierPatchField> = new Set([
   "postalCode",
   "siteVat",
   "email",
+  "inactiveDate",
 ]);
 
 export interface SupplierUpdateInput {
@@ -227,10 +230,13 @@ export type VatCheckValidity = "valid" | "invalid" | "inconclusive" | "unsupport
 
 export type VatDetailMatch = "match" | "mismatch" | "unknown";
 
+export type VatScope = "supplier" | "site";
+
 export interface SupplierVatCheck {
   id: string;
   siteId: string;
   supplierId: string;
+  vatScope: VatScope;
   vatNumber: string;
   countryCode: string;
   validity: VatCheckValidity;

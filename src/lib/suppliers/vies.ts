@@ -14,7 +14,7 @@
  */
 
 import { getConfig } from "../config";
-import type { Supplier, SupplierSite, VatDetailMatch } from "./types";
+import type { Supplier, SupplierSite, VatDetailMatch, VatScope } from "./types";
 import { normalizeVat, splitVatNumber } from "./vat";
 import { compareTraderDetails } from "./viesCompare";
 
@@ -271,11 +271,15 @@ export async function checkVatWithVies(
 export function vatRequestForRecord(
   supplier: Supplier,
   site: SupplierSite,
+  scope: VatScope,
 ): ViesCheckRequest | { error: string } {
-  const vat = blank(site.siteVat) || blank(supplier.supplierVat);
-  if (!vat) return { error: "This record has no VAT ID to validate." };
+  const vat = scope === "site" ? blank(site.siteVat) : blank(supplier.supplierVat);
+  const label = scope === "site" ? "site" : "supplier";
+  if (!vat) return { error: `This record has no ${label} VAT ID to validate.` };
   const split = splitVatNumber(vat, site.country);
-  if (!split) return { error: `Cannot parse VAT ID “${vat}” into a country code and number.` };
+  if (!split) {
+    return { error: `Cannot parse ${label} VAT ID “${vat}” into a country code and number.` };
+  }
   return {
     countryCode: split.countryCode,
     vatNumber: split.vatNumber,

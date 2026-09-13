@@ -123,7 +123,7 @@ export default function SupplierFbdiPage() {
     <div>
       <PageHeader
         title="Supplier FBDI"
-        subtitle="Build Oracle Fusion Import Suppliers templates from the EBS extracts plus rationalised corrections. UPDATE is the normal action for cutover and cleanup (suppliers already in Fusion); save under aggcenter/FBDI/supplier/ for upload."
+        subtitle="Build Oracle Fusion Import Suppliers templates from the EBS extracts plus rationalised corrections, then save them under aggcenter/FBDI/supplier/ for upload"
         actions={
           <button
             type="button"

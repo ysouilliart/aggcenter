@@ -34,6 +34,11 @@ const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> 
       label: "Audit",
       icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
     },
+    {
+      href: "/suppliers/fbdi",
+      label: "FBDI",
+      icon: "M14 3h7v7M14 10l7-7M5 12v7a2 2 0 002 2h10M5 8V5a2 2 0 012-2h5",
+    },
   ],
 };
 

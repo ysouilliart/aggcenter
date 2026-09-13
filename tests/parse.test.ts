@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCsv } from "@/lib/parse/csv";
+import { parseCsv, serializeCsv } from "@/lib/parse/csv";
 import { parseBankStatementCsv } from "@/lib/parse/bankStatement";
 
 describe("parseCsv", () => {
@@ -11,6 +11,16 @@ describe("parseCsv", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toEqual({ a: "1", b: "hello, world", c: 'say "hi"' });
     expect(rows[1]).toEqual({ a: "2", b: "x", c: "y" });
+  });
+
+  it("round-trips quoted fields through serializeCsv", () => {
+    const csv = serializeCsv(
+      ["a", "b"],
+      [{ a: "1", b: 'say "hi", please' }],
+      "\n",
+    );
+    expect(csv).toBe('a,b\n1,"say ""hi"", please"\n');
+    expect(parseCsv(csv)).toEqual([{ a: "1", b: 'say "hi", please' }]);
   });
 });
 

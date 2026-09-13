@@ -1,6 +1,11 @@
 export * from "./types";
 export { analyseSuppliers, issuesFor } from "./analyse";
 export { ingestSuppliers } from "./ingest";
+export {
+  buildSupplierFbdi,
+  saveSupplierFbdi,
+  listSupplierFbdiPackages,
+} from "./fbdi";
 export { getSupplierRepository } from "./repository";
 export { mapSupplierExtracts } from "./fromExtracts";
 export { assessVat, normalizeVat, splitVatNumber } from "./vat";

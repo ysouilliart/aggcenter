@@ -209,3 +209,14 @@ export async function checkSupplierVats(
 }
 
 export { ingestSuppliers };
+
+export {
+  buildSupplierFbdi,
+  saveSupplierFbdi,
+  listSupplierFbdiPackages,
+  publicFbdiBuild,
+  isFbdiDownloadKey,
+  type FbdiBuildOptions,
+  type FbdiScope,
+  type FbdiImportAction,
+} from "./fbdi";

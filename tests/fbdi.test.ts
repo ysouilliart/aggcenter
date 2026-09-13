@@ -141,6 +141,7 @@ describe("supplier FBDI builder", () => {
           invoice_match_option: "P",
           payment_priority: "99",
           terms_date_basis: "Invoice",
+          country_of_origin: "BE",
         },
       ],
       addresses: [
@@ -190,6 +191,7 @@ describe("supplier FBDI builder", () => {
     expect(sites[0]["invoice match option"]).toBe("P");
     expect(sites[0]["payment priority"]).toBe("99");
     expect(sites[0]["terms date basis"]).toBe("Invoice");
+    expect(sites[0]["country of origin"]).toBe("BE");
     expect(addresses[0].city).toBe("Utrecht");
     expect(addresses[0]["rfq or bidding"]).toBe("N");
     expect(addresses[0].ordering).toBe("Y");

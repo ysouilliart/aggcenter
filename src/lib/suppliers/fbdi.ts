@@ -467,7 +467,6 @@ function overlaySiteRow(
   overlayField(row, "pay_group", site.payGroup, overlays, "sites", key, track);
   overlayField(row, "payment_terms", site.paymentTerms, overlays, "sites", key, track);
   overlayField(row, "payment_method", site.paymentMethod, overlays, "sites", key, track);
-  overlayField(row, "country_of_origin", site.country, overlays, "sites", key, track);
   overlayField(row, "site_vat", site.siteVat, overlays, "sites", key, track);
   if (synthesized) {
     if (!row.purchasing) row.purchasing = "Y";

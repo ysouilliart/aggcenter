@@ -247,7 +247,11 @@ The package is saved under `aggcenter/FBDI/supplier/<batchId>/`:
 - `overlay-report.csv` and `manifest.json` — what changed versus source
 
 Override the output folder with `SUPPLIER_FBDI_PREFIX`. Scope can be all
-records, changed + new, or new-only; import action is CREATE or UPDATE.
+records, changed + new, or new-only. Import action defaults to **UPDATE**
+(the normal cutover/cleanup path for suppliers that already exist in Fusion).
+CREATE remains available for new-only / synthesized rows; Fusion will reject
+CREATE if the supplier number is already loaded. Synthesized rows with no
+extract match are always written as CREATE even inside an UPDATE package.
 
 ## Roadmap
 

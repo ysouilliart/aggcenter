@@ -58,9 +58,13 @@ const SCOPES: { id: FbdiScope; label: string }[] = [
 ];
 
 const ACTIONS: { id: FbdiImportAction; label: string }[] = [
-  { id: "CREATE", label: "CREATE" },
   { id: "UPDATE", label: "UPDATE" },
+  { id: "CREATE", label: "CREATE" },
 ];
+
+function suggestedImportAction(scope: FbdiScope): FbdiImportAction {
+  return scope === "new" ? "CREATE" : "UPDATE";
+}
 
 function dash(value: string | undefined): string {
   return value?.trim() ? value : "—";
@@ -74,7 +78,7 @@ function formatBytes(n: number): string {
 
 export default function SupplierFbdiPage() {
   const [scope, setScope] = useState<FbdiScope>("all");
-  const [importAction, setImportAction] = useState<FbdiImportAction>("CREATE");
+  const [importAction, setImportAction] = useState<FbdiImportAction>("UPDATE");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +123,7 @@ export default function SupplierFbdiPage() {
     <div>
       <PageHeader
         title="Supplier FBDI"
-        subtitle="Build Oracle Fusion Import Suppliers templates from the EBS extracts plus rationalised corrections, then save them under aggcenter/FBDI/supplier/ for upload"
+        subtitle="Build Oracle Fusion Import Suppliers templates from the EBS extracts plus rationalised corrections. UPDATE is the normal action for cutover and cleanup (suppliers already in Fusion); save under aggcenter/FBDI/supplier/ for upload."
         actions={
           <button
             type="button"
@@ -138,7 +142,10 @@ export default function SupplierFbdiPage() {
             <button
               key={s.id}
               type="button"
-              onClick={() => setScope(s.id)}
+              onClick={() => {
+                setScope(s.id);
+                setImportAction(suggestedImportAction(s.id));
+              }}
               className={`rounded-md px-3 py-1 font-medium ${
                 scope === s.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
               }`}
@@ -165,6 +172,19 @@ export default function SupplierFbdiPage() {
           {state.data ? `provider: ${state.data.provider}` : ""}
         </span>
       </div>
+
+      {importAction === "CREATE" ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          CREATE is only for suppliers that do not already exist in Fusion. Import
+          Suppliers will reject the row if the supplier number is already loaded.
+          UPDATE is the normal path for cutover and cleanup.
+        </div>
+      ) : (
+        <p className="mb-4 text-sm text-slate-600">
+          UPDATE is the normal import action for suppliers already in Fusion. Rows
+          with no extract match (new / synthesized) are still written as CREATE.
+        </p>
+      )}
 
       {state.loading ? <Spinner /> : null}
       {state.error ? <ErrorNote message={state.error} /> : null}
@@ -198,6 +218,8 @@ export default function SupplierFbdiPage() {
                 <dd className="font-mono text-xs">{preview.prefix}</dd>
                 <dt className="text-slate-500">Batch ID</dt>
                 <dd className="font-mono text-xs">{preview.batchId}</dd>
+                <dt className="text-slate-500">Import action</dt>
+                <dd>{preview.importAction}</dd>
                 <dt className="text-slate-500">Relationship</dt>
                 <dd>{preview.businessRelationship}</dd>
                 <dt className="text-slate-500">ZIP</dt>

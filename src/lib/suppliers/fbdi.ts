@@ -29,6 +29,18 @@ export const FBDI_ZIP_NAME = "PozSupplierImport.zip";
 export type FbdiScope = "all" | "changed" | "new";
 export type FbdiImportAction = "CREATE" | "UPDATE";
 
+/** UPDATE for cutover/cleanup (`all` / `changed`); CREATE for new-only rows. */
+export function defaultImportAction(scope: FbdiScope = "all"): FbdiImportAction {
+  return scope === "new" ? "CREATE" : "UPDATE";
+}
+
+function rowImportAction(
+  packageAction: FbdiImportAction,
+  synthesized: boolean,
+): FbdiImportAction {
+  return synthesized ? "CREATE" : packageAction;
+}
+
 export interface FbdiBuildOptions {
   scope?: FbdiScope;
   importAction?: FbdiImportAction;
@@ -715,7 +727,7 @@ export function buildSupplierFbdiFrom(
   const now = options.now ?? new Date();
   const batchId = options.batchId ?? batchIdFrom(now);
   const scope = options.scope ?? "all";
-  const importAction = options.importAction ?? "CREATE";
+  const importAction = options.importAction ?? defaultImportAction(scope);
   const businessRelationship = options.businessRelationship ?? "SPEND_AUTHORIZED";
   const actor = (options.actor ?? "operator").trim() || "operator";
   const createdAt = now.toISOString();
@@ -775,7 +787,7 @@ export function buildSupplierFbdiFrom(
       seenSuppliers.add(number || supplier.id);
       supplierRows.push(
         mapSupplierFbdi(profileRow, {
-          action: importAction,
+          action: rowImportAction(importAction, newSupplier),
           batchId,
           businessRelationship,
           country,
@@ -811,14 +823,26 @@ export function buildSupplierFbdiFrom(
       if (!seenAddresses.has(addrKey)) {
         seenAddresses.add(addrKey);
         addressRows.push(
-          mapAddressFbdi(addrRow, { action: importAction, batchId, supplierNumber: number }),
+          mapAddressFbdi(addrRow, {
+            action: rowImportAction(importAction, newAddr),
+            batchId,
+            supplierNumber: number,
+          }),
         );
       }
       siteRows.push(
-        mapSiteFbdi(siteRow, { action: importAction, batchId, supplierNumber: number }),
+        mapSiteFbdi(siteRow, {
+          action: rowImportAction(importAction, newSite),
+          batchId,
+          supplierNumber: number,
+        }),
       );
       assignmentRows.push(
-        mapAssignmentFbdi(siteRow, { action: importAction, batchId, supplierNumber: number }),
+        mapAssignmentFbdi(siteRow, {
+          action: rowImportAction(importAction, newSite),
+          batchId,
+          supplierNumber: number,
+        }),
       );
     }
   }

@@ -216,6 +216,7 @@ export {
   listSupplierFbdiPackages,
   publicFbdiBuild,
   isFbdiDownloadKey,
+  defaultImportAction,
   type FbdiBuildOptions,
   type FbdiScope,
   type FbdiImportAction,

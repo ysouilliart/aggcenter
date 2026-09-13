@@ -9,6 +9,7 @@ import {
   FBDI_ZIP_NAME,
   buildSupplierFbdi,
   buildSupplierFbdiFrom,
+  defaultImportAction,
   isFbdiDownloadKey,
   listSupplierFbdiPackages,
   parseFbdiCsv,
@@ -69,7 +70,8 @@ describe("supplier FBDI builder", () => {
     );
 
     const promptHeader = byNumber(suppliers, "102002")!;
-    expect(promptHeader["import action"]).toBe("CREATE");
+    expect(promptHeader["import action"]).toBe("UPDATE");
+    expect(built.importAction).toBe("UPDATE");
     expect(promptHeader["batch id"]).toBe("AGGC-TEST");
     expect(promptHeader["business relationship"]).toBe("SPEND_AUTHORIZED");
     expect(promptHeader["tax organization type"]).toBe("CORPORATION");
@@ -249,6 +251,8 @@ describe("supplier FBDI builder", () => {
     const suppliers = parseFbdiCsv(built.files.find((f) => f.name === "POZ_SUPPLIERS_INT.csv")!.csv);
     expect(suppliers).toHaveLength(1);
     expect(suppliers[0]["supplier name"]).toBe("New Co Ltd");
+    expect(suppliers[0]["import action"]).toBe("CREATE");
+    expect(built.importAction).toBe("CREATE");
     expect(suppliers[0]["tax registration number"]).toBe("GB798912755");
     expect(suppliers[0]["taxpayer country"]).toBe("GB");
     const sites = parseFbdiCsv(built.files.find((f) => f.name === "POZ_SUPPLIER_SITES_INT.csv")!.csv);
@@ -286,6 +290,75 @@ describe("supplier FBDI builder", () => {
     expect(suppliers.map((r) => r["supplier number"])).toEqual(["101774"]);
     const sites = parseFbdiCsv(built.files.find((f) => f.name === "POZ_SUPPLIER_SITES_INT.csv")!.csv);
     expect(sites[0]["payment terms"]).toBe("14 Days");
+    expect(suppliers[0]["import action"]).toBe("UPDATE");
+    expect(built.importAction).toBe("UPDATE");
+  });
+
+  it("honours an explicit CREATE import action", async () => {
+    const extracts = await sampleExtracts();
+    const mapped = mapSupplierExtracts(extracts);
+    const built = buildSupplierFbdiFrom(
+      { suppliers: mapped.suppliers, sites: mapped.sites, extracts },
+      { importAction: "CREATE", batchId: "AGGC-CREATE" },
+    );
+    expect(built.importAction).toBe("CREATE");
+    const suppliers = parseFbdiCsv(built.files.find((f) => f.name === "POZ_SUPPLIERS_INT.csv")!.csv);
+    expect(suppliers.every((r) => r["import action"] === "CREATE")).toBe(true);
+  });
+
+  it("writes CREATE for synthesized rows inside an UPDATE package", async () => {
+    const extracts = await sampleExtracts();
+    const mapped = mapSupplierExtracts(extracts);
+    const newbie: Supplier = {
+      id: "N-999002",
+      supplierNumber: "999002",
+      name: "Brand New BV",
+      type: "CORPORATION",
+      status: "active",
+      supplierVat: "NL123456789B01",
+      taxRegistrationNumber: "NL123456789B01",
+      taxpayerId: "NL123456789B01",
+      oneTime: false,
+      source: "manual",
+      version: 1,
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
+    const newbieSite: SupplierSite = {
+      id: "SITE-999002",
+      supplierId: newbie.id,
+      siteCode: "AMS",
+      addressName: "AMS",
+      procurementBu: "ResMed EPN",
+      paymentTerms: "30 Days",
+      payGroup: "EUR Prompt",
+      paymentMethod: "EFT",
+      invoiceCurrency: "EUR",
+      paymentCurrency: "EUR",
+      country: "NL",
+      addressLine1: "1 Canal",
+      city: "Amsterdam",
+      postalCode: "1011 AB",
+      siteVat: "NL123456789B01",
+      source: "manual",
+      version: 1,
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
+    const built = buildSupplierFbdiFrom(
+      {
+        suppliers: [...mapped.suppliers, newbie],
+        sites: [...mapped.sites, newbieSite],
+        extracts,
+      },
+      { scope: "all", importAction: "UPDATE", batchId: "AGGC-MIX" },
+    );
+    expect(built.importAction).toBe("UPDATE");
+    const suppliers = parseFbdiCsv(built.files.find((f) => f.name === "POZ_SUPPLIERS_INT.csv")!.csv);
+    const existing = byNumber(suppliers, mapped.suppliers[0].supplierNumber)!;
+    const created = byNumber(suppliers, "999002")!;
+    expect(existing["import action"]).toBe("UPDATE");
+    expect(created["import action"]).toBe("CREATE");
+    const sites = parseFbdiCsv(built.files.find((f) => f.name === "POZ_SUPPLIER_SITES_INT.csv")!.csv);
+    expect(sites.find((r) => r["supplier site"] === "AMS")?.["import action"]).toBe("CREATE");
   });
 
   it("packages Fusion worksheets into a STORE zip", async () => {
@@ -405,6 +478,13 @@ describe("FBDI helpers", () => {
 
   it("names the upload zip PozSupplierImport.zip", () => {
     expect(FBDI_ZIP_NAME).toBe("PozSupplierImport.zip");
+  });
+
+  it("defaults import action to UPDATE except for new-only scope", () => {
+    expect(defaultImportAction()).toBe("UPDATE");
+    expect(defaultImportAction("all")).toBe("UPDATE");
+    expect(defaultImportAction("changed")).toBe("UPDATE");
+    expect(defaultImportAction("new")).toBe("CREATE");
   });
 });
 

@@ -72,3 +72,21 @@ function parseRows(input: string): string[][] {
 
   return rows;
 }
+
+/** Serialize rows using the given header order. Quotes fields that need it. */
+export function serializeCsv(
+  headers: readonly string[],
+  rows: Array<Record<string, string>>,
+  lineEnding: "\n" | "\r\n" = "\r\n",
+): string {
+  const lines = [headers.map(escapeCsvField).join(",")];
+  for (const row of rows) {
+    lines.push(headers.map((h) => escapeCsvField(row[h] ?? "")).join(","));
+  }
+  return lines.join(lineEnding) + lineEnding;
+}
+
+function escapeCsvField(value: string): string {
+  if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}

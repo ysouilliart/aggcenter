@@ -23,7 +23,9 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
   (profile, site, address, VAT ID), surface missing attributes, VAT-format and
   address issues, plus rationalisation of payment terms / group / type. Edit a
   record in place; each save writes a new version and an audit event in
-  `aggc-supplier`.
+  `aggc-supplier`. Build Oracle Fusion **Supplier FBDI** templates from the
+  extracts plus those corrections and save them to `aggcenter/FBDI/supplier/`
+  for later upload.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),
   **Snowflake** (reference data) and an optional external API, all defaulting to
   safe local/sample implementations.
@@ -34,7 +36,7 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 src/
   app/                 # App Router pages + API route handlers
     api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, /suppliers, ...
-    suppliers/         #   Supplier workspace (overview, records, review, audit)
+    suppliers/         #   Supplier workspace (overview, records, review, audit, FBDI)
   components/          # AppShell (Cash / Suppliers workspaces), UI primitives, SVG charts
   lib/
     domain/            # shared types
@@ -42,7 +44,7 @@ src/
     recon/             # reconciliation engine
     cash/              # cash-position calculator
     anomalies/         # cash anomaly detection
-    suppliers/         # supplier ingest, VAT/address checks, versions + audit
+    suppliers/         # supplier ingest, VAT/address checks, versions + audit, FBDI
     storage/           # StorageProvider: local (default) + OCI adapter
     datasource/        # DataSource: local sample (default) + Snowflake adapter
     service.ts         # ties data loading, uploads and computations together
@@ -95,6 +97,9 @@ npm run build    # production build
 | GET    | `/api/suppliers/review` | Updated records with net before/after field changes |
 | POST   | `/api/suppliers/:id/vat-check` | Validate a VAT ID via EU VIES (name + address) |
 | POST   | `/api/suppliers/review/vat-check` | Batch VIES checks for review records (max 25) |
+| GET    | `/api/suppliers/fbdi`     | Preview Fusion Supplier FBDI + list saved packages |
+| POST   | `/api/suppliers/fbdi`     | Build FBDI CSVs/ZIP and save under `aggcenter/FBDI/supplier/` |
+| GET    | `/api/suppliers/fbdi/download` | Download a saved FBDI object (ZIP, CSV, manifest) |
 
 ## Database (Postgres / Neon)
 
@@ -230,6 +235,23 @@ history are kept.
 
 When the prefix is empty, bundled samples under [`data/sample/suppliers/`](data/sample/suppliers/)
 are used so the workspace still runs without OCI.
+
+**FBDI** (`/suppliers/fbdi`) builds Oracle Fusion **Import Suppliers** CSVs from
+the original `supplier/` extracts, overlaying rationalised fields from the
+working copy (and synthesizing rows for records that exist only in aggcenter).
+The package is saved under `aggcenter/FBDI/supplier/<batchId>/`:
+
+- `POZ_SUPPLIERS_INT.csv`, `POZ_SUP_ADDRESSES_INT.csv`,
+  `POZ_SUPPLIER_SITES_INT.csv`, `POZ_SITE_ASSIGNMENTS_INT.csv`
+- `PozSupplierImport.zip` — upload this with Load Interface File for Import
+- `overlay-report.csv` and `manifest.json` — what changed versus source
+
+Override the output folder with `SUPPLIER_FBDI_PREFIX`. Scope can be all
+records, changed + new, or new-only. Import action defaults to **UPDATE**
+(the normal cutover/cleanup path for suppliers that already exist in Fusion).
+CREATE remains available for new-only / synthesized rows; Fusion will reject
+CREATE if the supplier number is already loaded. Synthesized rows with no
+extract match are always written as CREATE even inside an UPDATE package.
 
 ## Roadmap
 

@@ -697,6 +697,10 @@ describe("config", () => {
     expect(getConfig().supplierPrefix).toBe("supplier/");
   });
 
+  it("defaults supplier FBDI prefix to aggcenter/FBDI/supplier/", () => {
+    expect(getConfig().supplierFbdiPrefix).toBe("aggcenter/FBDI/supplier/");
+  });
+
   it("defaults VIES to the official EU REST API", () => {
     expect(getConfig().viesApiUrl).toBe("https://ec.europa.eu/taxation_customs/vies/rest-api");
   });

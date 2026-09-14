@@ -1,7 +1,9 @@
 /**
- * Minimal ZIP (STORE, no compression) writer/reader. Used to package Oracle
- * Fusion FBDI CSV worksheets into a single upload file without extra deps.
+ * Minimal ZIP writer/reader. STORE (no compression) is used to package Oracle
+ * Fusion FBDI CSVs; DEFLATE is accepted when reading Office Open XML (.docx/.xlsx).
  */
+
+import { inflateRawSync } from "zlib";
 
 export interface ZipEntry {
   name: string;
@@ -118,4 +120,53 @@ export function unzipStore(buf: Buffer): ZipEntry[] {
     offset = start + size;
   }
   return out;
+}
+
+/**
+ * Read a ZIP archive (STORE or DEFLATE). Used for Office Open XML (.docx / .xlsx)
+ * which is typically deflate-compressed. Directories and unsupported methods are skipped.
+ */
+export function unzip(buf: Buffer): ZipEntry[] {
+  const eocd = findEocd(buf);
+  if (eocd < 0) return unzipStore(buf).filter((e) => !e.name.endsWith("/"));
+
+  const entryCount = buf.readUInt16LE(eocd + 10);
+  let offset = buf.readUInt32LE(eocd + 16);
+  const out: ZipEntry[] = [];
+
+  for (let n = 0; n < entryCount && offset + 46 <= buf.length; n++) {
+    if (buf.readUInt32LE(offset) !== CENTRAL_SIG) break;
+    const method = buf.readUInt16LE(offset + 10);
+    const compSize = buf.readUInt32LE(offset + 20);
+    const nameLen = buf.readUInt16LE(offset + 28);
+    const extraLen = buf.readUInt16LE(offset + 30);
+    const commentLen = buf.readUInt16LE(offset + 32);
+    const localOffset = buf.readUInt32LE(offset + 42);
+    const name = buf.subarray(offset + 46, offset + 46 + nameLen).toString("utf8");
+    offset += 46 + nameLen + extraLen + commentLen;
+    if (!name || name.endsWith("/")) continue;
+    if (localOffset + 30 > buf.length) continue;
+
+    const localNameLen = buf.readUInt16LE(localOffset + 26);
+    const localExtraLen = buf.readUInt16LE(localOffset + 28);
+    const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+    const compressed = buf.subarray(dataStart, dataStart + compSize);
+    const data = inflateZipEntry(method, compressed);
+    if (data) out.push({ name, data });
+  }
+  return out;
+}
+
+function inflateZipEntry(method: number, compressed: Buffer): Buffer | null {
+  if (method === 0) return Buffer.from(compressed);
+  if (method !== 8) return null;
+  return Buffer.from(inflateRawSync(compressed));
+}
+
+function findEocd(buf: Buffer): number {
+  const min = Math.max(0, buf.length - 22 - 65535);
+  for (let i = buf.length - 22; i >= min; i--) {
+    if (buf.readUInt32LE(i) === EOCD_SIG) return i;
+  }
+  return -1;
 }

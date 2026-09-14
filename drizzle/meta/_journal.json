@@ -50,6 +50,13 @@
       "when": 1789400000000,
       "tag": "0006_supplier-vat-scope",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789500000000,
+      "tag": "0007_invoice-workspace",
+      "breakpoints": true
     }
   ]
 }

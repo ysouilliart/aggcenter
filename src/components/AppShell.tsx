@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-type WorkspaceId = "cash" | "suppliers";
+type WorkspaceId = "cash" | "suppliers" | "invoices";
 
 const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }[] = [
   { id: "cash", label: "Cash", home: "/", hint: "O2C & P2P" },
   { id: "suppliers", label: "Suppliers", home: "/suppliers", hint: "Master data" },
+  { id: "invoices", label: "Invoices", home: "/invoices", hint: "AP parser" },
 ];
 
 const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> = {
@@ -40,6 +41,14 @@ const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> 
       icon: "M14 3h7v7M14 10l7-7M5 12v7a2 2 0 002 2h10M5 8V5a2 2 0 012-2h5",
     },
   ],
+  invoices: [
+    { href: "/invoices", label: "Inbox", icon: "M4 4h16v4H4zm0 6h16v10H4zM8 8V4" },
+    {
+      href: "/invoices/anomalies",
+      label: "Needs review",
+      icon: "M12 3l9 16H3l9-16zm0 6v4m0 3h.01",
+    },
+  ],
 };
 
 const SHARED = [
@@ -49,11 +58,12 @@ const SHARED = [
 
 function workspaceFromPath(pathname: string): WorkspaceId {
   if (pathname === "/suppliers" || pathname.startsWith("/suppliers/")) return "suppliers";
+  if (pathname === "/invoices" || pathname.startsWith("/invoices/")) return "invoices";
   return "cash";
 }
 
 function navActive(pathname: string, href: string): boolean {
-  if (href === "/" || href === "/suppliers") return pathname === href;
+  if (href === "/" || href === "/suppliers" || href === "/invoices") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -124,7 +134,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
         <div className="px-6 py-4 text-xs text-slate-500">
-          {workspace === "cash" ? `Cash Position · ${hint}` : `Suppliers · ${hint}`}
+          {workspace === "cash"
+            ? `Cash Position · ${hint}`
+            : workspace === "suppliers"
+              ? `Suppliers · ${hint}`
+              : `Invoices · ${hint}`}
         </div>
       </aside>
 

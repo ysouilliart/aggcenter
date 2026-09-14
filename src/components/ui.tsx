@@ -72,9 +72,14 @@ export function KpiCard({
 const STATUS_STYLES: Record<string, string> = {
   matched: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   parsed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  processed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   partial: "bg-amber-50 text-amber-700 ring-amber-600/20",
   unmatched: "bg-rose-50 text-rose-700 ring-rose-600/20",
   failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  anomaly: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  archived: "bg-slate-100 text-slate-700 ring-slate-600/20",
+  received: "bg-sky-50 text-sky-700 ring-sky-600/20",
+  landing: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
 };
 
 export function StatusBadge({ status }: { status: string }) {

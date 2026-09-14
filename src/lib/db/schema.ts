@@ -4,6 +4,7 @@ import { bigint, index, integer, pgSchema, text } from "drizzle-orm/pg-core";
  * Cash persistence lives in the dedicated `aggc-cash` Postgres schema (created by
  * the migration). Monetary amounts are stored as integer minor units (cents),
  * matching the domain model. Supplier master data lives in `aggc-supplier`.
+ * Parsed AP invoices live in `aggc-invoice`.
  */
 export const cashSchema = pgSchema("aggc-cash");
 
@@ -307,3 +308,170 @@ export type SupplierSiteRow = typeof supplierSites.$inferSelect;
 export type SupplierVersionRow = typeof supplierRecordVersions.$inferSelect;
 export type SupplierAuditRow = typeof supplierAuditEvents.$inferSelect;
 export type SupplierVatCheckRow = typeof supplierVatChecks.$inferSelect;
+
+export const invoiceSchema = pgSchema("aggc-invoice");
+
+export const invoices = invoiceSchema.table(
+  "invoices",
+  {
+    id: text("id").primaryKey(),
+    invoiceNumber: text("invoice_number").notNull().default(""),
+    invoiceDate: text("invoice_date"),
+    issueDate: text("issue_date"),
+    dueDate: text("due_date"),
+    paymentTerms: text("payment_terms"),
+    currency: text("currency").notNull().default(""),
+    subtotal: bigint("subtotal", { mode: "number" }),
+    taxTotal: bigint("tax_total", { mode: "number" }),
+    total: bigint("total", { mode: "number" }),
+    amountDue: bigint("amount_due", { mode: "number" }),
+    poNumber: text("po_number"),
+    accountNumber: text("account_number"),
+    referenceNumber: text("reference_number"),
+    customerNumber: text("customer_number"),
+    customerName: text("customer_name"),
+    customerAddress: text("customer_address"),
+    customerEmail: text("customer_email"),
+    supplierName: text("supplier_name").notNull().default(""),
+    supplierLegalName: text("supplier_legal_name"),
+    supplierTaxId: text("supplier_tax_id"),
+    supplierVat: text("supplier_vat"),
+    supplierAddress: text("supplier_address"),
+    supplierCountry: text("supplier_country"),
+    supplierEmail: text("supplier_email"),
+    supplierPhone: text("supplier_phone"),
+    supplierWebsite: text("supplier_website"),
+    notes: text("notes"),
+    extraJson: text("extra_json"),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull().default("application/octet-stream"),
+    contentHash: text("content_hash").notNull().default(""),
+    source: text("source").notNull().default("upload"),
+    folder: text("folder").notNull().default("landing"),
+    storageKey: text("storage_key"),
+    originalKey: text("original_key"),
+    parseStatus: text("parse_status").notNull().default("parsed"),
+    parserId: text("parser_id"),
+    parserVersion: text("parser_version"),
+    vendor: text("vendor"),
+    confidence: integer("confidence").notNull().default(0),
+    pageCount: integer("page_count"),
+    reviewReason: text("review_reason"),
+    extractedText: text("extracted_text"),
+    uploadedAt: text("uploaded_at").notNull(),
+    processedAt: text("processed_at"),
+    archivedAt: text("archived_at"),
+  },
+  (t) => [
+    index("invoices_folder_idx").on(t.folder),
+    index("invoices_storage_key_idx").on(t.storageKey),
+    index("invoices_content_hash_idx").on(t.contentHash),
+  ],
+);
+
+export const invoiceLineItems = invoiceSchema.table(
+  "invoice_line_items",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    lineNumber: integer("line_number").notNull(),
+    description: text("description").notNull().default(""),
+    quantity: text("quantity"),
+    unit: text("unit"),
+    unitPrice: bigint("unit_price", { mode: "number" }),
+    taxRate: integer("tax_rate"),
+    taxAmount: bigint("tax_amount", { mode: "number" }),
+    lineTotal: bigint("line_total", { mode: "number" }),
+    periodStart: text("period_start"),
+    periodEnd: text("period_end"),
+    extraJson: text("extra_json"),
+  },
+  (t) => [index("invoice_line_items_invoice_id_idx").on(t.invoiceId)],
+);
+
+export const invoiceTaxLines = invoiceSchema.table(
+  "invoice_tax_lines",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    label: text("label").notNull(),
+    rate: integer("rate"),
+    taxableAmount: bigint("taxable_amount", { mode: "number" }),
+    taxAmount: bigint("tax_amount", { mode: "number" }),
+  },
+  (t) => [index("invoice_tax_lines_invoice_id_idx").on(t.invoiceId)],
+);
+
+export const invoiceBankDetails = invoiceSchema.table(
+  "invoice_bank_details",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    bankName: text("bank_name"),
+    accountName: text("account_name"),
+    accountNumber: text("account_number"),
+    bsb: text("bsb"),
+    iban: text("iban"),
+    bic: text("bic"),
+    billerCode: text("biller_code"),
+    bpayReference: text("bpay_reference"),
+    paymentMethod: text("payment_method"),
+    extraJson: text("extra_json"),
+  },
+  (t) => [index("invoice_bank_details_invoice_id_idx").on(t.invoiceId)],
+);
+
+export const invoiceFields = invoiceSchema.table(
+  "invoice_fields",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    category: text("category").notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    confidence: integer("confidence").notNull().default(0),
+  },
+  (t) => [index("invoice_fields_invoice_id_idx").on(t.invoiceId)],
+);
+
+export const invoiceParseJobs = invoiceSchema.table(
+  "invoice_parse_jobs",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    storageKey: text("storage_key"),
+    parserId: text("parser_id").notNull(),
+    parserVersion: text("parser_version").notNull(),
+    status: text("status").notNull(),
+    startedAt: text("started_at").notNull(),
+    finishedAt: text("finished_at").notNull(),
+    lineItemCount: integer("line_item_count").notNull().default(0),
+    warningCount: integer("warning_count").notNull().default(0),
+    pageCount: integer("page_count").notNull().default(0),
+    confidence: integer("confidence").notNull().default(0),
+  },
+  (t) => [index("invoice_parse_jobs_invoice_id_idx").on(t.invoiceId)],
+);
+
+export const invoiceParseEvents = invoiceSchema.table(
+  "invoice_parse_events",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id").notNull(),
+    seq: integer("seq").notNull(),
+    level: text("level").notNull(),
+    stage: text("stage").notNull(),
+    message: text("message").notNull(),
+    page: integer("page"),
+    detail: text("detail"),
+  },
+  (t) => [index("invoice_parse_events_job_id_idx").on(t.jobId)],
+);
+
+export type InvoiceRow = typeof invoices.$inferSelect;
+export type InvoiceLineItemRow = typeof invoiceLineItems.$inferSelect;
+export type InvoiceTaxLineRow = typeof invoiceTaxLines.$inferSelect;
+export type InvoiceBankRow = typeof invoiceBankDetails.$inferSelect;
+export type InvoiceFieldRow = typeof invoiceFields.$inferSelect;
+export type InvoiceParseJobRow = typeof invoiceParseJobs.$inferSelect;
+export type InvoiceParseEventRow = typeof invoiceParseEvents.$inferSelect;

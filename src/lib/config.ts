@@ -59,6 +59,8 @@ export interface AppConfig {
   supplierPrefix: string;
   /** Fusion FBDI output prefix (`aggcenter/FBDI/supplier/<batch>/`). */
   supplierFbdiPrefix: string;
+  /** Invoice parser drop-zone root (`aggcenter/invoices/{landing,received,processed,archived,anomaly}/`). */
+  invoicePrefix: string;
   /** EU VIES REST API base (no trailing path). Public, no key. */
   viesApiUrl: string;
 }
@@ -152,6 +154,9 @@ export function getConfig(): AppConfig {
     supplierPrefix: withTrailingSlash(process.env.SUPPLIER_PREFIX || "supplier"),
     supplierFbdiPrefix: withTrailingSlash(
       process.env.SUPPLIER_FBDI_PREFIX || "aggcenter/FBDI/supplier",
+    ),
+    invoicePrefix: withTrailingSlash(
+      process.env.INVOICE_PREFIX || "aggcenter/invoices",
     ),
     viesApiUrl: (process.env.VIES_API_URL || "https://ec.europa.eu/taxation_customs/vies/rest-api").replace(
       /\/+$/,

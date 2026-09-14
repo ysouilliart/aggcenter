@@ -4,7 +4,7 @@ export default defineConfig({
   schema: "./src/lib/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
-  schemaFilter: ["aggc-cash", "aggc-supplier"],
+  schemaFilter: ["aggc-cash", "aggc-supplier", "aggc-invoice"],
   dbCredentials: {
     url: process.env.DATABASE_URL ?? "",
   },

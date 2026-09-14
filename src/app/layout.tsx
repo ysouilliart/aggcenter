@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 export const metadata: Metadata = {
   title: "aggcenter",
   description:
-    "Operational aggregation center — cash position, reconciliation, and supplier master-data quality.",
+    "Operational aggregation center — cash position, reconciliation, supplier master-data quality, and invoice parsing.",
 };
 
 export default function RootLayout({

@@ -126,7 +126,7 @@ export default function FilesPage() {
             </div>
           ) : objects.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-slate-400">
-              No objects. Upload a statement (Statements page) to store one via the
+              No objects. Upload a statement or invoice to store one via the
               active provider.
             </p>
           ) : (

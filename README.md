@@ -26,6 +26,11 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
   `aggc-supplier`. Build Oracle Fusion **Supplier FBDI** templates from the
   extracts plus those corrections and save them to `aggcenter/FBDI/supplier/`
   for later upload.
+- **Invoice parser** — new workspace. Upload or sync PDF, Word (DOCX), Excel
+  (XLSX) and CSV invoices. The parser classifies supplier (origin), bank
+  details, line items, tax, totals, payment terms and dates, persists them to
+  `aggc-invoice`, and keeps the original document for the in-app viewer.
+  Object storage uses `aggcenter/invoices/{landing,received,processed,archived,anomaly}/`.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),
   **Snowflake** (reference data) and an optional external API, all defaulting to
   safe local/sample implementations.
@@ -37,14 +42,16 @@ src/
   app/                 # App Router pages + API route handlers
     api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, /suppliers, ...
     suppliers/         #   Supplier workspace (overview, records, review, audit, FBDI)
-  components/          # AppShell (Cash / Suppliers workspaces), UI primitives, SVG charts
+    invoices/          #   Invoice parser (inbox, needs-review, document viewer)
+  components/          # AppShell (Cash / Suppliers / Invoices workspaces), UI primitives, SVG charts
   lib/
     domain/            # shared types
-    parse/             # CSV + bank-statement parsing
+    parse/             # CSV + bank-statement + invoice parsing
     recon/             # reconciliation engine
     cash/              # cash-position calculator
     anomalies/         # cash anomaly detection
     suppliers/         # supplier ingest, VAT/address checks, versions + audit, FBDI
+    invoices/          # invoice ingest, OCI folder moves, repository
     storage/           # StorageProvider: local (default) + OCI adapter
     datasource/        # DataSource: local sample (default) + Snowflake adapter
     service.ts         # ties data loading, uploads and computations together
@@ -100,6 +107,13 @@ npm run build    # production build
 | GET    | `/api/suppliers/fbdi`     | Preview Fusion Supplier FBDI + list saved packages |
 | POST   | `/api/suppliers/fbdi`     | Build FBDI CSVs/ZIP and save under `aggcenter/FBDI/supplier/` |
 | GET    | `/api/suppliers/fbdi/download` | Download a saved FBDI object (ZIP, CSV, manifest) |
+| GET    | `/api/invoices`             | List parsed invoices (filter `folder`, `status`) |
+| POST   | `/api/invoices`             | Upload PDF/DOCX/XLSX/CSV; parse and store        |
+| POST   | `/api/invoices/ingest`      | Sync `aggcenter/invoices/landing/` (sample fallback) |
+| GET    | `/api/invoices/summary`     | Counts by pipeline folder                        |
+| GET    | `/api/invoices/:id`         | Header, lines, tax, bank, classified fields, trace |
+| PATCH  | `/api/invoices/:id`         | `{ "action": "archive" }` moves to archived      |
+| GET    | `/api/invoices/:id/file`    | Original document (inline viewer)                |
 
 ## Database (Postgres / Neon)
 
@@ -108,6 +122,7 @@ Uploaded statements and their parsed transactions persist to Postgres via
 local JSON store (`.data/uploads.json`) is used so the app runs with no database.
 Cash tables live in a dedicated **`aggc-cash`** schema. Supplier working copies,
 versions, audit events and VAT registry checks live in **`aggc-supplier`**.
+Parsed invoices live in **`aggc-invoice`**.
 
 Setup:
 
@@ -115,7 +130,7 @@ Setup:
    as a Cursor **Secret** in the cloud, or in `.env.local` for local dev.
 2. Create the schema and tables:
    ```bash
-   DATABASE_URL=... npm run db:migrate   # applies drizzle/ migrations (creates the aggc-cash and aggc-supplier schemas)
+   DATABASE_URL=... npm run db:migrate   # applies drizzle/ migrations (creates the aggc-cash, aggc-supplier and aggc-invoice schemas)
    ```
 3. Run the app; uploads now persist to Postgres. `/api/integrations` reports the
    active database provider (`postgres` vs `local-json`) without exposing the URL.
@@ -253,7 +268,31 @@ CREATE remains available for new-only / synthesized rows; Fusion will reject
 CREATE if the supplier number is already loaded. Synthesized rows with no
 extract match are always written as CREATE even inside an UPDATE package.
 
+### Invoice parser
+
+Cash, suppliers and invoices are separate **workspaces**. Drop files into
+`aggcenter/invoices/landing/` (or upload from the Inbox) then
+**Sync landing folder** (`POST /api/invoices/ingest`):
+
+```
+aggcenter/invoices/landing/      inbound drop zone
+aggcenter/invoices/received/     claimed for parsing
+aggcenter/invoices/processed/    classified successfully
+aggcenter/invoices/archived/     closed
+aggcenter/invoices/anomaly/      needs review
+```
+
+Supported types: **PDF**, **DOCX**, **XLSX**, **CSV**. Legacy `.doc` / `.xls`
+and image-only scans go to **anomaly**. Open an invoice to see classified
+supplier, customer, dates, tax, totals, bank/BPAY details, line items and the
+original document in the viewer. Archive moves the object to `archived/`.
+
+When landing is empty, bundled samples under
+[`data/sample/invoices/landing/`](data/sample/invoices/landing/) are used
+(Hotjar, Tesla, Origin Energy, a scanned PDF, and a CSV). Override the root
+with `INVOICE_PREFIX`.
+
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).
-- Additional operational workspaces beyond cash and suppliers, and a workflow/approval layer.
+- Additional operational workspaces beyond cash, suppliers and invoices, and a workflow/approval layer.

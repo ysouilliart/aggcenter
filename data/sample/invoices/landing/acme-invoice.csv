@@ -1,0 +1,4 @@
+Invoice Number,Invoice Date,Due Date,Supplier Name,Supplier VAT,Customer Name,Currency,Subtotal,Tax,Total,Payment Terms,IBAN,BIC
+INV-2044,2026-07-15,2026-08-14,Acme Supplies Pty Ltd,ABN 12 345 678 901,ResMed Ltd,AUD,1000.00,100.00,1100.00,Net 30,GB82WEST12345698765432,WESTGB22
+Description,Quantity,Unit Price,Line Total
+Widget A,2,500.00,1000.00

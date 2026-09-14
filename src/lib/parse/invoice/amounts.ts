@@ -47,13 +47,17 @@ export function parseMoney(value: string | undefined | null): number | null {
 
 /** Last money-looking token on a line. */
 export function lastMoney(line: string): number | null {
-  const tokens = line.match(/\(?(?:[$£€]\s*)?-?\d{1,3}(?:,\d{3})*(?:\.\d{1,4})?\)?(?:\s*CR)?/gi);
+  const tokens = line.match(
+    /\(?(?:[$£€]\s*)?-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,4})?\)?(?:\s*CR)?/gi,
+  );
   if (!tokens || tokens.length === 0) return null;
   return parseMoney(tokens[tokens.length - 1]);
 }
 
 export function firstMoney(line: string): number | null {
-  const tokens = line.match(/\(?(?:[$£€]\s*)?-?\d{1,3}(?:,\d{3})*(?:\.\d{1,4})?\)?(?:\s*CR)?/gi);
+  const tokens = line.match(
+    /\(?(?:[$£€]\s*)?-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,4})?\)?(?:\s*CR)?/gi,
+  );
   if (!tokens || tokens.length === 0) return null;
   return parseMoney(tokens[0]);
 }

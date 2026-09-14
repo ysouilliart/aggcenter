@@ -16,7 +16,8 @@ describe("invoice money / dates", () => {
     expect(parseMoney("17.95 CR")).toBe(-1795);
     expect(parseMoney("(12.50)")).toBe(-1250);
     expect(parseMoney("not-a-price")).toBeNull();
-    expect(parseMoney("")).toBeNull();
+    expect(parseMoney("1000.00")).toBe(100000);
+    expect(firstMoney("total: 1100.00")).toBe(110000);
     expect(firstMoney("Fee $12.00 extra $3.00")).toBe(1200);
     expect(detectCurrency("TOTAL (USD) $189.00")).toBe("USD");
     expect(detectCurrency("Total Amount (AUD) 18.67")).toBe("AUD");

@@ -92,10 +92,13 @@ function vat(text: string): string | undefined {
 }
 
 function iban(text: string): string | undefined {
-  const match = text.match(
-    /\bIBAN[:\s]*([A-Z]{2}\s?\d{2}(?:\s?[A-Z0-9]){10,30})\b/i,
-  );
-  return match ? compact(match[1]).toUpperCase() : undefined;
+  const compactText = compact(text.toUpperCase());
+  const match = compactText.match(/\b([A-Z]{2}\d{2}[A-Z0-9]{10,30})\b/);
+  if (!match) return undefined;
+  const value = match[1];
+  if (value.length < 15 || value.length > 34) return undefined;
+  if (/(BIC|SWIFT)$/.test(value)) return value.replace(/(BIC|SWIFT)$/, "");
+  return value;
 }
 
 function bic(text: string): string | undefined {
@@ -571,10 +574,24 @@ export function classifyInvoice(input: ClassifyInput): InvoiceParseResult {
   if (bank?.iban) field(fields, "bank", "iban", bank.iban, 95);
 
   if (!header.supplierName) {
+    const named = labelled(input.fullText, "Supplier Name|Vendor Name|Supplier", /[A-Za-z][A-Za-z0-9 .,&-]{2,60}/);
+    if (named && !/^(name|address|vat|total)$/i.test(named)) header.supplierName = named;
+  }
+  if (!header.supplierName) {
     const guess = input.lines.find((l) =>
-      /(pty ltd|limited|ltd|inc\.|llc|gmbh|s\.a\.|energy|motors)/i.test(l),
+      /(pty ltd|limited|ltd|inc\.|llc|gmbh|s\.a\.|energy|motors)/i.test(l) &&
+      !/:/i.test(l.split(" ")[0] ?? ""),
     );
-    if (guess && guess.length < 80) header.supplierName = guess;
+    if (guess && guess.length < 80 && !/^supplier\s+name:/i.test(guess)) {
+      header.supplierName = guess.replace(/^supplier name:\s*/i, "");
+    }
+  }
+  if (header.supplierName?.includes(":")) {
+    header.supplierName = header.supplierName.replace(/^[^:]+:\s*/, "").trim();
+  }
+  if (header.total == null) {
+    const labelledTotal = labelled(input.fullText, "Total(?: Amount)?", /[$£€]?\\s*[0-9,.]+/);
+    header.total = parseMoney(labelledTotal ?? "") ?? undefined;
   }
 
   const empty = input.lines.length === 0 || !input.fullText.trim();

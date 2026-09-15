@@ -85,12 +85,11 @@ describe("golden: sample data pipeline (integer cents)", () => {
 
   it("detects the expected anomalies", async () => {
     const ds = new LocalDataSource();
-    const [transactions, salesOrders, purchaseOrders, remittances, accounts] =
+    const [transactions, salesOrders, purchaseOrders, accounts] =
       await Promise.all([
         loadSampleTransactions(),
         ds.getSalesOrders(),
         ds.getPurchaseOrders(),
-        ds.getRemittances(),
         ds.getAccounts(),
       ]);
 
@@ -98,7 +97,6 @@ describe("golden: sample data pipeline (integer cents)", () => {
     const anomalies = detectAnomalies({
       transactions,
       reconciliation,
-      remittances,
       accounts,
     });
 
@@ -106,9 +104,9 @@ describe("golden: sample data pipeline (integer cents)", () => {
     expect(byType("duplicate")).toBe(1);
     expect(byType("amount_mismatch")).toBe(1);
     expect(byType("unmatched_large")).toBe(3);
-    expect(byType("missing_receipt")).toBe(1);
+    expect(byType("missing_receipt")).toBe(0);
     expect(byType("overdraft_risk")).toBe(0);
-    expect(anomalies.length).toBe(8);
+    expect(anomalies.length).toBe(7);
 
     // The amount-mismatch (Initech) is exactly -$1,000.00 = -100000 cents.
     const mismatch = anomalies.find((a) => a.type === "amount_mismatch");

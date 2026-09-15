@@ -10,6 +10,7 @@ import { isDatabaseConfigured } from "./db/client";
 import { parseBankStatementCsv } from "./parse/bankStatement";
 import { reconcile, summarize } from "./recon/reconcile";
 import { computeCashPosition } from "./cash/position";
+import { buildCashForecast } from "./cash/forecast";
 import {
   usesBundledCashSamples,
   usesBundledReferenceSamples,
@@ -26,6 +27,7 @@ import type {
   Remittance,
   SalesOrder,
   Statement,
+  CashForecast,
 } from "./domain/types";
 
 export async function getAccounts(): Promise<BankAccount[]> {
@@ -179,7 +181,7 @@ export async function addUploadedStatement(
   return { statement, errors };
 }
 
-async function getExpectedDocuments(): Promise<{
+async function getSupportingDocuments(): Promise<{
   salesOrders: SalesOrder[];
   purchaseOrders: PurchaseOrder[];
   remittances: Remittance[];
@@ -217,15 +219,15 @@ export async function getReconciliation(): Promise<{
   results: ReconciliationResult[];
   summary: ReturnType<typeof summarize>;
 }> {
-  const [transactions, expected] = await Promise.all([
+  const [transactions, supporting] = await Promise.all([
     getAllTransactions(),
-    getExpectedDocuments(),
+    getSupportingDocuments(),
   ]);
   const results = reconcile({
     transactions,
-    salesOrders: expected.salesOrders,
-    purchaseOrders: expected.purchaseOrders,
-    remittances: expected.remittances,
+    salesOrders: supporting.salesOrders,
+    purchaseOrders: supporting.purchaseOrders,
+    remittances: supporting.remittances,
   });
   return { results, summary: summarize(results) };
 }
@@ -267,17 +269,37 @@ function ensureAccountsForTransactions(
 }
 
 export async function getAnomalies(): Promise<Anomaly[]> {
-  const [transactions, expected, accounts, recon] = await Promise.all([
+  const [transactions, accounts, recon] = await Promise.all([
     getAllTransactions(),
-    getExpectedDocuments(),
     getAccounts(),
     getReconciliation(),
   ]);
   return detectAnomalies({
     transactions,
     reconciliation: recon.results,
-    remittances: expected.remittances,
     accounts: ensureAccountsForTransactions(accounts, transactions),
+  });
+}
+
+export async function getCashForecasts(): Promise<CashForecast[]> {
+  const [transactions, supporting, recon, positions, statements] = await Promise.all([
+    getAllTransactions(),
+    getSupportingDocuments(),
+    getReconciliation(),
+    getCashPositions(),
+    getStatements(),
+  ]);
+  const periodStart = [...statements.map((s) => s.periodStart)].sort()[0];
+  const closingByCurrency: Record<string, number> = {};
+  for (const position of positions) {
+    closingByCurrency[position.currency] = position.closingBalance;
+  }
+  return buildCashForecast({
+    remittances: supporting.remittances,
+    reconciliation: recon.results,
+    transactions,
+    periodStart,
+    closingByCurrency,
   });
 }
 

@@ -3,7 +3,6 @@ import type {
   BankAccount,
   BankTransaction,
   ReconciliationResult,
-  Remittance,
 } from "../domain/types";
 import { openingFromRunningBalances, toRunningBalanceLine } from "../cash/opening";
 import { formatCentsPlain } from "../money";
@@ -11,7 +10,6 @@ import { formatCentsPlain } from "../money";
 export interface AnomalyInput {
   transactions: BankTransaction[];
   reconciliation: ReconciliationResult[];
-  remittances: Remittance[];
   accounts: BankAccount[];
 }
 
@@ -22,13 +20,6 @@ const OUTLIER_K = 2;
 const OUTLIER_MIN_SAMPLES = 5;
 const DUPLICATE_WINDOW_DAYS = 5;
 
-function addIsoDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 function daysBetween(a: string, b: string): number {
   const da = new Date(a).getTime();
   const db = new Date(b).getTime();
@@ -36,16 +27,17 @@ function daysBetween(a: string, b: string): number {
 }
 
 /**
- * Detect operational cash anomalies across bank data and reconciliation output:
+ * Detect operational cash anomalies on the bank-statement baseline:
  *   - duplicate       : the same payment appears more than once
- *   - amount_mismatch : bank amount differs from the referenced PO/SO
- *   - unmatched_large : a large transaction with no matching document
- *   - missing_receipt : an expected customer receipt never hit the bank
+ *   - amount_mismatch : bank amount differs from the supporting SO/PO/remittance
+ *   - unmatched_large : a large bank line with no supporting document to identify it
  *   - outlier         : a transaction far larger than its peers
  *   - overdraft_risk  : an account balance drops below zero
+ *
+ * Remittances that have not hit the statement are a cash forecast, not anomalies.
  */
 export function detectAnomalies(input: AnomalyInput): Anomaly[] {
-  const { transactions, reconciliation, remittances, accounts } = input;
+  const { transactions, reconciliation, accounts } = input;
   const anomalies: Anomaly[] = [];
   const flagged = new Set<string>();
   const txnById = new Map(transactions.map((t) => [t.id, t]));
@@ -84,7 +76,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     }
   }
 
-  // 2) Amount mismatches: reference matched but bank amount differs.
+  // 2) Amount mismatches: supporting document found but bank amount differs.
   for (const r of reconciliation) {
     if (r.status === "partial" && r.matchedId && Math.abs(r.amountDiff) > 0) {
       const txn = txnById.get(r.transactionId);
@@ -92,7 +84,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
         id: `AN-MIS-${r.transactionId}`,
         type: "amount_mismatch",
         severity: "medium",
-        title: "Amount mismatch vs document",
+        title: "Amount mismatch vs supporting document",
         description: `Bank amount for ${r.matchedId} differs by ${formatCentsPlain(
           r.amountDiff,
         )} ${r.currency} (${txn?.counterparty ?? ""}).`,
@@ -104,21 +96,22 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     }
   }
 
-  // 3) Unmatched large transactions.
+  // 3) Unmatched large bank lines: no supporting SO/PO/remittance identified the payment.
   for (const r of reconciliation) {
     if (r.status === "unmatched" && Math.abs(r.amount) >= UNMATCHED_LARGE_THRESHOLD) {
       const txn = txnById.get(r.transactionId);
       flagged.add(r.transactionId);
+      const supporting = r.flow === "O2C" ? "sales order or remittance" : "purchase order or remittance";
       anomalies.push({
         id: `AN-UNM-${r.transactionId}`,
         type: "unmatched_large",
         severity: Math.abs(r.amount) >= UNMATCHED_HIGH_SEVERITY ? "high" : "medium",
-        title: "Large unmatched transaction",
+        title: "Large unidentified bank payment",
         description: `${
-          r.amount > 0 ? "Unidentified receipt" : "Unidentified payment"
+          r.amount > 0 ? "Receipt" : "Payment"
         } of ${formatCentsPlain(Math.abs(r.amount))} ${r.currency}${
           txn?.counterparty ? ` (${txn.counterparty})` : ""
-        } has no matching ${r.flow === "O2C" ? "sales order" : "purchase order"}.`,
+        } has no supporting ${supporting} to identify it.`,
         amount: Math.abs(r.amount),
         currency: r.currency,
         date: r.date,
@@ -127,50 +120,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     }
   }
 
-  // 4) Missing customer receipts: remittance advised but no bank credit seen.
-  // Limit to the bank-statement window so a full AR extract does not flood the list.
-  const txnDates = transactions.map((t) => t.date).sort();
-  const periodStart = txnDates[0];
-  const periodEnd = txnDates[txnDates.length - 1];
-  const matchedRefs = new Set(
-    reconciliation
-      .filter((r) => r.matchedId && r.status !== "unmatched")
-      .map((r) => r.matchedId as string),
-  );
-  for (const rem of remittances) {
-    if (rem.party !== "customer") continue;
-    if (
-      periodStart &&
-      periodEnd &&
-      (rem.date < periodStart || rem.date > addIsoDays(periodEnd, 14))
-    ) {
-      continue;
-    }
-    const hasReceipt =
-      matchedRefs.has(rem.reference) ||
-      matchedRefs.has(rem.id) ||
-      transactions.some(
-        (t) =>
-          t.amount > 0 &&
-          t.currency === rem.currency &&
-          Math.abs(Math.abs(t.amount) - rem.amount) <= 1,
-      );
-    if (!hasReceipt) {
-      anomalies.push({
-        id: `AN-MISS-${rem.id}`,
-        type: "missing_receipt",
-        severity: "medium",
-        title: "Expected receipt not received",
-        description: `Remittance ${rem.id} from ${rem.name} for ${rem.reference} (${formatCentsPlain(rem.amount)} ${rem.currency}) has no matching bank credit.`,
-        amount: rem.amount,
-        currency: rem.currency,
-        date: rem.date,
-        relatedIds: [rem.id, rem.reference],
-      });
-    }
-  }
-
-  // 5) Statistical outliers, measured against "normal" (not already-flagged)
+  // 4) Statistical outliers, measured against "normal" (not already-flagged)
   //    transactions of the same currency and direction.
   const pool = transactions.filter((t) => !flagged.has(t.id));
   for (const currency of new Set(pool.map((t) => t.currency))) {
@@ -209,7 +159,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     }
   }
 
-  // 6) Overdraft risk: any account whose closing balance falls below zero.
+  // 5) Overdraft risk: any account whose closing balance falls below zero.
   for (const account of accounts) {
     const txns = transactions.filter((t) => t.accountId === account.id);
     const opening =

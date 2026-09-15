@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type {
   BankTransaction,
-  Remittance,
   SalesOrder,
 } from "@/lib/domain/types";
 import { detectAnomalies } from "@/lib/anomalies/detect";
@@ -51,18 +50,6 @@ describe("detectAnomalies", () => {
     txn({ id: "biglarge", amount: 5_000_000, description: "wire", date: "2026-08-04" }),
   ];
 
-  const remittances: Remittance[] = [
-    {
-      id: "REM-1",
-      party: "customer",
-      name: "Globex",
-      reference: "SO-2",
-      amount: 5000,
-      currency: "USD",
-      date: "2026-08-05",
-    },
-  ];
-
   const reconciliation = reconcile({
     transactions,
     salesOrders,
@@ -72,7 +59,6 @@ describe("detectAnomalies", () => {
   const anomalies = detectAnomalies({
     transactions,
     reconciliation,
-    remittances,
     accounts: [],
   });
 
@@ -94,17 +80,15 @@ describe("detectAnomalies", () => {
     expect(large?.amount).toBe(5_000_000);
   });
 
-  it("detects missing customer receipts", () => {
-    const missing = anomalies.find((a) => a.type === "missing_receipt");
-    expect(missing).toBeDefined();
-    expect(missing?.relatedIds).toContain("SO-2");
+  it("does not treat an unmatched remittance as an anomaly", () => {
+    expect(types).not.toContain("missing_receipt");
+    expect(anomalies.some((a) => a.id.startsWith("AN-MISS-"))).toBe(false);
   });
 
   it("flags overdraft risk when an account goes negative", () => {
     const result = detectAnomalies({
       transactions: [txn({ id: "x", amount: -2000, accountId: "A" })],
       reconciliation: [],
-      remittances: [],
       accounts: [
         {
           id: "A",
@@ -141,7 +125,6 @@ describe("detectAnomalies", () => {
         }),
       ],
       reconciliation: [],
-      remittances: [],
       accounts: [
         {
           id: "HSBC",

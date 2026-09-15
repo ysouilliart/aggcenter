@@ -11,15 +11,32 @@ import type {
   SupportingDocRef,
 } from "../domain/types";
 
-export const DATE_WINDOW_DAYS = 5;
+/** Same calendar day only. Amount and date matching use 0 tolerance. */
+export const DATE_WINDOW_DAYS = 0;
+
+export const AMOUNT_DATE_RULE = "exact amount, same date";
+
+/** Exact cents. No percentage slack. */
+export function amountsMatch(a: number, b: number): boolean {
+  return a === b;
+}
+
+/** Same calendar day when the window is 0; otherwise within DATE_WINDOW_DAYS. */
+export function datesMatch(a: string, b: string): boolean {
+  if (DATE_WINDOW_DAYS <= 0) return a.slice(0, 10) === b.slice(0, 10);
+  const da = Date.parse(a);
+  const db = Date.parse(b);
+  if (Number.isNaN(da) || Number.isNaN(db)) return false;
+  return Math.abs(da - db) / 86_400_000 <= DATE_WINDOW_DAYS;
+}
 
 export const MATCH_PATTERN_LABELS: Record<MatchPattern, string> = {
-  so_po_id: "SO/PO id token",
+  so_po_id: "SO/PO id in bank text",
   po_invoice_number: "PO/AP invoice number",
   remittance_invoice_ref: "remittance invoice/payment ref",
-  remittance_amount_window: "unique remittance amount ±5d date window",
-  remittance_amount_name: "remittance amount ±5d + counterparty name",
-  so_po_unique_amount: "unique SO/PO amount",
+  remittance_amount_window: "unique remittance exact amount, same date",
+  remittance_amount_name: "remittance exact amount, same date + counterparty name",
+  so_po_unique_amount: "unique SO/PO exact amount",
   exhausted: "no unique match",
 };
 
@@ -31,9 +48,14 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
       "Each bank-statement line is the payment to identify. SO, PO and remittance files are supporting evidence, not a second baseline.",
   },
   {
+    title: "Lookup order",
+    detail:
+      "(1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance at the exact amount on the same date, (5) same plus counterparty name, (6) unique SO/PO at the exact amount. Amount and date both have 0 tolerance.",
+  },
+  {
     title: "Matched",
     detail:
-      "Exactly one supporting document uniquely identifies the line and amounts agree (0.5% tolerance). Lookup order: (1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance amount within ±5 days, (5) same window plus counterparty name, (6) unique SO/PO amount.",
+      "Exactly one supporting document uniquely identifies the line and the amount matches to the cent on the same calendar day.",
   },
   {
     title: "SO/PO + remittance",
@@ -43,7 +65,7 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
   {
     title: "Partial",
     detail:
-      "A supporting document was found but the amount differs, or several SO/PO/remittance rows share the amount so one row cannot be isolated. Candidate remittance / PO / SO numbers are listed in Matched to.",
+      "A supporting document was found but the amount differs, or several SO/PO/remittance rows share this exact amount on this date so one row cannot be isolated. Candidate remittance / PO / SO numbers are listed in Matched to.",
   },
   {
     title: "Unmatched",
@@ -195,6 +217,12 @@ export function bankSourceFields(txn: BankTransaction): string[] {
   });
 }
 
+export function bankNarrative(txn: BankTransaction): string {
+  const narrative = txn.narrative?.trim();
+  if (narrative) return narrative;
+  return txn.description?.trim() ?? "";
+}
+
 export function describeSource(txn: BankTransaction, tokens: string[]): string {
   const fields = bankSourceFields(txn);
   const fieldList = fields.length ? fields.join(", ") : "bank text";
@@ -250,9 +278,7 @@ export function proposeRemediation(
   status: Exclude<MatchStatus, "matched">,
   opts: { pattern: MatchPattern; amountDiffPlain?: string },
 ): string {
-  const tokenBit = ctx.tokens.length
-    ? `Bank tokens: ${ctx.tokens.slice(0, 6).join(", ")}.`
-    : "No invoice/SO/PO token on the bank line.";
+  const kind = ctx.flow === "O2C" ? "SO" : "PO";
   const diff = opts.amountDiffPlain ? ` by ${opts.amountDiffPlain}` : "";
 
   if (opts.pattern === "so_po_id" && status === "partial") {
@@ -268,39 +294,32 @@ export function proposeRemediation(
   }
 
   if (ctx.remRefHits > 1) {
-    return `${tokenBit} Tokens hit ${ctx.remRefHits} remittances and amount did not isolate one. Add the full invoice set from the bank line, or match on remittance id.`;
+    return `${ctx.remRefHits} remittances share this invoice/payment ref and the exact amount did not isolate one. Put the full invoice set on the bank line.`;
   }
 
   if (ctx.remWindowHits > 1 && ctx.remNamedHits !== 1) {
-    return `${tokenBit} Amount ±${DATE_WINDOW_DAYS}d hit ${ctx.remWindowHits} remittances; counterparty name did not isolate one. Put invoice numbers on the bank line, or add a counterparty alias.`;
+    return `${ctx.remWindowHits} remittances have this exact amount on this date. Put the invoice number on the bank line, or add a counterparty alias.`;
   }
 
   if (ctx.soPoAmountHits > 1) {
-    const kind = ctx.flow === "O2C" ? "SO" : "PO";
-    return `${tokenBit} ${ctx.soPoAmountHits} ${kind}s share this amount (ambiguous). Need an ${kind} token or remittance invoice number on the bank line.`;
+    return `${ctx.soPoAmountHits} ${kind}s share this exact amount (ambiguous). Put the ${kind} or invoice number on the bank line.`;
   }
 
   if (
-    ctx.tokens.length &&
     ctx.soIdHits === 0 &&
     ctx.poIdHits === 0 &&
     ctx.poInvoiceHits === 0 &&
     ctx.remRefHits === 0 &&
-    ctx.remWindowHits === 0
+    ctx.remWindowHits === 0 &&
+    ctx.soPoAmountHits === 0
   ) {
-    return `${tokenBit} None of those tokens are on a loaded SO/PO or remittance. Load the UK AR invoice/remittance row that carries them, or map bank customerReference → Oracle invoice.`;
+    if (bankNarrative(ctx.txn)) {
+      return `This narrative is not on a loaded remittance or ${kind}. Load the missing remittance, or put the invoice number on the bank line.`;
+    }
+    return `No remittance or ${kind} at this exact amount on this date. Load the missing remittance, or classify as payroll/tax/internal.`;
   }
 
-  if (!ctx.tokens.length && ctx.remWindowHits === 0 && ctx.soPoAmountHits === 0) {
-    const kind = ctx.flow === "O2C" ? "SO" : "PO";
-    return `${tokenBit} No remittance or ${kind} at this amount in the ±${DATE_WINDOW_DAYS}d window. Load the missing remittance, or classify as payroll/tax/internal (non-reconcilable).`;
-  }
-
-  if (ctx.tokens.length && ctx.remWindowHits === 0 && ctx.soPoAmountHits === 0) {
-    return `${tokenBit} Tokens missed SO/PO/remittance refs, and no amount match in ±${DATE_WINDOW_DAYS}d. Load the missing remittance or widen the extract (UK AR invoices).`;
-  }
-
-  return `${tokenBit} Review source against target and prefer adding invoice numbers to the bank line or the remittance extract.`;
+  return `Put the invoice number on the bank line, or load the remittance that belongs to this payment.`;
 }
 
 export function buildMatchFields(
@@ -315,6 +334,7 @@ export function buildMatchFields(
     matchedId?: string;
   },
 ): Pick<ReconciliationResult, "matchPattern" | "lookup" | "remediation" | "reasons"> {
+  const narrative = bankNarrative(ctx.txn);
   const source = describeSource(ctx.txn, ctx.tokens);
   const target = describeTarget(ctx);
   const approach = opts.approach ?? formatAttempts(ctx.attempts);
@@ -322,6 +342,7 @@ export function buildMatchFields(
     source,
     target,
     approach,
+    narrative,
     ...foundFlags(ctx),
     candidateCount: opts.candidateCount,
     tokens: ctx.tokens.slice(0, 8),
@@ -335,13 +356,7 @@ export function buildMatchFields(
           amountDiffPlain: opts.amountDiffPlain,
         });
 
-  const reasons = [
-    `Pattern: ${MATCH_PATTERN_LABELS[opts.pattern]}`,
-    `Source: ${source}`,
-    `Target: ${target}`,
-    `Lookup: ${approach}`,
-    `Found: ${formatFound(ctx)}`,
-  ];
+  const reasons = [`Narrative: ${narrative || "—"}`, `Found: ${formatFound(ctx)}`];
   if (remediation) reasons.push(`Next: ${remediation}`);
 
   return {

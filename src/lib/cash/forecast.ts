@@ -5,13 +5,7 @@ import type {
   ReconciliationResult,
   Remittance,
 } from "../domain/types";
-import { DATE_WINDOW_DAYS } from "../recon/match-notes";
-import { daysBetween } from "../reference/util";
-
-function amountsMatch(a: number, b: number): boolean {
-  const tolerance = Math.max(1, Math.round(Math.abs(b) * 0.005));
-  return Math.abs(a - b) <= tolerance;
-}
+import { amountsMatch, datesMatch } from "../recon/match-notes";
 
 function normalizeKey(value: string): string {
   return value.toUpperCase().replace(/\s+/g, "");
@@ -39,7 +33,7 @@ function amountDateMatch(rem: Remittance, txn: BankTransaction): boolean {
     Math.sign(txn.amount) === expectedSign &&
     txn.currency === rem.currency &&
     amountsMatch(Math.abs(txn.amount), rem.amount) &&
-    daysBetween(rem.date, txn.date) <= DATE_WINDOW_DAYS
+    datesMatch(rem.date, txn.date)
   );
 }
 

@@ -61,7 +61,7 @@ describe("reconcile", () => {
     expect(r.matchPattern).toBe("so_po_id");
     expect(r.lookup?.soFound).toBe(true);
     expect(r.lookup?.remittanceFound).toBe(false);
-    expect(r.reasons[0]).toMatch(/SO\/PO id token/);
+    expect(r.lookup?.narrative).toBe("");
     expect(r.remediation).toBeUndefined();
   });
 
@@ -102,7 +102,7 @@ describe("reconcile", () => {
     expect(r.confidence).toBeCloseTo(0.7);
     expect(r.matchPattern).toBe("so_po_unique_amount");
     expect(r.lookup?.soFound).toBe(true);
-    expect(r.lookup?.source).toMatch(/no invoice token/);
+    expect(r.lookup?.narrative).toBe("wire");
   });
 
   it("marks an ambiguous amount match (multiple candidates) as partial", () => {
@@ -141,8 +141,7 @@ describe("reconcile", () => {
     expect(r.matchPattern).toBe("exhausted");
     expect(r.lookup?.soFound).toBe(false);
     expect(r.lookup?.remittanceFound).toBe(false);
-    expect(r.lookup?.source).toMatch(/no invoice token/);
-    expect(r.lookup?.target).toMatch(/SO USD/);
+    expect(r.lookup?.narrative).toBe("");
     expect(r.remediation).toMatch(/payroll\/tax\/internal|missing remittance/);
   });
 

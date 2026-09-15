@@ -216,12 +216,14 @@ export type MatchPattern =
 
 /** What was searched, how, and whether SO / remittance / PO rows were found. */
 export interface MatchLookup {
-  /** Bank fields (and tokens) used as the source of the lookup. */
+  /** Bank fields used as the source of the lookup (not shown in Notes). */
   source: string;
-  /** Supporting-file pool searched (SO/PO + remittance, currency, counts). */
+  /** Supporting-file pool searched (not shown in Notes). */
   target: string;
-  /** Lookup steps tried, with hit counts. */
+  /** Lookup steps tried, with hit counts (page header lists the rules). */
   approach: string;
+  /** Bank narrative / description shown on the reconciliation row. */
+  narrative: string;
   soFound: boolean;
   remittanceFound: boolean;
   poFound: boolean;
@@ -245,7 +247,7 @@ export interface ReconciliationResult {
   confidence: number;
   /** Signed difference between bank amount and matched document amount. */
   amountDiff: number;
-  /** Human-readable diagnostic lines (pattern, source, target, found, next). */
+  /** Human-readable diagnostic lines (narrative, found, next). */
   reasons: string[];
   matchPattern?: MatchPattern;
   lookup?: MatchLookup;

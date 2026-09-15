@@ -391,6 +391,9 @@ describe("analysis plan and remittance precedence", () => {
       ),
     ).toBe(true);
     expect(r.lookup?.analysisPlan?.at(-1)?.label).toBe("Result");
+    expect(
+      r.lookup?.analysisPlan?.find((step) => /invoice\/payment ref/.test(step.label))?.detail,
+    ).toBe("0 hit(s)");
   });
 
   it("prefers a unique remittance when PO/AP invoice amount differs", () => {

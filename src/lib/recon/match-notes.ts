@@ -340,10 +340,9 @@ export function buildAnalysisPlan(
     detail: ctx.tokens.length ? ctx.tokens.join(", ") : "none in bank text",
   });
   for (const attempt of ctx.attempts) {
-    const docs = docsForAttempt(ctx, attempt.pattern).slice(0, 3);
-    const locators = docs
-      .map((doc) => locatorForDoc(doc))
-      .slice(0, 2);
+    const docs =
+      attempt.hits > 0 ? docsForAttempt(ctx, attempt.pattern).slice(0, 3) : [];
+    const locators = docs.map((doc) => locatorForDoc(doc)).slice(0, 2);
     steps.push({
       step: step++,
       label: attempt.approach,

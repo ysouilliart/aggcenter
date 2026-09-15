@@ -7,13 +7,34 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SortTh,
   Spinner,
 } from "@/components/ui";
-import type { CashForecast, ForecastDirection } from "@/lib/domain/types";
+import type { CashForecast, CashForecastLine, ForecastDirection } from "@/lib/domain/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
 
 const DIRECTIONS: (ForecastDirection | "all")[] = ["all", "in", "out"];
+
+function forecastSortValue(row: CashForecastLine, key: string): unknown {
+  switch (key) {
+    case "date":
+      return row.date;
+    case "direction":
+      return row.direction;
+    case "name":
+      return row.name;
+    case "reference":
+      return row.reference;
+    case "remittance":
+      return row.remittanceNumber ?? row.id;
+    case "amount":
+      return row.direction === "in" ? row.amount : -row.amount;
+    default:
+      return "";
+  }
+}
 
 export default function ForecastPage() {
   const { data, error, loading } = useFetch<{ forecasts: CashForecast[] }>(
@@ -39,6 +60,7 @@ export default function ForecastPage() {
     if (direction === "all") return active.lines;
     return active.lines.filter((line) => line.direction === direction);
   }, [active, direction]);
+  const sorted = useSort(lines, forecastSortValue);
 
   return (
     <div>
@@ -67,7 +89,7 @@ export default function ForecastPage() {
         }
       />
 
-      {loading ? <Spinner /> : null}
+      {loading && !data ? <Spinner /> : null}
       {error ? <ErrorNote message={error} /> : null}
 
       {active ? (
@@ -122,16 +144,16 @@ export default function ForecastPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 font-medium">Direction</th>
-                    <th className="px-5 py-3 font-medium">Counterparty</th>
-                    <th className="px-5 py-3 font-medium">Reference</th>
-                    <th className="px-5 py-3 font-medium">Remittance</th>
-                    <th className="px-5 py-3 text-right font-medium">Amount</th>
+                    <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Direction" column="direction" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Counterparty" column="name" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Reference" column="reference" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Remittance" column="remittance" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Amount" column="amount" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lines.map((line) => (
+                  {sorted.rows.map((line) => (
                     <tr key={line.id} className="hover:bg-slate-50">
                       <td className="whitespace-nowrap px-5 py-3 text-slate-500">
                         {formatDate(line.date)}
@@ -166,7 +188,7 @@ export default function ForecastPage() {
                       </td>
                     </tr>
                   ))}
-                  {lines.length === 0 ? (
+                  {sorted.rows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-5 py-8 text-center text-slate-400">
                         {active.forecastCount === 0

@@ -1,4 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
+
+import type { SortDir } from "@/lib/sort";
 
 export function PageHeader({
   title,
@@ -219,5 +223,46 @@ export function DistributionList({
         </li>
       ))}
     </ul>
+  );
+}
+
+export function SortTh({
+  label,
+  column,
+  sortKey,
+  sortDir,
+  onSort,
+  align = "left",
+  className = "px-5 py-3 font-medium",
+}: {
+  label: string;
+  column: string;
+  sortKey: string;
+  sortDir: SortDir;
+  onSort: (column: string) => void;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  const active = sortKey === column;
+  return (
+    <th
+      className={className}
+      aria-sort={
+        active ? (sortDir === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-800 ${
+          active ? "text-slate-800" : ""
+        } ${align === "right" ? "w-full justify-end" : ""}`}
+      >
+        {label}
+        <span className="text-[10px] font-normal text-slate-400" aria-hidden>
+          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }

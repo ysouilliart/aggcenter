@@ -8,6 +8,7 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SortTh,
   Spinner,
   StatusBadge,
 } from "@/components/ui";
@@ -23,6 +24,7 @@ import {
   matchedToDocs,
 } from "@/lib/recon/match-notes";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
 
 interface ReconResponse {
   results: ReconciliationResult[];
@@ -41,6 +43,29 @@ const FILTERS: (MatchStatus | "all")[] = [
   "partial",
   "unmatched",
 ];
+
+function reconSortValue(row: ReconciliationResult, key: string): unknown {
+  switch (key) {
+    case "date":
+      return row.date;
+    case "flow":
+      return row.flow;
+    case "amount":
+      return row.amount;
+    case "status":
+      return row.status;
+    case "pattern":
+      return row.matchPattern ?? "";
+    case "matched":
+      return matchedToDocs(row)
+        .map((doc) => doc.label)
+        .join(" ");
+    case "confidence":
+      return row.confidence;
+    default:
+      return "";
+  }
+}
 
 export default function ReconciliationPage() {
   const { data, error, loading } = useFetch<ReconResponse>("/api/reconciliation");
@@ -62,7 +87,7 @@ export default function ReconciliationPage() {
       }),
     [data, filter, currency],
   );
-
+  const sorted = useSort(results, reconSortValue);
   const summary = data?.summary;
 
   return (
@@ -92,7 +117,7 @@ export default function ReconciliationPage() {
         </dl>
       </Card>
 
-      {loading ? <Spinner /> : null}
+      {loading && !data ? <Spinner /> : null}
       {error ? <ErrorNote message={error} /> : null}
 
       {summary ? (
@@ -185,18 +210,18 @@ export default function ReconciliationPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 font-medium">Flow</th>
-                    <th className="px-5 py-3 text-right font-medium">Amount</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">Pattern</th>
-                    <th className="px-5 py-3 font-medium">Matched to</th>
-                    <th className="px-5 py-3 text-right font-medium">Conf.</th>
+                    <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Flow" column="flow" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Amount" column="amount" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
+                    <SortTh label="Status" column="status" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Pattern" column="pattern" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Matched to" column="matched" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Conf." column="confidence" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
                     <th className="px-5 py-3 font-medium">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {results.map((r) => (
+                  {sorted.rows.map((r) => (
                     <tr key={r.transactionId} className="hover:bg-slate-50">
                       <td className="whitespace-nowrap px-5 py-3 text-slate-500">
                         {formatDate(r.date)}
@@ -242,7 +267,7 @@ export default function ReconciliationPage() {
                       </td>
                     </tr>
                   ))}
-                  {results.length === 0 ? (
+                  {sorted.rows.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
                         No transactions for this filter.

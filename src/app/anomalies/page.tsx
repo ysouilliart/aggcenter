@@ -7,12 +7,14 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SortTh,
   SeverityBadge,
   Spinner,
 } from "@/components/ui";
 import type { Anomaly } from "@/lib/domain/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
 
 const TYPE_LABELS: Record<string, string> = {
   duplicate: "Duplicate payment",
@@ -21,6 +23,25 @@ const TYPE_LABELS: Record<string, string> = {
   outlier: "Outlier",
   overdraft_risk: "Overdraft risk",
 };
+
+const SEVERITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
+function anomalySortValue(row: Anomaly, key: string): unknown {
+  switch (key) {
+    case "severity":
+      return SEVERITY_ORDER[row.severity] ?? 9;
+    case "title":
+      return row.title;
+    case "type":
+      return row.type;
+    case "amount":
+      return row.amount ?? 0;
+    case "date":
+      return row.date ?? "";
+    default:
+      return "";
+  }
+}
 
 export default function AnomaliesPage() {
   const { data, error, loading } = useFetch<{ anomalies: Anomaly[] }>(
@@ -42,6 +63,7 @@ export default function AnomaliesPage() {
         : anomalies.filter((a) => a.currency === currency),
     [anomalies, currency],
   );
+  const sorted = useSort(visible, anomalySortValue, "severity");
 
   const counts = useMemo(() => {
     const high = visible.filter((a) => a.severity === "high").length;
@@ -57,7 +79,7 @@ export default function AnomaliesPage() {
         subtitle="Checks on the bank-statement baseline (duplicates, unidentified large payments, amount mismatches). Remittances still to land are on Forecast, not here."
       />
 
-      {loading ? <Spinner /> : null}
+      {loading && !data ? <Spinner /> : null}
       {error ? <ErrorNote message={error} /> : null}
 
       {data ? (
@@ -97,48 +119,59 @@ export default function AnomaliesPage() {
             </div>
           ) : null}
 
-          <div className="space-y-3">
-            {visible.map((a) => (
-              <Card key={a.id} className="flex items-start gap-4">
-                <div className="mt-0.5">
-                  <SeverityBadge severity={a.severity} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-slate-900">{a.title}</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                      {TYPE_LABELS[a.type] ?? a.type}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-600">{a.description}</p>
-                  <div className="mt-1 text-xs text-slate-400">
-                    {a.relatedIds.join(" · ")}
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  {a.amount != null ? (
-                    <div className="font-semibold tabular-nums text-slate-900">
-                      {formatCurrency(a.amount, a.currency ?? "USD")}
-                    </div>
+          <Card className="overflow-hidden p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <SortTh label="Severity" column="severity" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Finding" column="title" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Type" column="type" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Amount" column="amount" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sorted.rows.map((a) => (
+                    <tr key={a.id} className="align-top hover:bg-slate-50">
+                      <td className="px-5 py-3">
+                        <SeverityBadge severity={a.severity} />
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="font-semibold text-slate-900">{a.title}</div>
+                        <p className="mt-1 text-sm text-slate-600">{a.description}</p>
+                        <div className="mt-1 text-xs text-slate-400">
+                          {a.relatedIds.join(" · ")}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                          {TYPE_LABELS[a.type] ?? a.type}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-slate-500">
+                        {a.date ? formatDate(a.date) : "—"}
+                      </td>
+                      <td className="px-5 py-3 text-right font-semibold tabular-nums text-slate-900">
+                        {a.amount != null
+                          ? formatCurrency(a.amount, a.currency ?? "USD")
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {sorted.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
+                        {anomalies.length === 0
+                          ? "No anomalies detected. 🎉"
+                          : "No anomalies for this currency."}
+                      </td>
+                    </tr>
                   ) : null}
-                  {a.date ? (
-                    <div className="text-xs text-slate-400">
-                      {formatDate(a.date)}
-                    </div>
-                  ) : null}
-                </div>
-              </Card>
-            ))}
-            {visible.length === 0 ? (
-              <Card>
-                <p className="text-sm text-slate-500">
-                  {anomalies.length === 0
-                    ? "No anomalies detected. 🎉"
-                    : "No anomalies for this currency."}
-                </p>
-              </Card>
-            ) : null}
-          </div>
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       ) : null}
     </div>

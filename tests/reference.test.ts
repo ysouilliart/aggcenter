@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
+import os from "os";
+import path from "path";
 
 import {
   mapSalesOrders,
   mapUkApInvoices,
+  mapUkPurchaseOrders,
   mapUkRemittances,
 } from "@/lib/reference/fromExtracts";
 import { extractMatchTokens, isGbCountry } from "@/lib/reference/util";
+import { ingestReferenceDocuments } from "@/lib/reference/ingest";
+import { LocalJsonReferenceRepository } from "@/lib/reference/repository";
+import { cashObjectPrefix } from "@/lib/cash/paths";
+import { LocalStorageProvider } from "@/lib/storage/local";
 import { reconcile } from "@/lib/recon/reconcile";
 import type { BankTransaction, Remittance } from "@/lib/domain/types";
 
@@ -120,6 +127,114 @@ describe("UK extract mapping", () => {
     expect(orders[0].id).toBe("2529032");
     expect(orders[0].amount).toBe(8000);
     expect(orders[0].customerPo).toBe("PO-CUST");
+  });
+
+  it("maps UK purchase orders and drops other countries when geography is present", () => {
+    const orders = mapUkPurchaseOrders({
+      headers: [
+        {
+          po_number: "UKPO1001",
+          vendor_name: "UK Vendor Ltd",
+          currency_code: "GBP",
+          amount: "250.00",
+          ordered_date: "2026/08/01",
+          need_by_date: "2026/08/15",
+          status: "OPEN",
+          operating_unit: "OU: ResMed UK",
+          org_id: "112",
+          country: "GB",
+        },
+        {
+          po_number: "ITPO9",
+          vendor_name: "Italy Vendor",
+          currency_code: "EUR",
+          amount: "10.00",
+          ordered_date: "2026/08/01",
+          operating_unit: "ResMed Italy",
+          org_id: "99",
+          country: "IT",
+        },
+      ],
+    });
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({
+      id: "PO-UKPO1001",
+      vendor: "UK Vendor Ltd",
+      amount: 25000,
+      currency: "GBP",
+      poNumbers: ["UKPO1001", "PO-UKPO1001"],
+      status: "open",
+    });
+  });
+
+  it("sums PO line amounts when the header has no total", () => {
+    const orders = mapUkPurchaseOrders({
+      headers: [
+        {
+          po_header_id: "88",
+          po_number: "4500123",
+          vendor_name: "Parts Co",
+          currency_code: "GBP",
+          org_id: "112",
+        },
+      ],
+      lines: [
+        { po_number: "4500123", line_amount: "100.00" },
+        { po_number: "4500123", quantity: "2", unit_price: "25.50" },
+      ],
+    });
+    expect(orders).toHaveLength(1);
+    expect(orders[0].id).toBe("PO-4500123");
+    expect(orders[0].amount).toBe(15100);
+  });
+
+  it("maps Fusion PO_ORDER headers and sums quantity × price from lines", () => {
+    const orders = mapUkPurchaseOrders({
+      headers: [
+        {
+          interface_header_key: "117142.00000000",
+          po_order: "1321",
+          currency_code: "GBP",
+          supplier_name: "ResMed Limited Sea",
+          bill_to_location: "ResMed (UK) Ltd",
+        },
+      ],
+      lines: [
+        {
+          interface_header_key: "117142.00000000",
+          quantity: "10.00000000",
+          price: "276.75000000",
+        },
+        {
+          interface_header_key: "117142.00000000",
+          quantity: "4.00000000",
+          price: "3.38000000",
+        },
+      ],
+    });
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({
+      id: "PO-1321",
+      vendor: "ResMed Limited Sea",
+      currency: "GBP",
+      poNumbers: ["1321", "PO-1321"],
+    });
+    expect(orders[0].amount).toBe(278102);
+  });
+
+  it("keeps purchase orders that have no geography columns", () => {
+    const orders = mapUkPurchaseOrders({
+      headers: [
+        {
+          po_number: "PO-9001",
+          vendor_name: "No Geo Ltd",
+          currency_code: "USD",
+          amount: "12.00",
+        },
+      ],
+    });
+    expect(orders).toHaveLength(1);
+    expect(orders[0].id).toBe("PO-9001");
   });
 });
 
@@ -279,4 +394,188 @@ describe("reconcile remittances", () => {
     expect(r.lookup?.remittanceFound).toBe(true);
     expect(r.remediation).toMatch(/short-pay|split applications/);
   });
+
+  it("matches a debit to a native purchase-order number", () => {
+    const [po] = mapUkPurchaseOrders({
+      headers: [
+        {
+          po_number: "45001234",
+          vendor_name: "UK Vendor Ltd",
+          currency_code: "GBP",
+          amount: "250.00",
+          org_id: "112",
+        },
+      ],
+    });
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "po-debit",
+          amount: -25000,
+          currency: "GBP",
+          reference: "PO-45001234",
+          narrative: "Payment PO-45001234",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [po],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("PO");
+    expect(r.matchedId).toBe("PO-45001234");
+  });
 });
+
+function csv(headers: string[], rows: string[][]): string {
+  return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+}
+
+describe("ingestReferenceDocuments", () => {
+  it("loads AP, PO, SO and remittance CSVs from the UK org folders", async () => {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const storage = new LocalStorageProvider(
+      path.join(os.tmpdir(), `aggc-ref-store-${stamp}`),
+    );
+    const repo = new LocalJsonReferenceRepository(
+      path.join(os.tmpdir(), `aggc-ref-${stamp}.json`),
+    );
+
+    await storage.put(
+      `${cashObjectPrefix("inv")}ap_invoice_header.csv`,
+      Buffer.from(
+        csv(
+          [
+            "invoice_id",
+            "invoice_number",
+            "invoice_amount",
+            "invoice_date",
+            "supplier_name",
+            "invoice_currency",
+            "taxation_country",
+            "business_unit",
+            "invoice_type",
+          ],
+          [
+            [
+              "1",
+              "INV-GB-1",
+              "10.00",
+              "2026/08/01",
+              "UK Supplier Ltd",
+              "GBP",
+              "GB",
+              "ResMed UK",
+              "STANDARD",
+            ],
+          ],
+        ),
+      ),
+    );
+    await storage.put(
+      `${cashObjectPrefix("inv")}ap_invoice_line.csv`,
+      Buffer.from(csv(["invoice_id", "po_number"], [["1", "PO12345"]])),
+    );
+    await storage.put(
+      `${cashObjectPrefix("po")}po_header.csv`,
+      Buffer.from(
+        csv(
+          [
+            "po_number",
+            "vendor_name",
+            "currency_code",
+            "amount",
+            "ordered_date",
+            "org_id",
+            "country",
+          ],
+          [["UKPO1001", "UK Vendor Ltd", "GBP", "250.00", "2026/08/01", "112", "GB"]],
+        ),
+      ),
+    );
+    await storage.put(
+      `${cashObjectPrefix("po")}PO_LInes_Locations_112.csv`,
+      Buffer.from(csv(["interface_line_key", "quantity"], [["1", "999.00"]])),
+    );
+    await storage.put(
+      `${cashObjectPrefix("so")}sales_order_header.csv`,
+      Buffer.from(
+        csv(
+          ["sourcetransid", "source_trans_num", "byng_pty_nme", "transal_crncy_code", "trans_on"],
+          [["88.00000000", "2529032.00000000", "ResMed CZ", "CZK", "2026/09/10"]],
+        ),
+      ),
+    );
+    await storage.put(
+      `${cashObjectPrefix("so")}charges_component.csv`,
+      Buffer.from(
+        csv(
+          ["source_trans_id", "price_element_code", "charge_crncy_extended_amount"],
+          [["88.00000000", "QP_NET_PRICE", "80.0"]],
+        ),
+      ),
+    );
+    await storage.put(
+      `${cashObjectPrefix("rem")}remittance.csv`,
+      Buffer.from(
+        csv(
+          [
+            "flow_direction",
+            "source_module",
+            "org_id",
+            "operating_unit_name",
+            "remittance_id",
+            "remittance_number",
+            "remittance_date",
+            "payment_currency_code",
+            "payment_total_amount",
+            "invoice_number",
+            "counterparty_name",
+          ],
+          [
+            [
+              "CUSTOMER_TO_OU",
+              "AR",
+              "112",
+              "OU: ResMed UK",
+              "100",
+              "BACS",
+              "2026-08-10 00:00:00.00000",
+              "GBP",
+              "150.00",
+              "2000000001",
+              "NHS Trust Alpha",
+            ],
+          ],
+        ),
+      ),
+    );
+
+    const result = await ingestReferenceDocuments({ storage, repo });
+    expect(result.errors).toEqual([]);
+    expect(result.orgRoot).toBe("aggCenter/ORG_112 - UK");
+    expect(result.apInvoices).toBe(1);
+    expect(result.purchaseOrders).toBe(1);
+    expect(result.salesOrders).toBe(1);
+    expect(result.remittances).toBe(1);
+    expect(result.files.map((f) => f.key).sort()).toEqual([
+      "aggCenter/ORG_112 - UK/INV_112/ap_invoice_header.csv",
+      "aggCenter/ORG_112 - UK/INV_112/ap_invoice_line.csv",
+      "aggCenter/ORG_112 - UK/PO_112/po_header.csv",
+      "aggCenter/ORG_112 - UK/REM_112/remittance.csv",
+      "aggCenter/ORG_112 - UK/SO_112/charges_component.csv",
+      "aggCenter/ORG_112 - UK/SO_112/sales_order_header.csv",
+    ]);
+    expect(result.files.some((f) => /location/i.test(f.key))).toBe(false);
+
+    const counts = await repo.counts();
+    expect(counts).toEqual({
+      salesOrders: 1,
+      purchaseOrders: 1,
+      apInvoices: 1,
+      remittances: 1,
+    });
+    const pos = await repo.listPurchaseOrders();
+    expect(pos.map((p) => p.id).sort()).toEqual(["AP-1", "PO-UKPO1001"]);
+  });
+});
+

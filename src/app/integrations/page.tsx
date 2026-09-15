@@ -26,6 +26,16 @@ interface IntegrationStatus {
   };
   externalApi: { configured: boolean; baseUrl?: string };
   database: { configured: boolean; provider: string };
+  cashFiles?: {
+    orgRoot: string;
+    inv: string;
+    po: string;
+    so: string;
+    rem: string;
+    bank: string;
+    statementCsv: string;
+    statementPdf: string;
+  };
   invoiceClassify?: {
     mode: "llm" | "static";
     llmEnabled: boolean;
@@ -35,6 +45,12 @@ interface IntegrationStatus {
     warning?: string;
     seedSamples: boolean;
   };
+}
+
+function folderName(prefix: string | undefined, fallback: string): string {
+  if (!prefix) return fallback;
+  const parts = prefix.replace(/\/+$/, "").split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? fallback;
 }
 
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
@@ -59,6 +75,7 @@ export default function IntegrationsPage() {
   const reference = useFetch<{
     salesOrders: number;
     purchaseOrders: number;
+    apInvoices: number;
     remittances: number;
     provider: string;
   }>("/api/reference");
@@ -73,7 +90,7 @@ export default function IntegrationsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
       setSyncMessage(
-        `Loaded ${json.purchaseOrders} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.`,
+        `Loaded ${json.purchaseOrders} purchase orders, ${json.apInvoices} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.`,
       );
       reference.reload();
     } catch (err) {
@@ -214,17 +231,29 @@ export default function IntegrationsPage() {
               </button>
             </div>
             <p className="text-sm text-slate-600">
-              UK AP invoices, sales orders, and remittances from{" "}
+              UK AP invoices, purchase orders, sales orders, and remittances from{" "}
               <span className="font-medium text-slate-900">
-                aggCenter/APInvoices
+                {data.cashFiles?.orgRoot ?? "aggCenter/ORG_112 - UK"}
+              </span>
+              . Default folders:{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.inv, "INV_112")}
               </span>
               ,{" "}
               <span className="font-medium text-slate-900">
-                aggCenter/salesOrder
-              </span>{" "}
-              and{" "}
+                {folderName(data.cashFiles?.po, "PO_112")}
+              </span>
+              ,{" "}
               <span className="font-medium text-slate-900">
-                aggCenter/remittance
+                {folderName(data.cashFiles?.so, "SO_112")}
+              </span>
+              ,{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.rem, "REM_112")}
+              </span>
+              . Bank statements sync from{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.bank, "BANK_112")}
               </span>
               . AP rows keep taxation country GB; remittances keep OU ResMed UK.
             </p>
@@ -234,8 +263,12 @@ export default function IntegrationsPage() {
                 value={String(reference.data?.remittances ?? "—")}
               />
               <Row
-                label="UK AP invoices"
+                label="Purchase orders"
                 value={String(reference.data?.purchaseOrders ?? "—")}
+              />
+              <Row
+                label="UK AP invoices"
+                value={String(reference.data?.apInvoices ?? "—")}
               />
               <Row
                 label="Sales orders"

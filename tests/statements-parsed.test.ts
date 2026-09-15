@@ -93,7 +93,7 @@ describe("recordsFromParseResult + LocalJsonStatementRepository", () => {
       accountId: "ACC-HSBC",
       fileName: "uk-hsbc-aug.pdf",
       source: "oci",
-      storageKey: "aggCenter/bankStatements/UK-HSBC/uk-hsbc-aug.pdf",
+      storageKey: "aggCenter/ORG_112 - UK/BANK_112/UK-HSBC/uk-hsbc-aug.pdf",
       bankCode: "UK-HSBC",
     });
 
@@ -132,7 +132,7 @@ describe("recordsFromParseResult + LocalJsonStatementRepository", () => {
       accountId: "UNATTRIBUTED",
       fileName: "broken.pdf",
       source: "oci",
-      storageKey: "aggCenter/bankStatements/UK-HSBC/broken.pdf",
+      storageKey: "aggCenter/ORG_112 - UK/BANK_112/UK-HSBC/broken.pdf",
       bankCode: "UK-HSBC",
       error: "No PDF parser matched this file.",
     });

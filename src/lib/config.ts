@@ -7,6 +7,11 @@
  * Cloud Agent, never committed to the repo.
  */
 
+import {
+  type CashFilePrefixes,
+  resolveCashFilePrefixes,
+} from "./cash/paths";
+
 export type StorageProviderName = "local" | "oci";
 export type DataSourceName = "local" | "snowflake";
 
@@ -48,11 +53,17 @@ export interface AppConfig {
   snowflake: SnowflakeConfig;
   /** Optional base URL for pulling reference data from an external API. */
   externalApiBaseUrl?: string;
-  /** CSV ingest prefix (`inbox/<accountId>/<file>.csv`). */
+  /**
+   * UK cash-management layout: one org root plus INV_112 / PO_112 / SO_112 /
+   * REM_112 / BANK_112 prefixes. CSV and PDF statements default to BANK_112.
+   */
+  cashFiles: CashFilePrefixes;
+  /** CSV ingest prefix (`{orgRoot}/BANK_112/<accountId>/<file>.csv`). */
   statementCsvPrefix: string;
-  /** PDF ingest prefix (`aggCenter/bankStatements/<bankCode>/<file>.pdf`). */
+  /** PDF ingest prefix (`{orgRoot}/BANK_112/<bankCode>/<file>.pdf`). */
   statementPdfPrefix: string;
   referenceApPrefix: string;
+  referencePoPrefix: string;
   referenceSalesOrderPrefix: string;
   referenceRemittancePrefix: string;
   /** Supplier master-data prefix (`supplier/<extract>.csv`). */
@@ -184,6 +195,8 @@ export function getConfig(): AppConfig {
     (process.env.DATA_SOURCE as DataSourceName) ||
     (snowflake.configured ? "snowflake" : "local");
 
+  const cashFiles = resolveCashFilePrefixes();
+
   return {
     storageProvider,
     dataSource,
@@ -191,21 +204,13 @@ export function getConfig(): AppConfig {
     oci,
     snowflake,
     externalApiBaseUrl: process.env.EXTERNAL_API_BASE_URL,
-    statementCsvPrefix: withTrailingSlash(
-      process.env.STATEMENT_CSV_PREFIX || "inbox",
-    ),
-    statementPdfPrefix: withTrailingSlash(
-      process.env.STATEMENT_PDF_PREFIX || "aggCenter/bankStatements",
-    ),
-    referenceApPrefix: withTrailingSlash(
-      process.env.REFERENCE_AP_PREFIX || "aggCenter/APInvoices",
-    ),
-    referenceSalesOrderPrefix: withTrailingSlash(
-      process.env.REFERENCE_SO_PREFIX || "aggCenter/salesOrder",
-    ),
-    referenceRemittancePrefix: withTrailingSlash(
-      process.env.REFERENCE_REMITTANCE_PREFIX || "aggCenter/remittance",
-    ),
+    cashFiles,
+    statementCsvPrefix: cashFiles.statementCsv,
+    statementPdfPrefix: cashFiles.statementPdf,
+    referenceApPrefix: cashFiles.inv,
+    referencePoPrefix: cashFiles.po,
+    referenceSalesOrderPrefix: cashFiles.so,
+    referenceRemittancePrefix: cashFiles.rem,
     supplierPrefix: withTrailingSlash(process.env.SUPPLIER_PREFIX || "supplier"),
     supplierFbdiPrefix: withTrailingSlash(
       process.env.SUPPLIER_FBDI_PREFIX || "aggcenter/FBDI/supplier",

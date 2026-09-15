@@ -17,7 +17,25 @@ export interface ReferenceRepository {
   listSalesOrders(): Promise<SalesOrder[]>;
   listPurchaseOrders(): Promise<PurchaseOrder[]>;
   listRemittances(): Promise<Remittance[]>;
-  counts(): Promise<{ salesOrders: number; purchaseOrders: number; remittances: number }>;
+  counts(): Promise<{
+    salesOrders: number;
+    purchaseOrders: number;
+    apInvoices: number;
+    remittances: number;
+  }>;
+}
+
+function splitP2pCounts(orders: PurchaseOrder[]): {
+  purchaseOrders: number;
+  apInvoices: number;
+} {
+  let purchaseOrders = 0;
+  let apInvoices = 0;
+  for (const order of orders) {
+    if (order.id.startsWith("AP-")) apInvoices += 1;
+    else purchaseOrders += 1;
+  }
+  return { purchaseOrders, apInvoices };
 }
 
 function splitList(value: string | null | undefined): string[] | undefined {
@@ -56,8 +74,8 @@ export class LocalJsonReferenceRepository implements ReferenceRepository {
     const snap = await this.read();
     return {
       salesOrders: snap.salesOrders.length,
-      purchaseOrders: snap.purchaseOrders.length,
       remittances: snap.remittances.length,
+      ...splitP2pCounts(snap.purchaseOrders),
     };
   }
 }
@@ -187,16 +205,15 @@ export class PostgresReferenceRepository implements ReferenceRepository {
 
   async counts() {
     const { getDb } = await import("../db/client");
-    const { salesOrders, purchaseOrders, remittances } = await import("../db/schema");
+    const { salesOrders, remittances } = await import("../db/schema");
     const { sql } = await import("drizzle-orm");
     const db = getDb();
     const [so] = await db.select({ n: sql<number>`count(*)` }).from(salesOrders);
-    const [po] = await db.select({ n: sql<number>`count(*)` }).from(purchaseOrders);
     const [rem] = await db.select({ n: sql<number>`count(*)` }).from(remittances);
     return {
       salesOrders: Number(so?.n ?? 0),
-      purchaseOrders: Number(po?.n ?? 0),
       remittances: Number(rem?.n ?? 0),
+      ...splitP2pCounts(await this.listPurchaseOrders()),
     };
   }
 }

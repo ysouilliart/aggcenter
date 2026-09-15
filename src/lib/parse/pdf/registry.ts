@@ -4,7 +4,7 @@ import { ukHsbcParser } from "./ukHsbc";
 
 /**
  * PDF parsers keyed by the bank-code folder under
- * `aggCenter/bankStatements/<bankCode>/`.
+ * `aggCenter/ORG_112 - UK/BANK_112/<bankCode>/`.
  */
 export const PARSER_BY_BANK_CODE: Record<string, StatementPdfParser> = {
   "UK-HSBC": ukHsbcParser,

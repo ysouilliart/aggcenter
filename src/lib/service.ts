@@ -273,6 +273,16 @@ export interface IntegrationStatus {
   externalApi: { configured: boolean; baseUrl?: string };
   database: { configured: boolean; provider: string };
   reportingCurrency: string;
+  cashFiles: {
+    orgRoot: string;
+    inv: string;
+    po: string;
+    so: string;
+    rem: string;
+    bank: string;
+    statementCsv: string;
+    statementPdf: string;
+  };
   invoiceClassify: {
     mode: "llm" | "static";
     llmEnabled: boolean;
@@ -313,6 +323,16 @@ export function getIntegrationStatus(): IntegrationStatus {
       provider: getStatementRepository().name,
     },
     reportingCurrency: config.reportingCurrency,
+    cashFiles: {
+      orgRoot: config.cashFiles.orgRoot,
+      inv: config.cashFiles.inv,
+      po: config.cashFiles.po,
+      so: config.cashFiles.so,
+      rem: config.cashFiles.rem,
+      bank: config.cashFiles.bank,
+      statementCsv: config.cashFiles.statementCsv,
+      statementPdf: config.cashFiles.statementPdf,
+    },
     invoiceClassify: {
       mode: config.invoiceClassify.llmReady ? "llm" : "static",
       llmEnabled: config.invoiceClassify.llmEnabled,

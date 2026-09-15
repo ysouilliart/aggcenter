@@ -64,7 +64,7 @@ export default function ForecastPage() {
       {error ? <ErrorNote message={error} /> : null}
 
       {active ? (
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <KpiCard
               label="Predicted in"
@@ -90,7 +90,7 @@ export default function ForecastPage() {
             />
           </div>
 
-          <Card className="p-0">
+          <Card className="min-w-0 overflow-hidden p-0">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
               <h2 className="font-semibold text-slate-900">
                 Remittances not on the statement
@@ -140,10 +140,10 @@ export default function ForecastPage() {
                           {line.direction === "in" ? "In" : "Out"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-medium text-slate-800">
+                      <td className="max-w-[16rem] truncate px-5 py-3 font-medium text-slate-800">
                         {line.name}
                       </td>
-                      <td className="px-5 py-3 text-slate-600">{line.reference}</td>
+                      <td className="max-w-[12rem] truncate px-5 py-3 text-slate-600">{line.reference}</td>
                       <td className="px-5 py-3 text-slate-500">
                         {line.remittanceNumber ?? line.id}
                       </td>

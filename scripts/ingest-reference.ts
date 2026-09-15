@@ -1,5 +1,6 @@
 /**
- * Reset cash tables and load one UK baseline from
+ * Reset cash tables, parse the bank-statement baseline, then load supporting
+ * UK SO/PO/AP/remittance CSVs from
  * `aggCenter/ORG_112 - UK/{INV_112,PO_112,SO_112,REM_112,BANK_112}`.
  */
 import { loadCashBaseline } from "@/lib/cash/baseline";

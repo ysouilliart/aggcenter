@@ -45,8 +45,9 @@ aggCenter/ORG_112 - UK/BANK_112/UK GBP HSBC CURRENT ACC AUG-26.pdf
 | `aggCenter/ORG_112 - UK/REM_112/` | Remittance CSVs (`remittance_112.csv`) |
 
 Then click **Load from bucket** on Integrations (or `POST /api/reference/ingest`)
-to reset cash tables and load one baseline (reference CSVs + a single parse of
-each bank file currently in `BANK_112/`). **Sync from bucket** on Statements
-(`POST /api/statements/ingest`) also clears previous statement rows first, then
-re-parses bank files. That avoids keeping the same HSBC statement twice under
-old and new object keys.
+to reset cash tables and load the **bank-statement baseline** from `BANK_112/`,
+then supporting SO/PO/AP/remittance CSVs used to identify those payments.
+Remittances that have not landed on the statement become the cash forecast.
+**Sync from bucket** on Statements (`POST /api/statements/ingest`) also clears
+previous statement rows first, then re-parses bank files. That avoids keeping
+the same HSBC statement twice under old and new object keys.

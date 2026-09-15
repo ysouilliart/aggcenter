@@ -5,8 +5,10 @@
  *   - Order to Cash (O2C):  Sales Order -> Invoice -> Customer Remittance -> Bank credit (inflow)
  *   - Procure to Pay (P2P): Purchase Order -> Vendor Bill -> Payment/Remittance -> Bank debit (outflow)
  *
- * Bank statements are the source of truth for actual cash movement; PO/SO/remittance
- * records are the "expected" side that we reconcile against.
+ * The **bank statement is the baseline**. Reconciliation asks: do we have the
+ * supporting SO / PO / remittance in the system to identify this payment?
+ * Remittances that have not yet hit the statement are a cash forecast
+ * (predicted in / predicted out), not anomalies.
  *
  * MONEY: every monetary field below is an integer number of **minor units
  * (cents)**. See `lib/money.ts` — integer math avoids floating-point drift in
@@ -206,7 +208,7 @@ export type MatchPattern =
 export interface MatchLookup {
   /** Bank fields (and tokens) used as the source of the lookup. */
   source: string;
-  /** Expected-side pool searched (SO/PO + remittance, currency, counts). */
+  /** Supporting-file pool searched (SO/PO + remittance, currency, counts). */
   target: string;
   /** Lookup steps tried, with hit counts. */
   approach: string;
@@ -245,7 +247,6 @@ export type AnomalyType =
   | "duplicate"
   | "amount_mismatch"
   | "unmatched_large"
-  | "missing_receipt"
   | "outlier"
   | "overdraft_risk";
 
@@ -296,4 +297,38 @@ export interface CashPosition {
   o2cInflows: number;
   p2pOutflows: number;
   generatedAt: string;
+}
+
+export type ForecastDirection = "in" | "out";
+
+/** One remittance that has not yet identified a bank-statement line. */
+export interface CashForecastLine {
+  id: string;
+  party: Remittance["party"];
+  direction: ForecastDirection;
+  name: string;
+  reference: string;
+  amount: number;
+  currency: Currency;
+  date: string;
+  remittanceNumber?: string;
+  status?: string;
+}
+
+/**
+ * Predicted cash from remittances that are not on the loaded bank statement.
+ * Customer remittances = predicted in; vendor remittances = predicted out.
+ */
+export interface CashForecast {
+  currency: Currency;
+  predictedInflows: number;
+  predictedOutflows: number;
+  netPredicted: number;
+  statementClosing: number;
+  projectedClosing: number;
+  identifiedCount: number;
+  forecastCount: number;
+  inflowCount: number;
+  outflowCount: number;
+  lines: CashForecastLine[];
 }

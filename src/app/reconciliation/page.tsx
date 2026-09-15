@@ -64,7 +64,7 @@ export default function ReconciliationPage() {
     <div>
       <PageHeader
         title="Reconciliation"
-        subtitle="Bank lines matched to SO/PO and remittances. Notes show the pattern, source, target, found status, and a remediation when the lookup fails."
+        subtitle="Bank-statement baseline: each payment is identified with supporting SO, PO, and remittance files. Unmatched means that supporting file is not in the system."
       />
 
       {loading ? <Spinner /> : null}

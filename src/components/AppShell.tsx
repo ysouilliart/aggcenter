@@ -14,6 +14,7 @@ const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }
 const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> = {
   cash: [
     { href: "/", label: "Cash Position", icon: "M3 12h4l2 5 4-13 2 8h6" },
+    { href: "/forecast", label: "Forecast", icon: "M4 19V5m4 14V9m4 10V8m4 11V3" },
     { href: "/reconciliation", label: "Reconciliation", icon: "M4 7h16M4 12h16M4 17h10" },
     { href: "/anomalies", label: "Anomalies", icon: "M12 3l9 16H3l9-16zm0 6v4m0 3h.01" },
     { href: "/statements", label: "Statements", icon: "M6 3h9l4 4v14H6zM14 3v5h5" },
@@ -75,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hint = WORKSPACES.find((w) => w.id === workspace)?.hint ?? "";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-hidden">
       <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 text-slate-200 md:flex">
         <div className="flex items-center gap-3 px-6 py-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-sky-400 font-bold text-slate-900">
@@ -159,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </div>
         </header>
-        <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
+        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>

@@ -17,8 +17,7 @@ import { useFetch } from "@/lib/useFetch";
 const TYPE_LABELS: Record<string, string> = {
   duplicate: "Duplicate payment",
   amount_mismatch: "Amount mismatch",
-  unmatched_large: "Large unmatched",
-  missing_receipt: "Missing receipt",
+  unmatched_large: "Large unidentified",
   outlier: "Outlier",
   overdraft_risk: "Overdraft risk",
 };
@@ -55,7 +54,7 @@ export default function AnomaliesPage() {
     <div>
       <PageHeader
         title="Anomalies"
-        subtitle="Automated checks across bank data and reconciliation results"
+        subtitle="Checks on the bank-statement baseline (duplicates, unidentified large payments, amount mismatches). Remittances still to land are on Forecast, not here."
       />
 
       {loading ? <Spinner /> : null}

@@ -3,22 +3,26 @@
 **Aggregation Center** — an operations aggregator for improving business
 efficiency across typical operational processes. The first vertical is
 **Cash Position** for the classic *Order-to-Cash* (O2C) and *Procure-to-Pay*
-(P2P) flows: consume bank statements, reconcile them against sales orders,
-purchase orders and remittances, and surface a cash-position dashboard plus an
-anomalies report.
+(P2P) flows. The **bank statement is the baseline**: reconciliation asks
+whether supporting sales orders, purchase orders and remittances are in the
+system to identify each payment. Remittances that have not landed on the
+statement are a cash forecast (predicted in / out), not anomalies.
 
 Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 
 ## Features
 
-- **Cash Position dashboard** — opening/closing balances, inflows (O2C) vs
-  outflows (P2P), running-balance trend and per-account breakdown, multi-currency.
-- **Reconciliation** — bank transactions matched to SO/PO by reference and
-  amount, with confidence scores and matched / partial / unmatched status.
-- **Anomalies** — duplicate payments, amount mismatches, large unmatched items,
-  missing customer receipts, statistical outliers and overdraft risk.
-- **Statements** — upload bank-statement CSVs; they are stored via the active
-  file provider and fed straight into the pipeline alongside bundled samples.
+- **Cash Position dashboard** — actual opening/closing from the bank statement,
+  inflows vs outflows, plus predicted in / out from remittances still to land.
+- **Cash Forecast** — customer remittances = predicted in, vendor remittances =
+  predicted out. These are not anomalies.
+- **Reconciliation** — each bank payment is identified with supporting SO / PO /
+  remittance files (matched / partial / unmatched).
+- **Anomalies** — duplicate payments, amount mismatches, large unidentified bank
+  lines, statistical outliers and overdraft risk. Missing remittances are
+  forecast, not findings.
+- **Statements** — the cash baseline. Upload or sync bank files; each Load /
+  Sync from bucket replaces the previous parse.
 - **Supplier workspace** — separate from cash. Ingest OCI `supplier/` extracts
   (profile, site, address, VAT ID), surface missing attributes, VAT-format and
   address issues, plus rationalisation of payment terms / group / type. Edit a
@@ -42,7 +46,7 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 ```
 src/
   app/                 # App Router pages + API route handlers
-    api/               #   /api/cash-position, /reconciliation, /anomalies, /statements, /suppliers, ...
+    api/               #   /api/cash-position, /cash-forecast, /reconciliation, /anomalies, /statements, /suppliers, ...
     suppliers/         #   Supplier workspace (overview, records, review, audit, FBDI)
     invoices/          #   Invoice parser (inbox, needs-review, document viewer)
   components/          # AppShell (Cash / Suppliers / Invoices workspaces), UI primitives, SVG charts
@@ -50,7 +54,7 @@ src/
     domain/            # shared types
     parse/             # CSV + bank-statement + invoice parsing
     recon/             # reconciliation engine
-    cash/              # cash-position calculator
+    cash/              # cash-position calculator + remittance forecast
     anomalies/         # cash anomaly detection
     suppliers/         # supplier ingest, VAT/address checks, versions + audit, FBDI
     invoices/          # invoice ingest, OCI folder moves, repository
@@ -177,20 +181,22 @@ binary guard).
 ### Auto-ingest statements from the bucket
 
 Click **Load from bucket** on Integrations (or `POST /api/reference/ingest`)
-to **reset cash tables** and load one baseline from `aggCenter/ORG_112 - UK`:
+to **reset cash tables** and load one baseline. The **bank statement** is the
+baseline; SO / PO / AP / remittance CSVs are supporting files used to identify
+those payments:
 
-| Folder | Contents |
+| Folder | Role |
 | --- | --- |
-| `INV_112` | AP invoices (taxation country `GB`) |
-| `PO_112` | Purchase orders (ORG 112 / UK) |
-| `SO_112` | Sales orders |
-| `REM_112` | Remittances (`OU: ResMed UK`; one payment per remittance id) |
-| `BANK_112` | Bank statements (one parse per file; previous statement rows are deleted first) |
+| `BANK_112` | Bank-statement baseline (one parse per file; previous statement rows are deleted first) |
+| `INV_112` | Supporting AP invoices (taxation country `GB`) |
+| `PO_112` | Supporting purchase orders (ORG 112 / UK) |
+| `SO_112` | Supporting sales orders |
+| `REM_112` | Supporting remittances (`OU: ResMed UK`). Unmatched remittances feed the cash forecast (predicted in / out), not anomalies. |
 
 That wipe covers statements, transactions, parse traces, and upserted bank
-accounts. Reference SO/PO/AP/remittance rows are replaced. Cash position,
-reconciliation, and anomalies are derived from those tables, so they reset
-with the load. Bundled sample statements are not mixed in once an OCI
+accounts. Supporting SO/PO/AP/remittance rows are replaced. Cash position,
+reconciliation, forecast, and anomalies are derived from those tables, so they
+reset with the load. Bundled sample statements are not mixed in once an OCI
 statement exists.
 
 Override the org root with `CASH_ORG_ROOT`, or a single folder with

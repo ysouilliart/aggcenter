@@ -4,6 +4,7 @@ import { ingestFromObjectStorage } from "@/lib/ingest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   let prefix: string | undefined;
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await ingestFromObjectStorage(prefix);
+    const result = await ingestFromObjectStorage(prefix, { replace: true });
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

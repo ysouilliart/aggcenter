@@ -10,6 +10,10 @@ import { isDatabaseConfigured } from "./db/client";
 import { parseBankStatementCsv } from "./parse/bankStatement";
 import { reconcile, summarize } from "./recon/reconcile";
 import { computeCashPosition } from "./cash/position";
+import {
+  usesBundledCashSamples,
+  usesBundledReferenceSamples,
+} from "./cash/baseline";
 import { detectAnomalies } from "./anomalies/detect";
 import type {
   Anomaly,
@@ -25,12 +29,15 @@ import type {
 } from "./domain/types";
 
 export async function getAccounts(): Promise<BankAccount[]> {
-  const [seed, persisted] = await Promise.all([
+  const [seed, persisted, statements] = await Promise.all([
     getDataSource().getAccounts(),
     getStatementRepository().listAccounts(),
+    getStatementRepository().listStatements(),
   ]);
   const byId = new Map<string, BankAccount>();
-  for (const account of seed) byId.set(account.id, account);
+  if (usesBundledCashSamples(statements)) {
+    for (const account of seed) byId.set(account.id, account);
+  }
   for (const account of persisted) byId.set(account.id, account);
   return [...byId.values()];
 }
@@ -74,19 +81,22 @@ async function getSampleData(): Promise<{
 }
 
 export async function getAllTransactions(): Promise<BankTransaction[]> {
-  const [{ transactions }, uploaded] = await Promise.all([
+  const [sample, uploaded, statements] = await Promise.all([
     getSampleData(),
     getStatementRepository().listTransactions(),
+    getStatementRepository().listStatements(),
   ]);
-  return [...transactions, ...uploaded];
+  if (!usesBundledCashSamples(statements)) return uploaded;
+  return [...sample.transactions, ...uploaded];
 }
 
 export async function getStatements(): Promise<Statement[]> {
-  const [{ statements }, uploaded] = await Promise.all([
+  const [sample, uploaded] = await Promise.all([
     getSampleData(),
     getStatementRepository().listStatements(),
   ]);
-  return [...statements, ...uploaded];
+  if (!usesBundledCashSamples(uploaded)) return uploaded;
+  return [...sample.statements, ...uploaded];
 }
 
 export interface StatementDetail {
@@ -115,7 +125,11 @@ export async function getStatementDetail(
     : sample.transactions.filter((t) => t.statementId === id);
 
   const job = uploaded ? ((await repo.getParseJobForStatement(id)) ?? null) : null;
-  const account = accounts.find((a) => a.id === statement.accountId) ?? null;
+  let account = accounts.find((a) => a.id === statement.accountId) ?? null;
+  if (!account) {
+    const seed = await getDataSource().getAccounts();
+    account = seed.find((a) => a.id === statement.accountId) ?? null;
+  }
   return { statement, transactions, job, account };
 }
 
@@ -182,10 +196,20 @@ async function getExpectedDocuments(): Promise<{
       repo.listRemittances(),
     ]).then(([so, po, rem]) => ({ so, po, rem })),
   ]);
+  const includeSamples = usesBundledReferenceSamples({
+    salesOrders: persisted.so.length,
+    purchaseOrders: persisted.po.filter((p) => !p.id.startsWith("AP-")).length,
+    apInvoices: persisted.po.filter((p) => p.id.startsWith("AP-")).length,
+    remittances: persisted.rem.length,
+  });
   return {
-    salesOrders: [...salesOrders, ...persisted.so],
-    purchaseOrders: [...purchaseOrders, ...persisted.po],
-    remittances: [...remittances, ...persisted.rem],
+    salesOrders: includeSamples ? [...salesOrders, ...persisted.so] : persisted.so,
+    purchaseOrders: includeSamples
+      ? [...purchaseOrders, ...persisted.po]
+      : persisted.po,
+    remittances: includeSamples
+      ? [...remittances, ...persisted.rem]
+      : persisted.rem,
   };
 }
 

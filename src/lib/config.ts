@@ -54,13 +54,13 @@ export interface AppConfig {
   /** Optional base URL for pulling reference data from an external API. */
   externalApiBaseUrl?: string;
   /**
-   * UK cash-management layout: one org root plus inv/po/so/rem/bank prefixes.
-   * `statementCsvPrefix` / `statementPdfPrefix` default to `bank`.
+   * UK cash-management layout: one org root plus INV_112 / PO_112 / SO_112 /
+   * REM_112 / BANK_112 prefixes. CSV and PDF statements default to BANK_112.
    */
   cashFiles: CashFilePrefixes;
-  /** CSV ingest prefix (`{orgRoot}/bank/<accountId>/<file>.csv`). */
+  /** CSV ingest prefix (`{orgRoot}/BANK_112/<accountId>/<file>.csv`). */
   statementCsvPrefix: string;
-  /** PDF ingest prefix (`{orgRoot}/bank/<bankCode>/<file>.pdf`). */
+  /** PDF ingest prefix (`{orgRoot}/BANK_112/<bankCode>/<file>.pdf`). */
   statementPdfPrefix: string;
   referenceApPrefix: string;
   referencePoPrefix: string;

@@ -85,7 +85,7 @@ function fileNameOf(key: string): string {
  * account identity comes from the statement header (IBAN / account number)
  * and is upserted when missing.
  *
- * Both prefixes default to `{orgRoot}/bank/` (`aggCenter/ORG_112 - UK/bank/`).
+ * Both prefixes default to `{orgRoot}/BANK_112/` (`aggCenter/ORG_112 - UK/BANK_112/`).
  *
  * Idempotent on `storage_key`. PDF parse failures are still persisted so the
  * UI can show why.

@@ -52,13 +52,20 @@ export function isUkOrgRow(row: Record<string, string>): boolean {
     return true;
   }
   if (row.org_id === "112") return true;
-  const ou = firstField(row, [
+  const geoText = [
     "operating_unit",
     "operating_unit_name",
     "business_unit",
     "org_name",
-  ]);
-  if (/uk/i.test(ou)) return true;
+    "bill_to_location",
+    "ship_to_location",
+    "bill_to_bu",
+    "procurement_bu",
+    "requisitioning_bu",
+  ]
+    .map((name) => row[name] ?? "")
+    .join(" ");
+  if (/\b(uk|gb|gbr|united kingdom)\b/i.test(geoText)) return true;
   const hasGeo = Boolean(
     row.taxation_country ||
       row.country ||
@@ -69,7 +76,12 @@ export function isUkOrgRow(row: Record<string, string>): boolean {
       row.operating_unit ||
       row.operating_unit_name ||
       row.business_unit ||
-      row.org_name,
+      row.org_name ||
+      row.bill_to_location ||
+      row.ship_to_location ||
+      row.bill_to_bu ||
+      row.procurement_bu ||
+      row.requisitioning_bu,
   );
   return !hasGeo;
 }

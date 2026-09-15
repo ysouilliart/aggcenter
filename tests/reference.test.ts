@@ -188,6 +188,40 @@ describe("UK extract mapping", () => {
     expect(orders[0].amount).toBe(15100);
   });
 
+  it("maps Fusion PO_ORDER headers and sums quantity × price from lines", () => {
+    const orders = mapUkPurchaseOrders({
+      headers: [
+        {
+          interface_header_key: "117142.00000000",
+          po_order: "1321",
+          currency_code: "GBP",
+          supplier_name: "ResMed Limited Sea",
+          bill_to_location: "ResMed (UK) Ltd",
+        },
+      ],
+      lines: [
+        {
+          interface_header_key: "117142.00000000",
+          quantity: "10.00000000",
+          price: "276.75000000",
+        },
+        {
+          interface_header_key: "117142.00000000",
+          quantity: "4.00000000",
+          price: "3.38000000",
+        },
+      ],
+    });
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({
+      id: "PO-1321",
+      vendor: "ResMed Limited Sea",
+      currency: "GBP",
+      poNumbers: ["1321", "PO-1321"],
+    });
+    expect(orders[0].amount).toBe(278102);
+  });
+
   it("keeps purchase orders that have no geography columns", () => {
     const orders = mapUkPurchaseOrders({
       headers: [
@@ -459,6 +493,10 @@ describe("ingestReferenceDocuments", () => {
       ),
     );
     await storage.put(
+      `${cashObjectPrefix("po")}PO_LInes_Locations_112.csv`,
+      Buffer.from(csv(["interface_line_key", "quantity"], [["1", "999.00"]])),
+    );
+    await storage.put(
       `${cashObjectPrefix("so")}sales_order_header.csv`,
       Buffer.from(
         csv(
@@ -520,13 +558,14 @@ describe("ingestReferenceDocuments", () => {
     expect(result.salesOrders).toBe(1);
     expect(result.remittances).toBe(1);
     expect(result.files.map((f) => f.key).sort()).toEqual([
-      "aggCenter/ORG_112 - UK/inv/ap_invoice_header.csv",
-      "aggCenter/ORG_112 - UK/inv/ap_invoice_line.csv",
-      "aggCenter/ORG_112 - UK/po/po_header.csv",
-      "aggCenter/ORG_112 - UK/rem/remittance.csv",
-      "aggCenter/ORG_112 - UK/so/charges_component.csv",
-      "aggCenter/ORG_112 - UK/so/sales_order_header.csv",
+      "aggCenter/ORG_112 - UK/INV_112/ap_invoice_header.csv",
+      "aggCenter/ORG_112 - UK/INV_112/ap_invoice_line.csv",
+      "aggCenter/ORG_112 - UK/PO_112/po_header.csv",
+      "aggCenter/ORG_112 - UK/REM_112/remittance.csv",
+      "aggCenter/ORG_112 - UK/SO_112/charges_component.csv",
+      "aggCenter/ORG_112 - UK/SO_112/sales_order_header.csv",
     ]);
+    expect(result.files.some((f) => /location/i.test(f.key))).toBe(false);
 
     const counts = await repo.counts();
     expect(counts).toEqual({

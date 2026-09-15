@@ -42,6 +42,13 @@ function pickLatest(keys: string[], match: (name: string) => boolean): string | 
   return hits.at(-1);
 }
 
+function pickByPatterns(keys: string[], patterns: RegExp[]): string | undefined {
+  for (const re of patterns) {
+    const hit = pickLatest(keys, (n) => re.test(n));
+    if (hit) return hit;
+  }
+}
+
 async function listCsvKeys(storage: StorageProvider, prefix: string): Promise<string[]> {
   const objects = await storage.list(prefix);
   return objects.filter((obj) => obj.key.toLowerCase().endsWith(".csv")).map((obj) => obj.key);
@@ -77,21 +84,30 @@ export async function ingestReferenceDocuments(deps?: {
     listCsvKeys(storage, remPrefix),
   ]);
 
-  const apHeaderKey = pickLatest(apKeys, (n) => n.includes("ap_invoice_header"));
-  const apLineKey = pickLatest(apKeys, (n) => n.includes("ap_invoice_line"));
-  const poHeaderKey =
+  const apHeaderKey = pickByPatterns(apKeys, [
+    /ap_invoice_header/,
+    /inv_header/,
+    /invoice_header/,
+  ]);
+  const apLineKey = pickByPatterns(apKeys, [
+    /ap_invoice_line/,
+    /inv_lines?/,
+    /invoice_line/,
+  ]);
+  const poHeaderKey = pickByPatterns(poKeys, [
+    /po_header/,
+    /purchase_order_header/,
+  ]);
+  const poLineKey =
     pickLatest(
       poKeys,
-      (n) => n.includes("po_header") || n.includes("purchase_order_header"),
-    ) ||
-    pickLatest(poKeys, (n) => n.includes("purchase_order") && !n.includes("line")) ||
-    pickLatest(poKeys, (n) => !n.includes("line"));
-  const poLineKey = pickLatest(
-    poKeys,
-    (n) => n.includes("po_line") || n.includes("purchase_order_line"),
-  );
-  const soHeaderKey = pickLatest(soKeys, (n) => n.includes("sales_order_header"));
-  const soChargeKey = pickLatest(soKeys, (n) => n.includes("charges_component"));
+      (n) => /po_lines?/.test(n) && !/location|distribution/.test(n),
+    ) || pickLatest(poKeys, (n) => n.includes("purchase_order_line"));
+  const soHeaderKey = pickByPatterns(soKeys, [
+    /sales_order_header/,
+    /so_header/,
+  ]);
+  const soChargeKey = pickByPatterns(soKeys, [/charges_component/]);
   const remKey = pickLatest(remKeys, (n) => n.includes("remittance"));
 
   let apHeaders: Record<string, string>[] = [];

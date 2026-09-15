@@ -110,7 +110,7 @@ function lineAmount(row: Record<string, string>): number {
     String(row.unit_price ?? row.price ?? "").replace(/,/g, "").trim(),
   );
   if (Number.isFinite(qty) && Number.isFinite(price) && qty && price) {
-    return parseExtractAmount(String(qty * price));
+    return Math.round(qty * price * 100);
   }
   return 0;
 }
@@ -123,13 +123,18 @@ export function mapUkPurchaseOrders(input: {
   headers: Record<string, string>[];
   lines?: Record<string, string>[];
 }): PurchaseOrder[] {
-  const amountByPo = new Map<string, number>();
+  const amountByKey = new Map<string, number>();
   for (const row of input.lines ?? []) {
-    const po = compactId(
-      firstField(row, ["po_number", "document_number", "order_number", "po_header_id"]),
-    );
-    if (!po) continue;
-    amountByPo.set(po, (amountByPo.get(po) ?? 0) + lineAmount(row));
+    const keys = [
+      compactId(
+        firstField(row, ["po_number", "document_number", "order_number", "po_order"]),
+      ),
+      compactId(firstField(row, ["interface_header_key", "po_header_id"])),
+    ].filter(Boolean);
+    const amt = lineAmount(row);
+    for (const key of keys) {
+      amountByKey.set(key, (amountByKey.get(key) ?? 0) + amt);
+    }
   }
 
   const orders: PurchaseOrder[] = [];
@@ -137,13 +142,21 @@ export function mapUkPurchaseOrders(input: {
   for (const row of input.headers) {
     if (!isUkOrgRow(row)) continue;
     const rawNumber = compactId(
-      firstField(row, ["po_number", "document_number", "order_number", "po_header_id"]),
+      firstField(row, [
+        "po_number",
+        "po_order",
+        "document_number",
+        "order_number",
+      ]),
+    );
+    const headerKey = compactId(
+      firstField(row, ["interface_header_key", "po_header_id"]),
     );
     if (!rawNumber || seen.has(rawNumber)) continue;
     seen.add(rawNumber);
     const date =
       parseExtractDate(
-        firstField(row, ["ordered_date", "po_date", "creation_date", "order_date"]),
+        firstField(row, ["ordered_date", "po_date", "creation_date", "order_date", "rate_date"]),
       ) || "1970-01-01";
     const due =
       parseExtractDate(
@@ -158,7 +171,7 @@ export function mapUkPurchaseOrders(input: {
       vendor:
         firstField(row, ["vendor_name", "supplier_name", "vendor"]) ||
         "Unknown supplier",
-      amount: headerAmount || amountByPo.get(rawNumber) || 0,
+      amount: headerAmount || amountByKey.get(rawNumber) || amountByKey.get(headerKey) || 0,
       currency: (
         firstField(row, ["currency_code", "currency", "order_currency"]) || "GBP"
       ).toUpperCase(),
@@ -167,8 +180,13 @@ export function mapUkPurchaseOrders(input: {
       status: poStatus(firstField(row, ["status", "authorization_status", "document_status"])),
       poNumbers: [rawNumber, id].filter((v, i, arr) => arr.indexOf(v) === i),
       operatingUnit:
-        firstField(row, ["operating_unit", "operating_unit_name", "business_unit"]) ||
-        undefined,
+        firstField(row, [
+          "operating_unit",
+          "operating_unit_name",
+          "business_unit",
+          "bill_to_location",
+          "ship_to_location",
+        ]) || undefined,
       country:
         firstField(row, ["country", "bill_to_country", "taxation_country"]).toUpperCase() ||
         undefined,

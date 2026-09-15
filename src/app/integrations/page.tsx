@@ -47,6 +47,12 @@ interface IntegrationStatus {
   };
 }
 
+function folderName(prefix: string | undefined, fallback: string): string {
+  if (!prefix) return fallback;
+  const parts = prefix.replace(/\/+$/, "").split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? fallback;
+}
+
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span
@@ -229,14 +235,26 @@ export default function IntegrationsPage() {
               <span className="font-medium text-slate-900">
                 {data.cashFiles?.orgRoot ?? "aggCenter/ORG_112 - UK"}
               </span>
-              {" "}
-              (
-              <span className="font-medium text-slate-900">inv</span>,{" "}
-              <span className="font-medium text-slate-900">po</span>,{" "}
-              <span className="font-medium text-slate-900">so</span>,{" "}
-              <span className="font-medium text-slate-900">rem</span>
-              ). Bank statements sync from{" "}
-              <span className="font-medium text-slate-900">bank</span>
+              . Default folders:{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.inv, "INV_112")}
+              </span>
+              ,{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.po, "PO_112")}
+              </span>
+              ,{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.so, "SO_112")}
+              </span>
+              ,{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.rem, "REM_112")}
+              </span>
+              . Bank statements sync from{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.bank, "BANK_112")}
+              </span>
               . AP rows keep taxation country GB; remittances keep OU ResMed UK.
             </p>
             <dl className="mt-4 space-y-1 text-sm">

@@ -3,11 +3,11 @@
  *
  * All UK cash files live under one org root with short folder names:
  *
- *   aggCenter/ORG_112 - UK/inv   AP invoices
- *   aggCenter/ORG_112 - UK/po    purchase orders
- *   aggCenter/ORG_112 - UK/so    sales orders
- *   aggCenter/ORG_112 - UK/rem   remittances
- *   aggCenter/ORG_112 - UK/bank  bank statements (CSV and PDF)
+ *   aggCenter/ORG_112 - UK/INV_112   AP invoices
+ *   aggCenter/ORG_112 - UK/PO_112    purchase orders
+ *   aggCenter/ORG_112 - UK/SO_112    sales orders
+ *   aggCenter/ORG_112 - UK/REM_112   remittances
+ *   aggCenter/ORG_112 - UK/BANK_112  bank statements (CSV and PDF)
  *
  * Override the root with `CASH_ORG_ROOT`, or a full prefix with the existing
  * `STATEMENT_*` / `REFERENCE_*` env vars. Folder names themselves are part of
@@ -17,11 +17,11 @@
 export const DEFAULT_CASH_ORG_ROOT = "aggCenter/ORG_112 - UK";
 
 export const CASH_FOLDERS = {
-  inv: "inv",
-  po: "po",
-  so: "so",
-  rem: "rem",
-  bank: "bank",
+  inv: "INV_112",
+  po: "PO_112",
+  so: "SO_112",
+  rem: "REM_112",
+  bank: "BANK_112",
 } as const;
 
 export type CashFolder = keyof typeof CASH_FOLDERS;
@@ -34,9 +34,9 @@ export interface CashFilePrefixes {
   so: string;
   rem: string;
   bank: string;
-  /** CSV statement prefix; defaults to `bank`. */
+  /** CSV statement prefix; defaults to BANK_112. */
   statementCsv: string;
-  /** PDF statement prefix; defaults to `bank`. */
+  /** PDF statement prefix; defaults to BANK_112. */
   statementPdf: string;
 }
 

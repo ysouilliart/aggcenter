@@ -274,4 +274,52 @@ describe("reconcile supporting documents", () => {
     expect(labels).toMatch(/REM-V-1/);
     expect(labels).toMatch(/REM-V-2/);
   });
+
+  it("keeps remittance numbers visible when many SOs share the amount", () => {
+    const salesOrdersMany: SalesOrder[] = Array.from({ length: 12 }, (_, i) => ({
+      ...salesOrders[0],
+      id: `SO-${i + 1}`,
+    }));
+    const [r] = reconcile({
+      transactions: [txn({ id: "crowd", amount: 1000, description: "wire" })],
+      salesOrders: salesOrdersMany,
+      purchaseOrders,
+      remittances: [
+        remittance({ id: "AR-1", remittanceNumber: "REM-100" }),
+        remittance({
+          id: "AR-2",
+          remittanceNumber: "REM-200",
+          reference: "INV-200",
+          invoiceNumbers: ["INV-200"],
+        }),
+      ],
+    });
+    expect(r.status).toBe("partial");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.remittanceFound).toBe(true);
+    const labels = (r.lookup?.supportingDocs ?? []).map((d) => d.label).join(" ");
+    expect(labels).toMatch(/REM-100/);
+    expect(labels).toMatch(/REM-200/);
+    expect(labels).toMatch(/SO-/);
+  });
+
+  it("does not list every amount-sharing SO when a remittance uniquely matches", () => {
+    const salesOrdersMany: SalesOrder[] = Array.from({ length: 12 }, (_, i) => ({
+      ...salesOrders[0],
+      id: `SO-${i + 1}`,
+    }));
+    const [r] = reconcile({
+      transactions: [txn({ id: "unique-rem", amount: 1000, description: "wire" })],
+      salesOrders: salesOrdersMany,
+      purchaseOrders,
+      remittances: [remittance()],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("remittance");
+    expect(r.lookup?.remittanceFound).toBe(true);
+    expect(r.lookup?.soFound).toBe(true);
+    const docs = r.lookup?.supportingDocs ?? [];
+    expect(docs.some((d) => d.label.includes("REM-100"))).toBe(true);
+    expect(docs.filter((d) => d.kind === "SO")).toHaveLength(0);
+  });
 });

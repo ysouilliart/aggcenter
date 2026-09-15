@@ -114,28 +114,62 @@ export function uniqueSupportingDocs(docs: SupportingDocRef[]): SupportingDocRef
   return out;
 }
 
+function isRemittanceUnique(ctx: MatchContext): boolean {
+  return ctx.remRefHits === 1 || ctx.remWindowHits === 1 || ctx.remNamedHits === 1;
+}
+
+function isCommercialUnique(ctx: MatchContext): boolean {
+  return ctx.soIdHits === 1 || ctx.poInvoiceHits === 1 || ctx.soPoAmountHits === 1;
+}
+
 /**
- * Winner first, then every other supporting remittance / SO / PO so Matched to
- * always shows the numbers behind "remittance found" / "PO found" / "SO found".
+ * Winner first, then corroborating remittance / SO / PO numbers so Matched to
+ * can verify "remittance found" / "PO found" / "SO found". Amount-sharing SO/PO
+ * rows are not dumped onto a unique remittance match; remittance numbers are
+ * reserved slots so they are not crowded out by many SO/PO candidates.
  */
 export function supportingDocsForResult(
   ctx: MatchContext,
   matchedType?: ReconciliationResult["matchedType"],
   matchedId?: string,
 ): SupportingDocRef[] {
-  const commercial = ctx.flow === "O2C" ? ctx.soDocs : ctx.poDocs;
-  const all = uniqueSupportingDocs([...commercial, ...ctx.remDocs]);
-  if (!matchedId) return all.slice(0, 8);
+  const commercial = uniqueSupportingDocs(
+    ctx.flow === "O2C" ? ctx.soDocs : ctx.poDocs,
+  );
+  const rems = uniqueSupportingDocs(ctx.remDocs);
+  const remUnique = isRemittanceUnique(ctx);
+  const commercialUnique = isCommercialUnique(ctx);
+
+  const pickCommercial = (limit: number) =>
+    (commercialUnique ? commercial.slice(0, 1) : commercial).slice(0, limit);
+  const pickRems = (limit: number) =>
+    (remUnique ? rems.slice(0, 1) : rems).slice(0, limit);
+
+  const all = uniqueSupportingDocs([...commercial, ...rems]);
+  if (!matchedId) {
+    return uniqueSupportingDocs([...pickRems(4), ...pickCommercial(4)]).slice(
+      0,
+      8,
+    );
+  }
 
   const winner =
     all.find((d) => d.kind === matchedType && d.id === matchedId) ??
     all.find((d) => d.id === matchedId);
-  if (!winner) return all.slice(0, 8);
 
-  return uniqueSupportingDocs([
-    winner,
-    ...all.filter((d) => `${d.kind}:${d.id}` !== `${winner.kind}:${winner.id}`),
-  ]).slice(0, 8);
+  const ordered: SupportingDocRef[] = [];
+  if (winner) ordered.push(winner);
+
+  if (matchedType === "remittance") {
+    if (commercialUnique) ordered.push(...commercial.slice(0, 1));
+    else if (ctx.soIdHits > 0 || ctx.poInvoiceHits > 0) {
+      ordered.push(...commercial.slice(0, 3));
+    }
+  } else {
+    ordered.push(...pickRems(4));
+  }
+
+  return uniqueSupportingDocs(ordered).slice(0, 8);
 }
 
 const SOURCE_FIELDS: Array<keyof BankTransaction> = [

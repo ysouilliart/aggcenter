@@ -130,4 +130,82 @@ describe("buildCashForecast", () => {
     expect(forecasts[0].forecastCount).toBe(0);
     expect(forecasts[0].predictedInflows).toBe(0);
   });
+
+  it("does not exclude a second remittance when one matched line already consumed via id", () => {
+    // Before 1:1, AR-2 would also drop because it shares amount+date with T1.
+    const forecasts = buildCashForecast({
+      remittances: [
+        rem({ id: "AR-1", amount: 15_000_00, date: "2026-08-10", reference: "INV-1" }),
+        rem({ id: "AR-2", amount: 15_000_00, date: "2026-08-11", reference: "INV-2" }),
+      ],
+      reconciliation: [matched({ matchedId: "AR-1", transactionId: "T1", amount: 15_000_00 })],
+      transactions: [txn({ id: "T1", amount: 15_000_00, date: "2026-08-10" })],
+      periodStart: "2026-08-01",
+      closingByCurrency: { GBP: 50_000_00 },
+    });
+
+    expect(forecasts[0].identifiedCount).toBe(1);
+    expect(forecasts[0].forecastCount).toBe(1);
+    expect(forecasts[0].lines.map((line) => line.id)).toEqual(["AR-2"]);
+    expect(forecasts[0].predictedInflows).toBe(15_000_00);
+  });
+
+  it("consumes only one leftover remittance per matched txn via amount+date", () => {
+    const forecasts = buildCashForecast({
+      remittances: [
+        rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-09", reference: "INV-A" }),
+        rem({ id: "AR-B", amount: 15_000_00, date: "2026-08-12", reference: "INV-B" }),
+      ],
+      reconciliation: [
+        matched({
+          matchedType: "SO",
+          matchedId: "SO-9",
+          transactionId: "T1",
+          amount: 15_000_00,
+        }),
+      ],
+      transactions: [txn({ id: "T1", amount: 15_000_00, date: "2026-08-10" })],
+      periodStart: "2026-08-01",
+      closingByCurrency: { GBP: 1 },
+    });
+
+    expect(forecasts[0].identifiedCount).toBe(1);
+    expect(forecasts[0].forecastCount).toBe(1);
+    expect(forecasts[0].lines.map((line) => line.id)).toEqual(["AR-B"]);
+    expect(forecasts[0].predictedInflows).toBe(15_000_00);
+  });
+
+  it("lets two matched txns consume two same-amount remittances 1:1", () => {
+    const forecasts = buildCashForecast({
+      remittances: [
+        rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-09", reference: "INV-A" }),
+        rem({ id: "AR-B", amount: 15_000_00, date: "2026-08-12", reference: "INV-B" }),
+      ],
+      reconciliation: [
+        matched({
+          matchedType: "SO",
+          matchedId: "SO-8",
+          transactionId: "T1",
+          amount: 15_000_00,
+          date: "2026-08-10",
+        }),
+        matched({
+          matchedType: "SO",
+          matchedId: "SO-9",
+          transactionId: "T2",
+          amount: 15_000_00,
+          date: "2026-08-11",
+        }),
+      ],
+      transactions: [
+        txn({ id: "T1", amount: 15_000_00, date: "2026-08-10" }),
+        txn({ id: "T2", amount: 15_000_00, date: "2026-08-11" }),
+      ],
+      periodStart: "2026-08-01",
+      closingByCurrency: { GBP: 1 },
+    });
+
+    expect(forecasts[0].identifiedCount).toBe(2);
+    expect(forecasts[0].forecastCount).toBe(0);
+  });
 });

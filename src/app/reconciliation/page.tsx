@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { DonutChart } from "@/components/charts";
 import {
@@ -345,6 +346,111 @@ function MatchedToCell({ result }: { result: ReconciliationResult }) {
 
 function MatchNotes({ result }: { result: ReconciliationResult }) {
   const lookup = result.lookup;
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeFrame = useRef<number | null>(null);
+  const pathId = useId();
+  const [present, setPresent] = useState(false);
+  const [shown, setShown] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 360, flip: false });
+
+  const clearTimers = () => {
+    if (hideTimer.current != null) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    if (unmountTimer.current != null) {
+      clearTimeout(unmountTimer.current);
+      unmountTimer.current = null;
+    }
+    if (fadeFrame.current != null) {
+      cancelAnimationFrame(fadeFrame.current);
+      fadeFrame.current = null;
+    }
+  };
+
+  const placePopup = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const width = Math.min(440, window.innerWidth - 16);
+    let left = r.right - width;
+    left = Math.min(Math.max(8, left), window.innerWidth - width - 8);
+    const below = r.bottom + 6;
+    const estimatedH = 280;
+    const flip = below + estimatedH > window.innerHeight - 8;
+    setPos({
+      top: flip ? Math.max(8, r.top - 6) : below,
+      left,
+      width,
+      flip,
+    });
+  };
+
+  const show = () => {
+    clearTimers();
+    placePopup();
+    setPresent(true);
+    fadeFrame.current = requestAnimationFrame(() => {
+      fadeFrame.current = requestAnimationFrame(() => setShown(true));
+    });
+  };
+
+  const hideSoon = () => {
+    if (fadeFrame.current != null) {
+      cancelAnimationFrame(fadeFrame.current);
+      fadeFrame.current = null;
+    }
+    if (hideTimer.current != null) clearTimeout(hideTimer.current);
+    if (unmountTimer.current != null) {
+      clearTimeout(unmountTimer.current);
+      unmountTimer.current = null;
+    }
+    hideTimer.current = setTimeout(() => {
+      setShown(false);
+      unmountTimer.current = setTimeout(() => {
+        setPresent(false);
+        unmountTimer.current = null;
+      }, 80);
+      hideTimer.current = null;
+    }, 50);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current != null) clearTimeout(hideTimer.current);
+      if (unmountTimer.current != null) clearTimeout(unmountTimer.current);
+      if (fadeFrame.current != null) cancelAnimationFrame(fadeFrame.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!present) return;
+    const close = () => {
+      if (hideTimer.current != null) {
+        clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+      }
+      if (fadeFrame.current != null) {
+        cancelAnimationFrame(fadeFrame.current);
+        fadeFrame.current = null;
+      }
+      setShown(false);
+      if (unmountTimer.current != null) clearTimeout(unmountTimer.current);
+      unmountTimer.current = setTimeout(() => {
+        setPresent(false);
+        unmountTimer.current = null;
+      }, 80);
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [present]);
+
   if (!lookup) {
     return (
       <div className="text-xs text-slate-500">{result.reasons.join(" · ")}</div>
@@ -354,48 +460,116 @@ function MatchNotes({ result }: { result: ReconciliationResult }) {
   const docs = lookup.supportingDocs ?? [];
   const showSo = result.flow === "O2C";
   const showPo = result.flow === "P2P";
+  const steps = lookup.analysisPlan ?? [];
+  const hasPath = steps.length > 0;
 
   return (
-    <div className="space-y-1 text-xs leading-relaxed text-slate-600">
-      <div className="flex flex-wrap gap-1">
-        {showSo ? (
+    <div className="text-xs leading-relaxed text-slate-600">
+      <div
+        ref={triggerRef}
+        tabIndex={hasPath ? 0 : undefined}
+        aria-describedby={hasPath && shown ? pathId : undefined}
+        onMouseEnter={hasPath ? show : undefined}
+        onMouseLeave={hasPath ? hideSoon : undefined}
+        onFocus={hasPath ? show : undefined}
+        onBlur={hasPath ? hideSoon : undefined}
+        className={`rounded-md ${
+          hasPath
+            ? "cursor-help outline-none ring-slate-300 focus-visible:ring-2"
+            : ""
+        }`}
+      >
+        <div className="flex flex-wrap gap-1">
+          {showSo ? (
+            <FoundChip
+              label="SO"
+              found={lookup.soFound}
+              numbers={docNumbers(docs, "SO")}
+            />
+          ) : null}
+          {showPo ? (
+            <FoundChip
+              label="PO"
+              found={lookup.poFound}
+              numbers={docNumbers(docs, "PO")}
+            />
+          ) : null}
           <FoundChip
-            label="SO"
-            found={lookup.soFound}
-            numbers={docNumbers(docs, "SO")}
+            label="Remittance"
+            found={lookup.remittanceFound}
+            numbers={docNumbers(docs, "remittance")}
           />
-        ) : null}
-        {showPo ? (
-          <FoundChip
-            label="PO"
-            found={lookup.poFound}
-            numbers={docNumbers(docs, "PO")}
-          />
-        ) : null}
-        <FoundChip
-          label="Remittance"
-          found={lookup.remittanceFound}
-          numbers={docNumbers(docs, "remittance")}
-        />
-      </div>
-      <div className="break-words">
-        <span className="font-medium text-slate-700">Narrative:</span>{" "}
-        {lookup.narrative?.trim() || "—"}
+        </div>
+        <div className="mt-1 line-clamp-2 break-words">
+          <span className="font-medium text-slate-700">Narrative:</span>{" "}
+          {lookup.narrative?.trim() || "—"}
+        </div>
       </div>
       {result.remediation ? (
-        <div className="text-amber-800">
+        <div className="mt-1 line-clamp-2 text-amber-800">
           <span className="font-medium">Next:</span> {result.remediation}
         </div>
       ) : null}
-      <AnalysisPlan steps={lookup.analysisPlan ?? []} />
+      <PathPopup
+        id={pathId}
+        steps={steps}
+        present={present}
+        shown={shown}
+        pos={pos}
+        onMouseEnter={show}
+        onMouseLeave={hideSoon}
+      />
     </div>
+  );
+}
+
+function PathPopup({
+  id,
+  steps,
+  present,
+  shown,
+  pos,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  id: string;
+  steps: AnalysisStep[];
+  present: boolean;
+  shown: boolean;
+  pos: { top: number; left: number; width: number; flip: boolean };
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  if (!steps.length || !present || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      id={id}
+      role="tooltip"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        top: pos.top,
+        left: pos.left,
+        width: pos.width,
+        transform: pos.flip ? "translateY(-100%)" : undefined,
+      }}
+      className={`fixed z-[80] max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 shadow-lg ring-1 ring-slate-200/80 transition-opacity ${
+        shown
+          ? "pointer-events-auto opacity-100 duration-200"
+          : "pointer-events-none opacity-0 duration-75"
+      }`}
+    >
+      <AnalysisPlan steps={steps} />
+    </div>,
+    document.body,
   );
 }
 
 function AnalysisPlan({ steps }: { steps: AnalysisStep[] }) {
   if (!steps.length) return null;
   return (
-    <div className="mt-1 rounded-md bg-slate-50 px-2 py-1.5">
+    <div>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
         Path
       </div>

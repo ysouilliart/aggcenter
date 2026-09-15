@@ -1,7 +1,9 @@
 import type { PurchaseOrder, Remittance, SalesOrder } from "../domain/types";
 import {
   compactId,
+  firstField,
   isGbCountry,
+  isUkOrgRow,
   parseExtractAmount,
   parseExtractDate,
 } from "./util";
@@ -83,6 +85,96 @@ export function mapUkApInvoices(input: {
     });
   }
   return invoices;
+}
+
+function poStatus(raw: string): PurchaseOrder["status"] {
+  const v = raw.toUpperCase();
+  if (/CANCEL/.test(v)) return "cancelled";
+  if (/PAID|FINALLY CLOSED/.test(v)) return "paid";
+  if (/BILL|CLOSED/.test(v)) return "billed";
+  return "open";
+}
+
+function poDocumentId(raw: string): string {
+  if (/^PO[-_]?/i.test(raw)) return raw;
+  return `PO-${raw}`;
+}
+
+function lineAmount(row: Record<string, string>): number {
+  const direct = parseExtractAmount(
+    firstField(row, ["line_amount", "amount", "extended_amount", "ordered_amount"]),
+  );
+  if (direct) return direct;
+  const qty = Number(String(row.quantity ?? "").replace(/,/g, "").trim());
+  const price = Number(
+    String(row.unit_price ?? row.price ?? "").replace(/,/g, "").trim(),
+  );
+  if (Number.isFinite(qty) && Number.isFinite(price) && qty && price) {
+    return parseExtractAmount(String(qty * price));
+  }
+  return 0;
+}
+
+/**
+ * Map Fusion/EBS purchase-order extracts into the P2P expected-side records.
+ * Header amount is used when present; otherwise line amounts are summed.
+ */
+export function mapUkPurchaseOrders(input: {
+  headers: Record<string, string>[];
+  lines?: Record<string, string>[];
+}): PurchaseOrder[] {
+  const amountByPo = new Map<string, number>();
+  for (const row of input.lines ?? []) {
+    const po = compactId(
+      firstField(row, ["po_number", "document_number", "order_number", "po_header_id"]),
+    );
+    if (!po) continue;
+    amountByPo.set(po, (amountByPo.get(po) ?? 0) + lineAmount(row));
+  }
+
+  const orders: PurchaseOrder[] = [];
+  const seen = new Set<string>();
+  for (const row of input.headers) {
+    if (!isUkOrgRow(row)) continue;
+    const rawNumber = compactId(
+      firstField(row, ["po_number", "document_number", "order_number", "po_header_id"]),
+    );
+    if (!rawNumber || seen.has(rawNumber)) continue;
+    seen.add(rawNumber);
+    const date =
+      parseExtractDate(
+        firstField(row, ["ordered_date", "po_date", "creation_date", "order_date"]),
+      ) || "1970-01-01";
+    const due =
+      parseExtractDate(
+        firstField(row, ["need_by_date", "promised_date", "due_date"]),
+      ) || date;
+    const headerAmount = parseExtractAmount(
+      firstField(row, ["amount", "order_amount", "total_amount", "po_amount"]),
+    );
+    const id = poDocumentId(rawNumber);
+    orders.push({
+      id,
+      vendor:
+        firstField(row, ["vendor_name", "supplier_name", "vendor"]) ||
+        "Unknown supplier",
+      amount: headerAmount || amountByPo.get(rawNumber) || 0,
+      currency: (
+        firstField(row, ["currency_code", "currency", "order_currency"]) || "GBP"
+      ).toUpperCase(),
+      orderDate: date,
+      dueDate: due,
+      status: poStatus(firstField(row, ["status", "authorization_status", "document_status"])),
+      poNumbers: [rawNumber, id].filter((v, i, arr) => arr.indexOf(v) === i),
+      operatingUnit:
+        firstField(row, ["operating_unit", "operating_unit_name", "business_unit"]) ||
+        undefined,
+      country:
+        firstField(row, ["country", "bill_to_country", "taxation_country"]).toUpperCase() ||
+        undefined,
+    });
+  }
+  return orders;
 }
 
 interface RemittanceAcc {

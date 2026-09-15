@@ -26,6 +26,16 @@ interface IntegrationStatus {
   };
   externalApi: { configured: boolean; baseUrl?: string };
   database: { configured: boolean; provider: string };
+  cashFiles?: {
+    orgRoot: string;
+    inv: string;
+    po: string;
+    so: string;
+    rem: string;
+    bank: string;
+    statementCsv: string;
+    statementPdf: string;
+  };
   invoiceClassify?: {
     mode: "llm" | "static";
     llmEnabled: boolean;
@@ -59,6 +69,7 @@ export default function IntegrationsPage() {
   const reference = useFetch<{
     salesOrders: number;
     purchaseOrders: number;
+    apInvoices: number;
     remittances: number;
     provider: string;
   }>("/api/reference");
@@ -73,7 +84,7 @@ export default function IntegrationsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
       setSyncMessage(
-        `Loaded ${json.purchaseOrders} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.`,
+        `Loaded ${json.purchaseOrders} purchase orders, ${json.apInvoices} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.`,
       );
       reference.reload();
     } catch (err) {
@@ -214,18 +225,18 @@ export default function IntegrationsPage() {
               </button>
             </div>
             <p className="text-sm text-slate-600">
-              UK AP invoices, sales orders, and remittances from{" "}
+              UK AP invoices, purchase orders, sales orders, and remittances from{" "}
               <span className="font-medium text-slate-900">
-                aggCenter/APInvoices
+                {data.cashFiles?.orgRoot ?? "aggCenter/ORG_112 - UK"}
               </span>
-              ,{" "}
-              <span className="font-medium text-slate-900">
-                aggCenter/salesOrder
-              </span>{" "}
-              and{" "}
-              <span className="font-medium text-slate-900">
-                aggCenter/remittance
-              </span>
+              {" "}
+              (
+              <span className="font-medium text-slate-900">inv</span>,{" "}
+              <span className="font-medium text-slate-900">po</span>,{" "}
+              <span className="font-medium text-slate-900">so</span>,{" "}
+              <span className="font-medium text-slate-900">rem</span>
+              ). Bank statements sync from{" "}
+              <span className="font-medium text-slate-900">bank</span>
               . AP rows keep taxation country GB; remittances keep OU ResMed UK.
             </p>
             <dl className="mt-4 space-y-1 text-sm">
@@ -234,8 +245,12 @@ export default function IntegrationsPage() {
                 value={String(reference.data?.remittances ?? "—")}
               />
               <Row
-                label="UK AP invoices"
+                label="Purchase orders"
                 value={String(reference.data?.purchaseOrders ?? "—")}
+              />
+              <Row
+                label="UK AP invoices"
+                value={String(reference.data?.apInvoices ?? "—")}
               />
               <Row
                 label="Sales orders"

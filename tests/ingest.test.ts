@@ -3,6 +3,7 @@ import path from "path";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { cashObjectPrefix } from "@/lib/cash/paths";
 import type { BankAccount } from "@/lib/domain/types";
 import { ingestStatements } from "@/lib/ingest";
 import {
@@ -25,7 +26,8 @@ const GOOD_CSV = [
   "2026-09-04,Vendor payment,,Fresh Vendor LLC,-8000.00,USD",
 ].join("\n");
 
-const PDF_KEY = "aggCenter/bankStatements/UK-HSBC/acme-aug-26.pdf";
+const BANK = cashObjectPrefix("bank");
+const PDF_KEY = `${BANK}UK-HSBC/acme-aug-26.pdf`;
 
 function freshDeps() {
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -107,7 +109,7 @@ describe("ingestStatements", () => {
   });
 
   it("ingests a statement, attributing the account from the path", async () => {
-    await storage.put("inbox/ACC-1001/operating-2026-09.csv", Buffer.from(GOOD_CSV));
+    await storage.put(`${BANK}ACC-1001/operating-2026-09.csv`, Buffer.from(GOOD_CSV));
 
     const result = await ingestStatements({ storage, repo, accounts });
 
@@ -120,7 +122,7 @@ describe("ingestStatements", () => {
     expect(statements[0]).toMatchObject({
       source: "oci",
       accountId: "ACC-1001",
-      storageKey: "inbox/ACC-1001/operating-2026-09.csv",
+      storageKey: `${BANK}ACC-1001/operating-2026-09.csv`,
     });
     const txns = await repo.listTransactions();
     expect(txns).toHaveLength(2);
@@ -128,7 +130,7 @@ describe("ingestStatements", () => {
   });
 
   it("is idempotent — a second sync skips already-ingested files", async () => {
-    await storage.put("inbox/ACC-1001/a.csv", Buffer.from(GOOD_CSV));
+    await storage.put(`${BANK}ACC-1001/a.csv`, Buffer.from(GOOD_CSV));
 
     const first = await ingestStatements({ storage, repo, accounts });
     expect(first.ingested).toHaveLength(1);
@@ -141,28 +143,28 @@ describe("ingestStatements", () => {
   });
 
   it("errors on an unknown account folder", async () => {
-    await storage.put("inbox/ACC-9999/x.csv", Buffer.from(GOOD_CSV));
+    await storage.put(`${BANK}ACC-9999/x.csv`, Buffer.from(GOOD_CSV));
     const result = await ingestStatements({ storage, repo, accounts });
     expect(result.ingested).toHaveLength(0);
     expect(result.errors[0].error).toMatch(/unknown account/);
   });
 
   it("errors when there is no account subfolder", async () => {
-    await storage.put("inbox/loose.csv", Buffer.from(GOOD_CSV));
+    await storage.put(`${BANK}loose.csv`, Buffer.from(GOOD_CSV));
     const result = await ingestStatements({ storage, repo, accounts });
     expect(result.errors[0].error).toMatch(/<accountId>/);
   });
 
   it("errors on a file with no parseable transactions", async () => {
-    await storage.put("inbox/ACC-1001/bad.csv", Buffer.from("not,a,valid\nstatement,file,x"));
+    await storage.put(`${BANK}ACC-1001/bad.csv`, Buffer.from("not,a,valid\nstatement,file,x"));
     const result = await ingestStatements({ storage, repo, accounts });
     expect(result.ingested).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
   });
 
   it("ignores non-statement files under the prefix", async () => {
-    await storage.put("inbox/ACC-1001/notes.txt", Buffer.from("ignore me"));
-    await storage.put("inbox/ACC-1001/a.csv", Buffer.from(GOOD_CSV));
+    await storage.put(`${BANK}ACC-1001/notes.txt`, Buffer.from("ignore me"));
+    await storage.put(`${BANK}ACC-1001/a.csv`, Buffer.from(GOOD_CSV));
     const result = await ingestStatements({ storage, repo, accounts });
     expect(result.ingested).toHaveLength(1);
   });
@@ -231,7 +233,7 @@ describe("ingestStatements", () => {
     await ingestStatements({ storage, repo, accounts });
     expect((await repo.listAccounts())[0].openingBalance).toBe(80_000);
 
-    const laterKey = "aggCenter/bankStatements/UK-HSBC/acme-sep-26.pdf";
+    const laterKey = `${BANK}UK-HSBC/acme-sep-26.pdf`;
     await storage.put(laterKey, fixturePdf);
     const result = await ingestStatements({ storage, repo, accounts });
 
@@ -252,7 +254,7 @@ describe("ingestStatements", () => {
   });
 
   it("persists a failed PDF parse so the reason is available later", async () => {
-    const key = "aggCenter/bankStatements/UK-OTHER/not-a-statement.pdf";
+    const key = `${BANK}UK-OTHER/not-a-statement.pdf`;
     await storage.put(key, await unrelatedPdf());
 
     const result = await ingestStatements({ storage, repo, accounts });
@@ -277,7 +279,7 @@ describe("ingestStatements", () => {
   });
 
   it("persists a thrown PDF parse as a failed statement", async () => {
-    const key = "aggCenter/bankStatements/UK-HSBC/corrupt.pdf";
+    const key = `${BANK}UK-HSBC/corrupt.pdf`;
     await storage.put(key, Buffer.from("this is not a pdf"));
 
     const result = await ingestStatements({ storage, repo, accounts });
@@ -288,13 +290,12 @@ describe("ingestStatements", () => {
     expect(stored.accountId).toBe("UNATTRIBUTED");
   });
 
-  it("ingests CSV inbox files and HSBC PDFs in one default sync", async () => {
-    await storage.put("inbox/ACC-1001/operating-2026-09.csv", Buffer.from(GOOD_CSV));
+  it("ingests CSV and HSBC PDFs from the shared bank prefix in one default sync", async () => {
+    await storage.put(`${BANK}ACC-1001/operating-2026-09.csv`, Buffer.from(GOOD_CSV));
     await storage.put(PDF_KEY, fixturePdf);
 
     const result = await ingestStatements({ storage, repo, accounts });
-    expect(result.prefix).toContain("inbox/");
-    expect(result.prefix).toContain("aggCenter/bankStatements/");
+    expect(result.prefix).toBe(BANK);
     expect(result.ingested).toHaveLength(2);
     expect(result.ingested.map((r) => r.accountId).sort()).toEqual([
       "ACC-1001",

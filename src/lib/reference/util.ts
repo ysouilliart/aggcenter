@@ -21,6 +21,59 @@ export function isGbCountry(value: string | undefined): boolean {
   return v === "GB" || v === "UK" || v === "GBR";
 }
 
+/** First non-empty field from a lower-cased extract row. */
+export function firstField(
+  row: Record<string, string>,
+  names: string[],
+): string {
+  for (const name of names) {
+    const value = row[name];
+    if (value) return value;
+  }
+  return "";
+}
+
+/**
+ * UK / ORG 112 row when geography is present; keep the row when the extract
+ * carries no country / OU so PO files without those columns still load.
+ */
+export function isUkOrgRow(row: Record<string, string>): boolean {
+  if (
+    isGbCountry(
+      firstField(row, [
+        "taxation_country",
+        "country",
+        "bill_to_country",
+        "ship_to_country",
+        "bill_country",
+      ]),
+    )
+  ) {
+    return true;
+  }
+  if (row.org_id === "112") return true;
+  const ou = firstField(row, [
+    "operating_unit",
+    "operating_unit_name",
+    "business_unit",
+    "org_name",
+  ]);
+  if (/uk/i.test(ou)) return true;
+  const hasGeo = Boolean(
+    row.taxation_country ||
+      row.country ||
+      row.bill_to_country ||
+      row.ship_to_country ||
+      row.bill_country ||
+      row.org_id ||
+      row.operating_unit ||
+      row.operating_unit_name ||
+      row.business_unit ||
+      row.org_name,
+  );
+  return !hasGeo;
+}
+
 export function normalizePartyName(value: string | undefined): string {
   return (value ?? "")
     .toUpperCase()

@@ -162,7 +162,7 @@ run("PostgresStatementRepository (aggc-cash schema)", () => {
       accountId: "ACC-HSBC",
       fileName: "uk-hsbc.pdf",
       source: "oci",
-      storageKey: "aggCenter/bankStatements/UK-HSBC/uk-hsbc.pdf",
+      storageKey: "aggCenter/ORG_112 - UK/bank/UK-HSBC/uk-hsbc.pdf",
       bankCode: "UK-HSBC",
     });
 

@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { getConfig } from "./config";
 import { getDataSource } from "./datasource";
 import type { BankAccount, Statement } from "./domain/types";
+import { cashObjectPrefix } from "./cash/paths";
 import { openingFromRunningBalances } from "./cash/opening";
 import { resolveAccountFromHeader } from "./ingest/accounts";
 import { parseBankStatementCsv } from "./parse/bankStatement";
@@ -15,13 +16,10 @@ import { getStatementRepository, type StatementRepository } from "./statements";
 import { recordsFromParseFailure, recordsFromParseResult } from "./statements/fromParse";
 import { getStorageProvider, type StorageProvider } from "./storage";
 
-export const DEFAULT_CSV_INGEST_PREFIX = "inbox/";
-export const DEFAULT_PDF_INGEST_PREFIX = "aggCenter/bankStatements/";
-export const DEFAULT_INGEST_PREFIXES = [
-  DEFAULT_CSV_INGEST_PREFIX,
-  DEFAULT_PDF_INGEST_PREFIX,
-];
-/** @deprecated Use DEFAULT_CSV_INGEST_PREFIX. Kept for callers that still pass a single inbox prefix. */
+export const DEFAULT_CSV_INGEST_PREFIX = cashObjectPrefix("bank");
+export const DEFAULT_PDF_INGEST_PREFIX = cashObjectPrefix("bank");
+export const DEFAULT_INGEST_PREFIXES = [DEFAULT_CSV_INGEST_PREFIX];
+/** @deprecated Use DEFAULT_CSV_INGEST_PREFIX. Kept for callers that still pass a single prefix. */
 export const DEFAULT_INGEST_PREFIX = DEFAULT_CSV_INGEST_PREFIX;
 
 export interface IngestResult {
@@ -56,8 +54,20 @@ function withTrailingSlash(prefix: string): string {
   return prefix.endsWith("/") ? prefix : `${prefix}/`;
 }
 
+function uniquePrefixes(prefixes: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const prefix of prefixes) {
+    const normalized = withTrailingSlash(prefix);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
 function resolvePrefixes(deps: IngestDeps): string[] {
-  if (deps.prefixes?.length) return deps.prefixes.map(withTrailingSlash);
+  if (deps.prefixes?.length) return uniquePrefixes(deps.prefixes);
   if (deps.prefix != null) return [withTrailingSlash(deps.prefix)];
   return [...DEFAULT_INGEST_PREFIXES];
 }
@@ -74,6 +84,8 @@ function fileNameOf(key: string): string {
  * PDF: `{pdfPrefix}{bankCode}/<file>.pdf` — `UK-HSBC` uses the HSBC parser;
  * account identity comes from the statement header (IBAN / account number)
  * and is upserted when missing.
+ *
+ * Both prefixes default to `{orgRoot}/bank/` (`aggCenter/ORG_112 - UK/bank/`).
  *
  * Idempotent on `storage_key`. PDF parse failures are still persisted so the
  * UI can show why.
@@ -351,6 +363,6 @@ export async function ingestFromObjectStorage(prefix?: string): Promise<IngestRe
     accounts: await getDataSource().getAccounts(),
     prefixes: prefix
       ? [prefix]
-      : [config.statementCsvPrefix, config.statementPdfPrefix],
+      : uniquePrefixes([config.statementCsvPrefix, config.statementPdfPrefix]),
   });
 }

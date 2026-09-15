@@ -177,26 +177,35 @@ binary guard).
 ### Auto-ingest statements from the bucket
 
 Click **Load from bucket** on Integrations (or `POST /api/reference/ingest`)
-to import UK reference documents from `aggCenter/APInvoices`,
-`aggCenter/salesOrder`, and `aggCenter/remittance`. AP invoices keep
-taxation country `GB`; remittances keep `OU: ResMed UK` and are stored as
-one payment per remittance id (invoice numbers kept for matching).
-Reconciliation uses those rows plus the bundled sample SO/PO set.
+to import UK reference documents from `aggCenter/ORG_112 - UK`:
+
+| Folder | Contents |
+| --- | --- |
+| `inv` | AP invoices (taxation country `GB`) |
+| `po` | Purchase orders (ORG 112 / UK) |
+| `so` | Sales orders |
+| `rem` | Remittances (`OU: ResMed UK`; one payment per remittance id) |
+
+Reconciliation uses those rows plus the bundled sample SO/PO set. Override the
+org root with `CASH_ORG_ROOT`, or a single folder with `REFERENCE_AP_PREFIX`,
+`REFERENCE_PO_PREFIX`, `REFERENCE_SO_PREFIX`, `REFERENCE_REMITTANCE_PREFIX`.
 
 Click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`)
-to import files from the active storage provider. Two layouts are scanned by
-default:
+to import files from the active storage provider. Bank files are scanned under
+`aggCenter/ORG_112 - UK/bank/` by default:
 
-**CSV** (`inbox/<accountId>/<file>.csv`) — the first path segment is the account
-id and must match a known account from the active data source. Sample files:
+**CSV** (`aggCenter/ORG_112 - UK/bank/<accountId>/<file>.csv`) — the first path
+segment under `bank/` is the account id and must match a known account from the
+active data source. Sample files:
 [`data/sample/oci-inbox/`](data/sample/oci-inbox/).
 
-**PDF** (`aggCenter/bankStatements/<bankCode>/<file>.pdf`) — `UK-HSBC` is routed
+**PDF** (`aggCenter/ORG_112 - UK/bank/<bankCode>/<file>.pdf`) — `UK-HSBC` is routed
 to the HSBC UK statement parser. Account identity comes from the PDF header
 (IBAN / account number), not the folder name; missing accounts are upserted.
 Parse failures are still persisted (with a parse job / trace) so the UI can show
-why. Override prefixes with `STATEMENT_CSV_PREFIX` / `STATEMENT_PDF_PREFIX`, or
-pass `{ "prefix": "..." }` in the ingest request body to scan a single prefix.
+why. Override prefixes with `STATEMENT_CSV_PREFIX` / `STATEMENT_PDF_PREFIX`
+(both default to the `bank` folder), or pass `{ "prefix": "..." }` in the ingest
+request body to scan a single prefix.
 
 Ingestion is **idempotent** — files already imported (keyed by object path) are
 skipped on re-sync.

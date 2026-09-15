@@ -1,3 +1,8 @@
+/**
+ * Load UK cash-management reference CSVs from
+ * `aggCenter/ORG_112 - UK/{inv,po,so,rem}` (override via CASH_ORG_ROOT /
+ * REFERENCE_*_PREFIX).
+ */
 import { ingestReferenceDocuments } from "@/lib/reference/ingest";
 import { getReferenceRepository } from "@/lib/reference/repository";
 

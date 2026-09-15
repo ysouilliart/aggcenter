@@ -44,7 +44,7 @@ describe("buildObjectPreview", () => {
 
   it("treats PDFs as binary even when they have no NUL bytes", () => {
     const p = buildObjectPreview(
-      "aggCenter/bankStatements/UK-HSBC/stmt.pdf",
+      "aggCenter/ORG_112 - UK/bank/UK-HSBC/stmt.pdf",
       "oci",
       Buffer.from("%PDF-1.4 text-only statement"),
     );

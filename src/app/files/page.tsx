@@ -104,7 +104,7 @@ export default function FilesPage() {
               <input
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
-                placeholder="prefix filter…"
+                placeholder="aggCenter/ORG_112 - UK"
                 className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
               />
               <button

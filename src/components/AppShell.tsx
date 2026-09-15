@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { prefetchFetch } from "@/lib/useFetch";
+
 type WorkspaceId = "cash" | "suppliers" | "invoices";
 
 const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }[] = [
@@ -56,6 +58,14 @@ const SHARED = [
   { href: "/files", label: "Files", icon: "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" },
   { href: "/integrations", label: "Integrations", icon: "M12 3v6m0 6v6M3 12h6m6 0h6" },
 ];
+
+const PREFETCH_APIS: Record<string, string[]> = {
+  "/": ["/api/cash-position", "/api/cash-forecast?summary=1"],
+  "/forecast": ["/api/cash-forecast"],
+  "/reconciliation": ["/api/reconciliation"],
+  "/anomalies": ["/api/anomalies"],
+  "/statements": ["/api/statements", "/api/accounts"],
+};
 
 function workspaceFromPath(pathname: string): WorkspaceId {
   if (pathname === "/suppliers" || pathname.startsWith("/suppliers/")) return "suppliers";
@@ -182,6 +192,12 @@ function NavLink({
   return (
     <Link
       href={href}
+      onMouseEnter={() => {
+        for (const url of PREFETCH_APIS[href] ?? []) prefetchFetch(url);
+      }}
+      onFocus={() => {
+        for (const url of PREFETCH_APIS[href] ?? []) prefetchFetch(url);
+      }}
       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? "bg-slate-800 text-white"

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 
-import { Card, ErrorNote, PageHeader, Spinner } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, SortTh, Spinner } from "@/components/ui";
 import type { StoredObject } from "@/lib/storage/types";
 import { formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
 
 interface ObjectsResponse {
   provider: string;
@@ -37,6 +38,19 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function fileSortValue(row: StoredObject, key: string): unknown {
+  switch (key) {
+    case "key":
+      return row.key;
+    case "size":
+      return row.size;
+    case "modified":
+      return row.lastModified;
+    default:
+      return "";
+  }
+}
+
 export default function FilesPage() {
   const [prefix, setPrefix] = useState("");
   const objectsState = useFetch<ObjectsResponse>(
@@ -51,6 +65,7 @@ export default function FilesPage() {
 
   const provider = objectsState.data?.provider ?? "…";
   const objects = objectsState.data?.objects ?? [];
+  const sorted = useSort(objects, fileSortValue);
   const oci = integrations.data?.oci;
 
   async function viewFile(key: string) {
@@ -116,7 +131,7 @@ export default function FilesPage() {
             </div>
           </div>
 
-          {objectsState.loading ? (
+          {objectsState.loading && !objectsState.data ? (
             <div className="px-5">
               <Spinner />
             </div>
@@ -134,14 +149,14 @@ export default function FilesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-2 font-medium">Key</th>
-                    <th className="px-5 py-2 text-right font-medium">Size</th>
-                    <th className="px-5 py-2 font-medium">Modified</th>
+                    <SortTh className="px-5 py-2 font-medium" label="Key" column="key" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh className="px-5 py-2 font-medium" label="Size" column="size" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
+                    <SortTh className="px-5 py-2 font-medium" label="Modified" column="modified" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <th className="px-5 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {objects.map((o) => (
+                  {sorted.rows.map((o) => (
                     <tr
                       key={o.key}
                       className={selected === o.key ? "bg-indigo-50" : "hover:bg-slate-50"}

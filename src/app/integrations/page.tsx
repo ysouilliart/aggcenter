@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Card, ErrorNote, PageHeader, Spinner } from "@/components/ui";
-import { useFetch } from "@/lib/useFetch";
+import { invalidateCashFetchCache, useFetch } from "@/lib/useFetch";
 
 interface IntegrationStatus {
   storageProvider: string;
@@ -92,6 +92,7 @@ export default function IntegrationsPage() {
       setSyncMessage(
         `Reset to the bank-statement baseline. Parsed ${json.statements?.ingested?.length ?? 0} statement(s). Supporting files: ${json.purchaseOrders} POs, ${json.apInvoices} UK AP invoices, ${json.salesOrders} SOs, ${json.remittances} remittances.`,
       );
+      invalidateCashFetchCache();
       reference.reload();
     } catch (err) {
       setSyncMessage(err instanceof Error ? err.message : "Sync failed");
@@ -107,7 +108,7 @@ export default function IntegrationsPage() {
         subtitle="Connectivity for file storage, data warehouse and external APIs"
       />
 
-      {loading ? <Spinner /> : null}
+      {loading && !data ? <Spinner /> : null}
       {error ? <ErrorNote message={error} /> : null}
 
       {data ? (

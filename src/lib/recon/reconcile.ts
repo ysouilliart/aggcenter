@@ -16,6 +16,10 @@ import {
 import {
   DATE_WINDOW_DAYS,
   buildMatchFields,
+  poSupportingDoc,
+  remSupportingDoc,
+  soSupportingDoc,
+  uniqueSupportingDocs,
   type MatchContext,
 } from "./match-notes";
 
@@ -87,6 +91,9 @@ function newContext(
     remNamedHits: 0,
     soPoAmountHits: 0,
     attempts: [],
+    soDocs: [],
+    poDocs: [],
+    remDocs: [],
   };
 }
 
@@ -151,19 +158,102 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       notes: Parameters<typeof buildMatchFields>[1],
     ): ReconciliationResult => ({
       ...result,
-      ...buildMatchFields(ctx, notes),
+      ...buildMatchFields(ctx, {
+        ...notes,
+        matchedType: result.matchedType,
+        matchedId: result.matchedId,
+      }),
     });
 
-    // 1) Classic SO/PO id in the bank text.
+    // Collect every supporting hit first so Matched to can show remittance /
+    // PO / SO numbers even when the winner is ambiguous.
     const idHits = tokens
       .map((ref) => byId.get(ref))
       .filter((doc): doc is SalesOrder | PurchaseOrder => Boolean(doc && doc.currency === txn.currency));
-    ctx.soIdHits = idHits.length;
+    ctx.soIdHits = flow === "O2C" ? idHits.length : 0;
     ctx.attempts.push({
       pattern: "so_po_id",
       approach: `${matchedType} id token`,
       hits: idHits.length,
     });
+
+    const byInvoice =
+      flow === "P2P"
+        ? poPool.filter((po) => poRefs(po).some((ref) => tokens.includes(ref)))
+        : [];
+    if (flow === "P2P") {
+      ctx.poInvoiceHits = byInvoice.length;
+      ctx.attempts.push({
+        pattern: "po_invoice_number",
+        approach: "PO/AP invoice or PO number",
+        hits: byInvoice.length,
+      });
+    }
+
+    const remByRef = remPool.filter((rem) =>
+      remittanceRefs(rem).some((ref) => tokens.includes(ref)),
+    );
+    ctx.remRefHits = remByRef.length;
+    ctx.attempts.push({
+      pattern: "remittance_invoice_ref",
+      approach: "remittance invoice/payment ref",
+      hits: remByRef.length,
+    });
+
+    const remWindow = remPool.filter(
+      (rem) =>
+        amountsMatch(abs, rem.amount) && daysBetween(rem.date, txn.date) <= DATE_WINDOW_DAYS,
+    );
+    ctx.remWindowHits = remWindow.length;
+    ctx.attempts.push({
+      pattern: "remittance_amount_window",
+      approach: `remittance amount ±${DATE_WINDOW_DAYS}d`,
+      hits: remWindow.length,
+    });
+
+    const remNamed = remWindow.filter((rem) =>
+      namesLooselyMatch(rem.name, txn.counterparty ?? txn.bankReference ?? txn.narrative),
+    );
+    ctx.remNamedHits = remNamed.length;
+    ctx.attempts.push({
+      pattern: "remittance_amount_name",
+      approach: "remittance amount ±5d + counterparty name",
+      hits: remNamed.length,
+    });
+
+    const amountMatches = candidates.filter(
+      (doc) => doc.currency === txn.currency && amountsMatch(abs, doc.amount),
+    );
+    ctx.soPoAmountHits = amountMatches.length;
+    ctx.attempts.push({
+      pattern: "so_po_unique_amount",
+      approach: `${matchedType} unique amount`,
+      hits: amountMatches.length,
+    });
+
+    if (flow === "O2C") {
+      ctx.soDocs = uniqueSupportingDocs([
+        ...idHits.map((doc) => soSupportingDoc(doc as SalesOrder)),
+        ...amountMatches.map((doc) => soSupportingDoc(doc as SalesOrder)),
+      ]);
+    } else {
+      ctx.poDocs = uniqueSupportingDocs([
+        ...idHits.map((doc) => poSupportingDoc(doc as PurchaseOrder)),
+        ...byInvoice.map(poSupportingDoc),
+        ...amountMatches.map((doc) => poSupportingDoc(doc as PurchaseOrder)),
+      ]);
+    }
+    ctx.remDocs = uniqueSupportingDocs(
+      (
+        remByRef.length
+          ? remByRef
+          : remNamed.length === 1
+            ? remNamed
+            : remWindow
+      ).map(remSupportingDoc),
+    );
+
+    // 1) Classic SO/PO id in the bank text.
     if (idHits.length === 1) {
       const doc = idHits[0];
       const amountDiff = abs - doc.amount;
@@ -205,65 +295,47 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
     }
 
     // 2) AP invoice / PO number on a purchase-order row.
-    if (flow === "P2P") {
-      const byInvoice = poPool.filter((po) => poRefs(po).some((ref) => tokens.includes(ref)));
-      ctx.poInvoiceHits = byInvoice.length;
-      ctx.attempts.push({
-        pattern: "po_invoice_number",
-        approach: "PO/AP invoice or PO number",
-        hits: byInvoice.length,
-      });
-      if (byInvoice.length === 1) {
-        const doc = byInvoice[0];
-        const amountDiff = abs - doc.amount;
-        if (amountsMatch(abs, doc.amount)) {
-          return finish(
-            {
-              ...base,
-              status: "matched",
-              matchedType: "PO",
-              matchedId: doc.id,
-              confidence: 0.95,
-              amountDiff,
-            },
-            {
-              status: "matched",
-              pattern: "po_invoice_number",
-              approach: "PO/AP invoice or PO number → 1 (amount match)",
-              candidateCount: 1,
-            },
-          );
-        }
+    if (flow === "P2P" && byInvoice.length === 1) {
+      const doc = byInvoice[0];
+      const amountDiff = abs - doc.amount;
+      if (amountsMatch(abs, doc.amount)) {
         return finish(
           {
             ...base,
-            status: "partial",
+            status: "matched",
             matchedType: "PO",
             matchedId: doc.id,
-            confidence: 0.6,
+            confidence: 0.95,
             amountDiff,
           },
           {
-            status: "partial",
+            status: "matched",
             pattern: "po_invoice_number",
-            approach: "PO/AP invoice or PO number → 1 (amount differs)",
+            approach: "PO/AP invoice or PO number → 1 (amount match)",
             candidateCount: 1,
-            amountDiffPlain: `${formatCentsPlain(amountDiff)} ${txn.currency}`,
           },
         );
       }
+      return finish(
+        {
+          ...base,
+          status: "partial",
+          matchedType: "PO",
+          matchedId: doc.id,
+          confidence: 0.6,
+          amountDiff,
+        },
+        {
+          status: "partial",
+          pattern: "po_invoice_number",
+          approach: "PO/AP invoice or PO number → 1 (amount differs)",
+          candidateCount: 1,
+          amountDiffPlain: `${formatCentsPlain(amountDiff)} ${txn.currency}`,
+        },
+      );
     }
 
     // 3) Remittance invoice / payment reference.
-    const remByRef = remPool.filter((rem) =>
-      remittanceRefs(rem).some((ref) => tokens.includes(ref)),
-    );
-    ctx.remRefHits = remByRef.length;
-    ctx.attempts.push({
-      pattern: "remittance_invoice_ref",
-      approach: "remittance invoice/payment ref",
-      hits: remByRef.length,
-    });
     if (remByRef.length === 1) {
       const rem = remByRef[0];
       const amountDiff = abs - rem.amount;
@@ -327,16 +399,6 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
     }
 
     // 4) Unique remittance amount in a date window (same currency + direction).
-    const remWindow = remPool.filter(
-      (rem) =>
-        amountsMatch(abs, rem.amount) && daysBetween(rem.date, txn.date) <= DATE_WINDOW_DAYS,
-    );
-    ctx.remWindowHits = remWindow.length;
-    ctx.attempts.push({
-      pattern: "remittance_amount_window",
-      approach: `remittance amount ±${DATE_WINDOW_DAYS}d`,
-      hits: remWindow.length,
-    });
     if (remWindow.length === 1) {
       const rem = remWindow[0];
       return finish(
@@ -357,15 +419,6 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       );
     }
 
-    const remNamed = remWindow.filter((rem) =>
-      namesLooselyMatch(rem.name, txn.counterparty ?? txn.bankReference ?? txn.narrative),
-    );
-    ctx.remNamedHits = remNamed.length;
-    ctx.attempts.push({
-      pattern: "remittance_amount_name",
-      approach: "remittance amount ±5d + counterparty name",
-      hits: remNamed.length,
-    });
     if (remNamed.length === 1) {
       const rem = remNamed[0];
       return finish(
@@ -387,15 +440,6 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
     }
 
     // 5) Amount-based fallback (unique amount + currency match on SO/PO).
-    const amountMatches = candidates.filter(
-      (doc) => doc.currency === txn.currency && amountsMatch(abs, doc.amount),
-    );
-    ctx.soPoAmountHits = amountMatches.length;
-    ctx.attempts.push({
-      pattern: "so_po_unique_amount",
-      approach: `${matchedType} unique amount`,
-      hits: amountMatches.length,
-    });
     if (amountMatches.length === 1) {
       const doc = amountMatches[0];
       return finish(
@@ -415,7 +459,10 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         },
       );
     }
-    if (amountMatches.length > 1) {
+
+    const candidateCount =
+      (flow === "O2C" ? ctx.soDocs.length : ctx.poDocs.length) + ctx.remDocs.length;
+    if (candidateCount > 0) {
       return finish(
         {
           ...base,
@@ -426,7 +473,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "partial",
           pattern: "exhausted",
-          candidateCount: amountMatches.length,
+          candidateCount,
         },
       );
     }

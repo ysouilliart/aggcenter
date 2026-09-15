@@ -4,7 +4,11 @@ import type {
   MatchLookup,
   MatchPattern,
   MatchStatus,
+  PurchaseOrder,
   ReconciliationResult,
+  Remittance,
+  SalesOrder,
+  SupportingDocRef,
 } from "../domain/types";
 
 export const DATE_WINDOW_DAYS = 5;
@@ -18,6 +22,35 @@ export const MATCH_PATTERN_LABELS: Record<MatchPattern, string> = {
   so_po_unique_amount: "unique SO/PO amount",
   exhausted: "no unique match",
 };
+
+/** Shown on the Reconciliation page so users know how a bank line is identified. */
+export const MATCH_RULES: { title: string; detail: string }[] = [
+  {
+    title: "Baseline",
+    detail:
+      "Each bank-statement line is the payment to identify. SO, PO and remittance files are supporting evidence, not a second baseline.",
+  },
+  {
+    title: "Matched",
+    detail:
+      "Exactly one supporting document uniquely identifies the line and amounts agree (0.5% tolerance). Lookup order: (1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance amount within ±5 days, (5) same window plus counterparty name, (6) unique SO/PO amount.",
+  },
+  {
+    title: "SO/PO + remittance",
+    detail:
+      "If an SO or PO and a remittance both uniquely identify the same bank line with matching amounts, that is a match. Both numbers are shown in Matched to so you can verify source data.",
+  },
+  {
+    title: "Partial",
+    detail:
+      "A supporting document was found but the amount differs, or several SO/PO/remittance rows share the amount so one row cannot be isolated. Candidate remittance / PO / SO numbers are listed in Matched to.",
+  },
+  {
+    title: "Unmatched",
+    detail:
+      "No supporting SO, PO or remittance in the loaded files identifies this bank payment.",
+  },
+];
 
 export interface LookupAttempt {
   pattern: MatchPattern;
@@ -39,6 +72,70 @@ export interface MatchContext {
   remNamedHits: number;
   soPoAmountHits: number;
   attempts: LookupAttempt[];
+  soDocs: SupportingDocRef[];
+  poDocs: SupportingDocRef[];
+  remDocs: SupportingDocRef[];
+}
+
+export function soSupportingDoc(so: SalesOrder): SupportingDocRef {
+  return { kind: "SO", id: so.id, number: so.id, label: `SO ${so.id}` };
+}
+
+export function poSupportingDoc(po: PurchaseOrder): SupportingDocRef {
+  const poNumber = po.poNumbers?.find((n) => n && n !== po.id);
+  const number = poNumber || po.invoiceNumber || po.id;
+  const extra =
+    po.invoiceNumber && po.invoiceNumber !== number && po.invoiceNumber !== po.id
+      ? ` · inv ${po.invoiceNumber}`
+      : "";
+  const label =
+    number !== po.id ? `PO ${number} (${po.id})${extra}` : `PO ${po.id}${extra}`;
+  return { kind: "PO", id: po.id, number, label };
+}
+
+export function remSupportingDoc(rem: Remittance): SupportingDocRef {
+  const number = rem.remittanceNumber || rem.reference || rem.id;
+  const invoices = rem.invoiceNumbers?.filter(Boolean).slice(0, 3) ?? [];
+  const parts = [`Remittance ${number}`];
+  if (number !== rem.id) parts.push(`(${rem.id})`);
+  if (invoices.length) parts.push(`inv ${invoices.join(", ")}`);
+  return { kind: "remittance", id: rem.id, number, label: parts.join(" ") };
+}
+
+export function uniqueSupportingDocs(docs: SupportingDocRef[]): SupportingDocRef[] {
+  const seen = new Set<string>();
+  const out: SupportingDocRef[] = [];
+  for (const doc of docs) {
+    const key = `${doc.kind}:${doc.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(doc);
+  }
+  return out;
+}
+
+/**
+ * Winner first, then every other supporting remittance / SO / PO so Matched to
+ * always shows the numbers behind "remittance found" / "PO found" / "SO found".
+ */
+export function supportingDocsForResult(
+  ctx: MatchContext,
+  matchedType?: ReconciliationResult["matchedType"],
+  matchedId?: string,
+): SupportingDocRef[] {
+  const commercial = ctx.flow === "O2C" ? ctx.soDocs : ctx.poDocs;
+  const all = uniqueSupportingDocs([...commercial, ...ctx.remDocs]);
+  if (!matchedId) return all.slice(0, 8);
+
+  const winner =
+    all.find((d) => d.kind === matchedType && d.id === matchedId) ??
+    all.find((d) => d.id === matchedId);
+  if (!winner) return all.slice(0, 8);
+
+  return uniqueSupportingDocs([
+    winner,
+    ...all.filter((d) => `${d.kind}:${d.id}` !== `${winner.kind}:${winner.id}`),
+  ]).slice(0, 8);
 }
 
 const SOURCE_FIELDS: Array<keyof BankTransaction> = [
@@ -164,6 +261,8 @@ export function buildMatchFields(
     approach?: string;
     candidateCount: number;
     amountDiffPlain?: string;
+    matchedType?: ReconciliationResult["matchedType"];
+    matchedId?: string;
   },
 ): Pick<ReconciliationResult, "matchPattern" | "lookup" | "remediation" | "reasons"> {
   const source = describeSource(ctx.txn, ctx.tokens);
@@ -176,6 +275,7 @@ export function buildMatchFields(
     ...foundFlags(ctx),
     candidateCount: opts.candidateCount,
     tokens: ctx.tokens.slice(0, 8),
+    supportingDocs: supportingDocsForResult(ctx, opts.matchedType, opts.matchedId),
   };
   const remediation =
     opts.status === "matched"
@@ -211,4 +311,18 @@ export function matchedDocLabel(
   if (matchedType === "SO") return `SO ${matchedId}`;
   if (matchedType === "PO") return `PO ${matchedId}`;
   return matchedId;
+}
+
+export function matchedToDocs(result: ReconciliationResult): SupportingDocRef[] {
+  const docs = result.lookup?.supportingDocs ?? [];
+  if (docs.length) return docs;
+  if (!result.matchedId) return [];
+  return [
+    {
+      kind: result.matchedType ?? "SO",
+      id: result.matchedId,
+      number: result.matchedId,
+      label: matchedDocLabel(result.matchedType, result.matchedId),
+    },
+  ];
 }

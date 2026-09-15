@@ -44,8 +44,9 @@ aggCenter/ORG_112 - UK/BANK_112/UK GBP HSBC CURRENT ACC AUG-26.pdf
 | `aggCenter/ORG_112 - UK/SO_112/` | Sales order header + charge-component CSVs |
 | `aggCenter/ORG_112 - UK/REM_112/` | Remittance CSVs (`remittance_112.csv`) |
 
-Then click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`)
-for bank files, and **Load from bucket** on Integrations (or
-`POST /api/reference/ingest`) for reference docs. Ingestion is idempotent for
-statements: re-syncing skips files already imported (keyed by object path), so
-you can drop more files and sync again safely.
+Then click **Load from bucket** on Integrations (or `POST /api/reference/ingest`)
+to reset cash tables and load one baseline (reference CSVs + a single parse of
+each bank file currently in `BANK_112/`). **Sync from bucket** on Statements
+(`POST /api/statements/ingest`) also clears previous statement rows first, then
+re-parses bank files. That avoids keeping the same HSBC statement twice under
+old and new object keys.

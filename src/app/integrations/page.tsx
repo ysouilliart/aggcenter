@@ -90,7 +90,10 @@ export default function IntegrationsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
       setSyncMessage(
-        `Loaded ${json.purchaseOrders} purchase orders, ${json.apInvoices} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.`,
+        `Reset cash tables. Loaded ${json.purchaseOrders} purchase orders, ${json.apInvoices} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.` +
+          (json.statements
+            ? ` Parsed ${json.statements.ingested?.length ?? 0} bank statement(s) (${json.statements.errors?.length ?? 0} error(s)).`
+            : ""),
       );
       reference.reload();
     } catch (err) {
@@ -255,7 +258,10 @@ export default function IntegrationsPage() {
               <span className="font-medium text-slate-900">
                 {folderName(data.cashFiles?.bank, "BANK_112")}
               </span>
-              . AP rows keep taxation country GB; remittances keep OU ResMed UK.
+              . <strong>Load from bucket</strong> clears cash tables and
+              re-parses one baseline (reference CSVs + a single bank-statement
+              parse). AP rows keep taxation country GB; remittances keep OU
+              ResMed UK.
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row

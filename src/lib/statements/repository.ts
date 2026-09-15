@@ -40,6 +40,8 @@ export interface StatementRepository {
     account: BankAccount,
     options?: { updateOpening?: boolean },
   ): Promise<BankAccount>;
+  /** Drop statements, transactions, parse traces, and upserted bank accounts. */
+  clearAll(): Promise<void>;
 }
 
 // --- mapping -----------------------------------------------------------------
@@ -331,6 +333,12 @@ export class LocalJsonStatementRepository implements StatementRepository {
     await fs.writeFile(this.accountsFile, JSON.stringify(accounts, null, 2), "utf8");
     return stored;
   }
+
+  async clearAll(): Promise<void> {
+    await this.write([]);
+    await fs.mkdir(path.dirname(this.accountsFile), { recursive: true });
+    await fs.writeFile(this.accountsFile, "[]", "utf8");
+  }
 }
 
 // --- Postgres (Drizzle) ------------------------------------------------------
@@ -518,5 +526,24 @@ export class PostgresStatementRepository implements StatementRepository {
     }
     await db.insert(bankAccounts).values(accountInsertValues(account));
     return account;
+  }
+
+  async clearAll(): Promise<void> {
+    const { getDb } = await import("../db/client");
+    const {
+      bankAccounts,
+      bankTransactions,
+      parseEvents,
+      parseJobs,
+      statements,
+    } = await import("../db/schema");
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      await tx.delete(parseEvents);
+      await tx.delete(parseJobs);
+      await tx.delete(bankTransactions);
+      await tx.delete(statements);
+      await tx.delete(bankAccounts);
+    });
   }
 }

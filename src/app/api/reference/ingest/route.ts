@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 
-import { ingestReferenceDocuments } from "@/lib/reference/ingest";
+import { loadCashBaseline } from "@/lib/cash/baseline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export async function POST() {
   try {
-    const result = await ingestReferenceDocuments();
-    return NextResponse.json(result);
+    const result = await loadCashBaseline();
+    return NextResponse.json({
+      reset: result.reset,
+      ...result.reference,
+      statements: result.statements,
+    });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Reference ingest failed" },
+      { error: err instanceof Error ? err.message : "Cash baseline load failed" },
       { status: 502 },
     );
   }

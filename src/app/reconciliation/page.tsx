@@ -100,10 +100,10 @@ export default function ReconciliationPage() {
       <Card className="mb-6">
         <h2 className="text-sm font-semibold text-slate-900">Matching rules</h2>
         <p className="mt-1 text-xs text-slate-500">
-          How a bank line becomes Matched, Partial, or Unmatched. Amount and
-          date matching use 0 tolerance (exact cents, same calendar day). Lookup
-          order lives here, not on each row. Matched to lists the remittance /
-          PO / SO numbers used as evidence.
+          How a bank line becomes Matched, Partial, or Unmatched. Amount
+          matching uses 0 tolerance (exact cents); date is not a constraint.
+          Lookup order lives here, not on each row. Matched to lists the
+          remittance / PO / SO numbers used as evidence.
         </p>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {MATCH_RULES.map((rule) => (

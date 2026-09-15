@@ -5,7 +5,7 @@ import type {
   ReconciliationResult,
   Remittance,
 } from "../domain/types";
-import { amountsMatch, datesMatch } from "../recon/match-notes";
+import { amountsMatch } from "../recon/match-notes";
 
 function normalizeKey(value: string): string {
   return value.toUpperCase().replace(/\s+/g, "");
@@ -27,21 +27,21 @@ function remittanceKeys(rem: Remittance): string[] {
     .map(normalizeKey);
 }
 
-function amountDateMatch(rem: Remittance, txn: BankTransaction): boolean {
+function amountMatch(rem: Remittance, txn: BankTransaction): boolean {
   const expectedSign = rem.party === "customer" ? 1 : -1;
   return (
     Math.sign(txn.amount) === expectedSign &&
     txn.currency === rem.currency &&
-    amountsMatch(Math.abs(txn.amount), rem.amount) &&
-    datesMatch(rem.date, txn.date)
+    amountsMatch(Math.abs(txn.amount), rem.amount)
   );
 }
 
 /**
  * Remittances already represented on the statement. Id/invoice hits are
  * applied first (any remittance whose keys include a matched SO/PO/remittance
- * id). Amount+date then consumes at most one leftover remittance per matched
- * bank line, and only if that line did not already consume a remittance.
+ * id). Exact amount then consumes at most one leftover remittance per matched
+ * bank line, and only if that line did not already consume a remittance. Date
+ * is not a constraint.
  */
 export function consumedRemittanceIds(input: {
   remittances: Remittance[];
@@ -82,7 +82,7 @@ export function consumedRemittanceIds(input: {
     if (!txn) continue;
 
     const leftover = inPeriod
-      .filter((rem) => !consumed.has(rem.id) && amountDateMatch(rem, txn))
+      .filter((rem) => !consumed.has(rem.id) && amountMatch(rem, txn))
       .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     const pick = leftover[0];
     if (!pick) continue;

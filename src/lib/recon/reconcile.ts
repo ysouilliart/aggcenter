@@ -13,10 +13,9 @@ import {
   namesLooselyMatch,
 } from "../reference/util";
 import {
-  AMOUNT_DATE_RULE,
+  AMOUNT_RULE,
   amountsMatch,
   buildMatchFields,
-  datesMatch,
   poSupportingDoc,
   remSupportingDoc,
   soSupportingDoc,
@@ -198,13 +197,11 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       hits: remByRef.length,
     });
 
-    const remWindow = remPool.filter(
-      (rem) => amountsMatch(abs, rem.amount) && datesMatch(rem.date, txn.date),
-    );
+    const remWindow = remPool.filter((rem) => amountsMatch(abs, rem.amount));
     ctx.remWindowHits = remWindow.length;
     ctx.attempts.push({
       pattern: "remittance_amount_window",
-      approach: `remittance ${AMOUNT_DATE_RULE}`,
+      approach: `remittance ${AMOUNT_RULE}`,
       hits: remWindow.length,
     });
 
@@ -214,7 +211,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
     ctx.remNamedHits = remNamed.length;
     ctx.attempts.push({
       pattern: "remittance_amount_name",
-      approach: `remittance ${AMOUNT_DATE_RULE} + counterparty name`,
+      approach: `remittance ${AMOUNT_RULE} + counterparty name`,
       hits: remNamed.length,
     });
 
@@ -395,7 +392,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       }
     }
 
-    // 4) Unique remittance at the exact amount on the same date.
+    // 4) Unique remittance at the exact amount (date is ignored).
     if (remWindow.length === 1) {
       const rem = remWindow[0];
       return finish(
@@ -410,7 +407,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "matched",
           pattern: "remittance_amount_window",
-          approach: `remittance ${AMOUNT_DATE_RULE} → 1 unique`,
+          approach: `remittance ${AMOUNT_RULE} → 1 unique`,
           candidateCount: 1,
         },
       );
@@ -430,7 +427,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "matched",
           pattern: "remittance_amount_name",
-          approach: `remittance ${AMOUNT_DATE_RULE} + counterparty name → 1`,
+          approach: `remittance ${AMOUNT_RULE} + counterparty name → 1`,
           candidateCount: 1,
         },
       );

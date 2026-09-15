@@ -11,31 +11,19 @@ import type {
   SupportingDocRef,
 } from "../domain/types";
 
-/** Same calendar day only. Amount and date matching use 0 tolerance. */
-export const DATE_WINDOW_DAYS = 0;
+export const AMOUNT_RULE = "exact amount";
 
-export const AMOUNT_DATE_RULE = "exact amount, same date";
-
-/** Exact cents. No percentage slack. */
+/** Exact cents. No percentage slack. Date is not part of the match. */
 export function amountsMatch(a: number, b: number): boolean {
   return a === b;
-}
-
-/** Same calendar day when the window is 0; otherwise within DATE_WINDOW_DAYS. */
-export function datesMatch(a: string, b: string): boolean {
-  if (DATE_WINDOW_DAYS <= 0) return a.slice(0, 10) === b.slice(0, 10);
-  const da = Date.parse(a);
-  const db = Date.parse(b);
-  if (Number.isNaN(da) || Number.isNaN(db)) return false;
-  return Math.abs(da - db) / 86_400_000 <= DATE_WINDOW_DAYS;
 }
 
 export const MATCH_PATTERN_LABELS: Record<MatchPattern, string> = {
   so_po_id: "SO/PO id in bank text",
   po_invoice_number: "PO/AP invoice number",
   remittance_invoice_ref: "remittance invoice/payment ref",
-  remittance_amount_window: "unique remittance exact amount, same date",
-  remittance_amount_name: "remittance exact amount, same date + counterparty name",
+  remittance_amount_window: "unique remittance exact amount",
+  remittance_amount_name: "remittance exact amount + counterparty name",
   so_po_unique_amount: "unique SO/PO exact amount",
   exhausted: "no unique match",
 };
@@ -50,12 +38,12 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
   {
     title: "Lookup order",
     detail:
-      "(1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance at the exact amount on the same date, (5) same plus counterparty name, (6) unique SO/PO at the exact amount. Amount and date both have 0 tolerance.",
+      "(1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance at the exact amount, (5) same plus counterparty name, (6) unique SO/PO at the exact amount. Amount has 0 tolerance. Date is not a constraint.",
   },
   {
     title: "Matched",
     detail:
-      "Exactly one supporting document uniquely identifies the line and the amount matches to the cent on the same calendar day.",
+      "Exactly one supporting document uniquely identifies the line and the amount matches to the cent.",
   },
   {
     title: "SO/PO + remittance",
@@ -65,7 +53,7 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
   {
     title: "Partial",
     detail:
-      "A supporting document was found but the amount differs, or several SO/PO/remittance rows share this exact amount on this date so one row cannot be isolated. Candidate remittance / PO / SO numbers are listed in Matched to.",
+      "A supporting document was found but the amount differs, or several SO/PO/remittance rows share this exact amount so one row cannot be isolated. Candidate remittance / PO / SO numbers are listed in Matched to.",
   },
   {
     title: "Unmatched",
@@ -298,7 +286,7 @@ export function proposeRemediation(
   }
 
   if (ctx.remWindowHits > 1 && ctx.remNamedHits !== 1) {
-    return `${ctx.remWindowHits} remittances have this exact amount on this date. Put the invoice number on the bank line, or add a counterparty alias.`;
+    return `${ctx.remWindowHits} remittances have this exact amount. Put the invoice number on the bank line, or add a counterparty alias.`;
   }
 
   if (ctx.soPoAmountHits > 1) {
@@ -316,7 +304,7 @@ export function proposeRemediation(
     if (bankNarrative(ctx.txn)) {
       return `This narrative is not on a loaded remittance or ${kind}. Load the missing remittance, or put the invoice number on the bank line.`;
     }
-    return `No remittance or ${kind} at this exact amount on this date. Load the missing remittance, or classify as payroll/tax/internal.`;
+    return `No remittance or ${kind} at this exact amount. Load the missing remittance, or classify as payroll/tax/internal.`;
   }
 
   return `Put the invoice number on the bank line, or load the remittance that belongs to this payment.`;

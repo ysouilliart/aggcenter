@@ -13,7 +13,7 @@ import { ingestReferenceDocuments } from "@/lib/reference/ingest";
 import { LocalJsonReferenceRepository } from "@/lib/reference/repository";
 import { cashObjectPrefix } from "@/lib/cash/paths";
 import { LocalStorageProvider } from "@/lib/storage/local";
-import { amountsMatch, datesMatch, MATCH_RULES } from "@/lib/recon/match-notes";
+import { amountsMatch, MATCH_RULES } from "@/lib/recon/match-notes";
 import { reconcile } from "@/lib/recon/reconcile";
 import type { BankTransaction, Remittance } from "@/lib/domain/types";
 
@@ -264,13 +264,10 @@ const rem: Remittance = {
 };
 
 describe("zero-tolerance match helpers", () => {
-  it("requires exact cents and the same calendar day", () => {
+  it("requires exact cents and does not use a date window", () => {
     expect(amountsMatch(15000, 15000)).toBe(true);
     expect(amountsMatch(15000, 15075)).toBe(false);
-    expect(datesMatch("2026-08-10", "2026-08-10")).toBe(true);
-    expect(datesMatch("2026-08-10 00:00:00.00000", "2026-08-10")).toBe(true);
-    expect(datesMatch("2026-08-10", "2026-08-12")).toBe(false);
-    expect(MATCH_RULES.some((rule) => /0 tolerance/.test(rule.detail))).toBe(
+    expect(MATCH_RULES.some((rule) => /Date is not a constraint/.test(rule.detail))).toBe(
       true,
     );
   });
@@ -301,9 +298,9 @@ describe("reconcile remittances", () => {
     expect(r.remediation).toBeUndefined();
   });
 
-  it("matches a unique remittance at the exact amount on the same date", () => {
+  it("matches a unique remittance at the exact amount regardless of date", () => {
     const [r] = reconcile({
-      transactions: [txn({ id: "t2", amount: 15000, date: "2026-08-10" })],
+      transactions: [txn({ id: "t2", amount: 15000, date: "2026-08-12" })],
       salesOrders: [],
       purchaseOrders: [],
       remittances: [rem],
@@ -312,19 +309,8 @@ describe("reconcile remittances", () => {
     expect(r.matchPattern).toBe("remittance_amount_window");
     expect(r.lookup?.soFound).toBe(false);
     expect(r.lookup?.remittanceFound).toBe(true);
-    expect(r.lookup?.approach).toMatch(/exact amount, same date/);
-  });
-
-  it("does not match a remittance at the same amount on a different day", () => {
-    const [r] = reconcile({
-      transactions: [txn({ id: "t-offday", amount: 15000, date: "2026-08-12" })],
-      salesOrders: [],
-      purchaseOrders: [],
-      remittances: [rem],
-    });
-    expect(r.status).toBe("unmatched");
-    expect(r.matchPattern).toBe("exhausted");
-    expect(r.lookup?.remittanceFound).toBe(false);
+    expect(r.lookup?.approach).toMatch(/exact amount/);
+    expect(r.lookup?.approach).not.toMatch(/same date|±5d/);
   });
 
   it("does not match a remittance that is only close in amount", () => {
@@ -398,21 +384,27 @@ describe("reconcile remittances", () => {
     expect(r.remediation).toMatch(/invoice number on the bank line/);
   });
 
-  it("flags an ambiguous remittance amount on the same date and asks for invoice numbers", () => {
+  it("flags an ambiguous remittance amount even when dates differ", () => {
     const [r] = reconcile({
-      transactions: [txn({ id: "amb-rem", amount: 15000, date: "2026-08-10" })],
+      transactions: [txn({ id: "amb-rem", amount: 15000, date: "2026-08-12" })],
       salesOrders: [],
       purchaseOrders: [],
       remittances: [
         rem,
-        { ...rem, id: "AR-10", name: "Other Trust", invoiceNumbers: ["2000000099"] },
+        {
+          ...rem,
+          id: "AR-10",
+          date: "2026-08-20",
+          name: "Other Trust",
+          invoiceNumbers: ["2000000099"],
+        },
       ],
     });
     expect(r.status).toBe("partial");
     expect(r.matchPattern).toBe("exhausted");
     expect(r.lookup?.remittanceFound).toBe(true);
     expect(r.lookup?.soFound).toBe(false);
-    expect(r.lookup?.approach).toMatch(/exact amount, same date → 2/);
+    expect(r.lookup?.approach).toMatch(/exact amount → 2/);
     expect(r.lookup?.supportingDocs.map((d) => d.id).sort()).toEqual([
       "AR-10",
       "AR-9",

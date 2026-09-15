@@ -150,7 +150,7 @@ describe("buildCashForecast", () => {
     expect(forecasts[0].predictedInflows).toBe(15_000_00);
   });
 
-  it("consumes only one leftover remittance per matched txn via exact amount and same date", () => {
+  it("consumes only one leftover remittance per matched txn via exact amount", () => {
     const forecasts = buildCashForecast({
       remittances: [
         rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-10", reference: "INV-A" }),

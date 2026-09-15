@@ -1,6 +1,7 @@
 import { getConfig } from "../config";
 import { getDataSource } from "../datasource";
 import { ingestFromObjectStorage, ingestStatements, type IngestResult } from "../ingest";
+import { invalidateCashWorkspace } from "./cache";
 import {
   ingestReferenceDocuments,
   type ReferenceIngestResult,
@@ -50,6 +51,8 @@ export async function loadCashBaseline(deps?: {
     storage,
     repo: deps?.referenceRepo,
   });
+
+  invalidateCashWorkspace();
 
   return { reset: true, reference, statements };
 }

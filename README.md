@@ -177,7 +177,7 @@ binary guard).
 ### Auto-ingest statements from the bucket
 
 Click **Load from bucket** on Integrations (or `POST /api/reference/ingest`)
-to import UK reference documents from `aggCenter/ORG_112 - UK`:
+to **reset cash tables** and load one baseline from `aggCenter/ORG_112 - UK`:
 
 | Folder | Contents |
 | --- | --- |
@@ -185,13 +185,21 @@ to import UK reference documents from `aggCenter/ORG_112 - UK`:
 | `PO_112` | Purchase orders (ORG 112 / UK) |
 | `SO_112` | Sales orders |
 | `REM_112` | Remittances (`OU: ResMed UK`; one payment per remittance id) |
+| `BANK_112` | Bank statements (one parse per file; previous statement rows are deleted first) |
 
-Reconciliation uses those rows plus the bundled sample SO/PO set. Override the
-org root with `CASH_ORG_ROOT`, or a single folder with `REFERENCE_AP_PREFIX`,
-`REFERENCE_PO_PREFIX`, `REFERENCE_SO_PREFIX`, `REFERENCE_REMITTANCE_PREFIX`.
+That wipe covers statements, transactions, parse traces, and upserted bank
+accounts. Reference SO/PO/AP/remittance rows are replaced. Cash position,
+reconciliation, and anomalies are derived from those tables, so they reset
+with the load. Bundled sample statements are not mixed in once an OCI
+statement exists.
+
+Override the org root with `CASH_ORG_ROOT`, or a single folder with
+`REFERENCE_AP_PREFIX`, `REFERENCE_PO_PREFIX`, `REFERENCE_SO_PREFIX`,
+`REFERENCE_REMITTANCE_PREFIX`.
 
 Click **Sync from bucket** on the Statements page (or `POST /api/statements/ingest`)
-to import files from the active storage provider. Bank files are scanned under
+to replace persisted statements and re-parse bank files from the active storage
+provider (same one-run behaviour). Bank files are scanned under
 `aggCenter/ORG_112 - UK/BANK_112/` by default:
 
 **CSV** (`aggCenter/ORG_112 - UK/BANK_112/<accountId>/<file>.csv`) — the first path
@@ -208,8 +216,9 @@ why. Override prefixes with `STATEMENT_CSV_PREFIX` / `STATEMENT_PDF_PREFIX`
 (both default to the `BANK_112` folder), or pass `{ "prefix": "..." }` in the ingest
 request body to scan a single prefix.
 
-Ingestion is **idempotent** — files already imported (keyed by object path) are
-skipped on re-sync.
+Each **Load from bucket** / **Sync from bucket** run **replaces** the previous
+statement parse (tables are cleared first) so the same HSBC file is not kept
+twice from old object keys.
 
 Open a statement from the list to see the parsed **header**, **transactions**
 (including the Narrative column), **parse trace**, and **source** metadata.

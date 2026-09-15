@@ -142,6 +142,17 @@ describe("ingestStatements", () => {
     expect(await repo.listStatements()).toHaveLength(1);
   });
 
+  it("re-parses the same object key after clearAll", async () => {
+    await storage.put(`${BANK}ACC-1001/a.csv`, Buffer.from(GOOD_CSV));
+    await ingestStatements({ storage, repo, accounts });
+    await repo.clearAll();
+
+    const again = await ingestStatements({ storage, repo, accounts });
+    expect(again.ingested).toHaveLength(1);
+    expect(again.skipped).toHaveLength(0);
+    expect(await repo.listStatements()).toHaveLength(1);
+  });
+
   it("errors on an unknown account folder", async () => {
     await storage.put(`${BANK}ACC-9999/x.csv`, Buffer.from(GOOD_CSV));
     const result = await ingestStatements({ storage, repo, accounts });

@@ -30,7 +30,7 @@ export default function StatementsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
       setSyncMessage(
-        `Synced from ${json.provider} (${json.prefix}): ${json.ingested.length} ingested, ` +
+        `Replaced previous parses from ${json.provider} (${json.prefix}): ${json.ingested.length} ingested, ` +
           `${json.skipped.length} skipped, ${json.errors.length} error(s).`,
       );
       statementsState.reload();
@@ -85,7 +85,7 @@ export default function StatementsPage() {
     <div>
       <PageHeader
         title="Statements"
-        subtitle="Bank statements consumed by the reconciliation engine (stored via the active file provider)"
+        subtitle="Bank statements consumed by the reconciliation engine. Sync from bucket replaces the previous parse so each file is loaded once."
         actions={
           <div className="flex flex-col items-end gap-1">
             <button

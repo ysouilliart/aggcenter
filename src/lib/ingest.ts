@@ -355,8 +355,14 @@ async function persistFailure(input: {
 }
 
 /** Ingest using the active storage provider, statement repository and accounts. */
-export async function ingestFromObjectStorage(prefix?: string): Promise<IngestResult> {
+export async function ingestFromObjectStorage(
+  prefix?: string,
+  options?: { replace?: boolean },
+): Promise<IngestResult> {
   const config = getConfig();
+  if (options?.replace) {
+    await getStatementRepository().clearAll();
+  }
   return ingestStatements({
     storage: getStorageProvider(),
     repo: getStatementRepository(),

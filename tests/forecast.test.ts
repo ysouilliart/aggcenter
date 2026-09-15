@@ -150,10 +150,10 @@ describe("buildCashForecast", () => {
     expect(forecasts[0].predictedInflows).toBe(15_000_00);
   });
 
-  it("consumes only one leftover remittance per matched txn via amount+date", () => {
+  it("consumes only one leftover remittance per matched txn via exact amount", () => {
     const forecasts = buildCashForecast({
       remittances: [
-        rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-09", reference: "INV-A" }),
+        rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-10", reference: "INV-A" }),
         rem({ id: "AR-B", amount: 15_000_00, date: "2026-08-12", reference: "INV-B" }),
       ],
       reconciliation: [
@@ -178,8 +178,8 @@ describe("buildCashForecast", () => {
   it("lets two matched txns consume two same-amount remittances 1:1", () => {
     const forecasts = buildCashForecast({
       remittances: [
-        rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-09", reference: "INV-A" }),
-        rem({ id: "AR-B", amount: 15_000_00, date: "2026-08-12", reference: "INV-B" }),
+        rem({ id: "AR-A", amount: 15_000_00, date: "2026-08-10", reference: "INV-A" }),
+        rem({ id: "AR-B", amount: 15_000_00, date: "2026-08-11", reference: "INV-B" }),
       ],
       reconciliation: [
         matched({

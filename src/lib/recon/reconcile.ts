@@ -8,13 +8,13 @@ import type {
 } from "../domain/types";
 import { formatCentsPlain } from "../money";
 import {
-  daysBetween,
   extractMatchTokens,
   isDistinctiveReference,
   namesLooselyMatch,
 } from "../reference/util";
 import {
-  DATE_WINDOW_DAYS,
+  AMOUNT_RULE,
+  amountsMatch,
   buildMatchFields,
   poSupportingDoc,
   remSupportingDoc,
@@ -37,11 +37,6 @@ export interface ReconciliationSummary {
   unmatched: number;
   /** Absolute value reconciled (matched + partial) vs total, 0..1. */
   matchRate: number;
-}
-
-function amountsMatch(a: number, b: number): boolean {
-  const tolerance = Math.max(1, Math.round(Math.abs(b) * 0.005));
-  return Math.abs(a - b) <= tolerance;
 }
 
 function txnTokens(txn: BankTransaction): string[] {
@@ -202,14 +197,11 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       hits: remByRef.length,
     });
 
-    const remWindow = remPool.filter(
-      (rem) =>
-        amountsMatch(abs, rem.amount) && daysBetween(rem.date, txn.date) <= DATE_WINDOW_DAYS,
-    );
+    const remWindow = remPool.filter((rem) => amountsMatch(abs, rem.amount));
     ctx.remWindowHits = remWindow.length;
     ctx.attempts.push({
       pattern: "remittance_amount_window",
-      approach: `remittance amount ±${DATE_WINDOW_DAYS}d`,
+      approach: `remittance ${AMOUNT_RULE}`,
       hits: remWindow.length,
     });
 
@@ -219,7 +211,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
     ctx.remNamedHits = remNamed.length;
     ctx.attempts.push({
       pattern: "remittance_amount_name",
-      approach: "remittance amount ±5d + counterparty name",
+      approach: `remittance ${AMOUNT_RULE} + counterparty name`,
       hits: remNamed.length,
     });
 
@@ -400,7 +392,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       }
     }
 
-    // 4) Unique remittance amount in a date window (same currency + direction).
+    // 4) Unique remittance at the exact amount (date is ignored).
     if (remWindow.length === 1) {
       const rem = remWindow[0];
       return finish(
@@ -415,7 +407,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "matched",
           pattern: "remittance_amount_window",
-          approach: `remittance amount ±${DATE_WINDOW_DAYS}d → 1 unique`,
+          approach: `remittance ${AMOUNT_RULE} → 1 unique`,
           candidateCount: 1,
         },
       );
@@ -435,7 +427,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "matched",
           pattern: "remittance_amount_name",
-          approach: "remittance amount ±5d + counterparty name → 1",
+          approach: `remittance ${AMOUNT_RULE} + counterparty name → 1`,
           candidateCount: 1,
         },
       );
@@ -456,7 +448,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "matched",
           pattern: "so_po_unique_amount",
-          approach: `${matchedType} unique amount → 1 (no reference)`,
+          approach: `${matchedType} unique exact amount → 1 (no reference)`,
           candidateCount: 1,
         },
       );

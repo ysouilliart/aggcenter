@@ -100,10 +100,12 @@ export default function ReconciliationPage() {
       <Card className="mb-6">
         <h2 className="text-sm font-semibold text-slate-900">Matching rules</h2>
         <p className="mt-1 text-xs text-slate-500">
-          How a bank line becomes Matched, Partial, or Unmatched. Matched to
-          always lists the remittance / PO / SO numbers used as evidence.
+          How a bank line becomes Matched, Partial, or Unmatched. Amount
+          matching uses 0 tolerance (exact cents); date is not a constraint.
+          Lookup order lives here, not on each row. Matched to lists the
+          remittance / PO / SO numbers used as evidence.
         </p>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {MATCH_RULES.map((rule) => (
             <div key={rule.title} className="rounded-lg bg-slate-50 px-3 py-2">
               <dt className="text-xs font-semibold uppercase tracking-wide text-slate-700">
@@ -375,14 +377,9 @@ function MatchNotes({ result }: { result: ReconciliationResult }) {
           numbers={docNumbers(docs, "remittance")}
         />
       </div>
-      <div>
-        <span className="font-medium text-slate-700">Source:</span> {lookup.source}
-      </div>
-      <div>
-        <span className="font-medium text-slate-700">Target:</span> {lookup.target}
-      </div>
-      <div>
-        <span className="font-medium text-slate-700">Lookup:</span> {lookup.approach}
+      <div className="break-words">
+        <span className="font-medium text-slate-700">Narrative:</span>{" "}
+        {lookup.narrative?.trim() || "—"}
       </div>
       {result.remediation ? (
         <div className="text-amber-800">

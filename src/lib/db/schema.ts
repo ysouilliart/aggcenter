@@ -143,6 +143,8 @@ export const salesOrders = cashSchema.table(
     customerPo: text("customer_po"),
     operatingUnit: text("operating_unit"),
     source: text("source").notNull().default("oci-uk"),
+    sourceFile: text("source_file"),
+    sourceRow: integer("source_row"),
   },
 );
 
@@ -161,6 +163,8 @@ export const purchaseOrders = cashSchema.table(
     operatingUnit: text("operating_unit"),
     country: text("country"),
     source: text("source").notNull().default("oci-uk"),
+    sourceFile: text("source_file"),
+    sourceRow: integer("source_row"),
   },
 );
 
@@ -179,6 +183,8 @@ export const remittances = cashSchema.table(
     operatingUnit: text("operating_unit"),
     status: text("status"),
     source: text("source").notNull().default("oci-uk"),
+    sourceFile: text("source_file"),
+    sourceRow: integer("source_row"),
   },
   (t) => [index("remittances_currency_date_idx").on(t.currency, t.date)],
 );

@@ -64,6 +64,8 @@ export interface BankTransaction {
   creditAmount?: number;
   page?: number;
   lineNumber?: number;
+  /** Bank-statement file this line was parsed from (basename or object key). */
+  sourceFile?: string;
 }
 
 export interface PurchaseOrder {
@@ -79,6 +81,10 @@ export interface PurchaseOrder {
   poNumbers?: string[];
   operatingUnit?: string;
   country?: string;
+  /** Extract file basename, e.g. `INV_Header_112.csv`. */
+  sourceFile?: string;
+  /** 1-based CSV row including the header. */
+  sourceRow?: number;
 }
 
 export interface SalesOrder {
@@ -91,6 +97,8 @@ export interface SalesOrder {
   status: "open" | "invoiced" | "collected" | "cancelled";
   customerPo?: string;
   operatingUnit?: string;
+  sourceFile?: string;
+  sourceRow?: number;
 }
 
 export interface Remittance {
@@ -107,6 +115,8 @@ export interface Remittance {
   invoiceNumbers?: string[];
   operatingUnit?: string;
   status?: string;
+  sourceFile?: string;
+  sourceRow?: number;
 }
 
 export type ParseStatus = "parsed" | "partial" | "failed";
@@ -202,6 +212,18 @@ export interface SupportingDocRef {
   number: string;
   /** Full label for the Matched to column. */
   label: string;
+  sourceFile?: string;
+  sourceRow?: number;
+}
+
+/** One step in the path from source files to a reconciliation result. */
+export interface AnalysisStep {
+  step: number;
+  label: string;
+  detail: string;
+  fileName?: string;
+  row?: number;
+  page?: number;
 }
 
 /** Winning (or last) lookup pattern used for a bank line. */
@@ -231,6 +253,8 @@ export interface MatchLookup {
   tokens: string[];
   /** Supporting documents found (winner first, then corroborating / candidates). */
   supportingDocs: SupportingDocRef[];
+  /** Ordered path from bank file/line through extract rows to the result. */
+  analysisPlan?: AnalysisStep[];
 }
 
 export interface ReconciliationResult {

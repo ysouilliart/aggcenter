@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCsv, serializeCsv } from "@/lib/parse/csv";
+import { parseCsv, parseCsvRecords, serializeCsv } from "@/lib/parse/csv";
 import { parseBankStatementCsv } from "@/lib/parse/bankStatement";
 
 describe("parseCsv", () => {
@@ -11,6 +11,14 @@ describe("parseCsv", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toEqual({ a: "1", b: "hello, world", c: 'say "hi"' });
     expect(rows[1]).toEqual({ a: "2", b: "x", c: "y" });
+  });
+
+  it("keeps 1-based physical row numbers when blank lines are skipped", () => {
+    const rows = parseCsvRecords("a,b\n1,x\n\n2,y\n");
+    expect(rows).toEqual([
+      { rowNumber: 2, record: { a: "1", b: "x" } },
+      { rowNumber: 4, record: { a: "2", b: "y" } },
+    ]);
   });
 
   it("round-trips quoted fields through serializeCsv", () => {

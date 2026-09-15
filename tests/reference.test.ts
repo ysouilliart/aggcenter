@@ -57,8 +57,31 @@ describe("UK extract mapping", () => {
     expect(isGbCountry("IT")).toBe(false);
   });
 
+  it("falls back to discountable amount plus tax when invoice_amount is 0", () => {
+    const [invoice] = mapUkApInvoices({
+      headers: [
+        {
+          invoice_id: "13338806",
+          invoice_number: "278103",
+          invoice_amount: "0.00000000",
+          discountable_amount: "8569.72000000",
+          tax_control_amount: "1713.94000000",
+          invoice_date: "2026-07-26",
+          supplier_name: "FLEET OPERATIONS LIMITED",
+          invoice_currency: "GBP",
+          taxation_country: "GB",
+        },
+      ],
+      lines: [],
+      headerFile: "aggCenter/ORG_112 - UK/INV_112/INV_Header_112.csv",
+    });
+    expect(invoice.amount).toBe(1028366);
+    expect(invoice.sourceFile).toBe("INV_Header_112.csv");
+  });
+
   it("aggregates remittance applications to one UK payment", () => {
-    const remittances = mapUkRemittances([
+    const remittances = mapUkRemittances(
+      [
       {
         flow_direction: "CUSTOMER_TO_OU",
         source_module: "AR",
@@ -87,7 +110,9 @@ describe("UK extract mapping", () => {
         invoice_number: "2000000002",
         counterparty_name: "NHS Trust Alpha",
       },
-    ]);
+    ],
+      "aggCenter/ORG_112 - UK/REM_112/remittance_112.csv",
+    );
     expect(remittances).toHaveLength(1);
     expect(remittances[0]).toMatchObject({
       id: "AR-100",
@@ -97,6 +122,7 @@ describe("UK extract mapping", () => {
       date: "2026-08-10",
     });
     expect(remittances[0].invoiceNumbers).toEqual(["2000000001", "2000000002"]);
+    expect(remittances[0].sourceFile).toBe("remittance_112.csv");
   });
 
   it("sums net charge components onto a sales order", () => {
@@ -615,6 +641,24 @@ describe("ingestReferenceDocuments", () => {
     });
     const pos = await repo.listPurchaseOrders();
     expect(pos.map((p) => p.id).sort()).toEqual(["AP-1", "PO-UKPO1001"]);
+    expect(pos.find((p) => p.id === "AP-1")).toMatchObject({
+      sourceFile: "ap_invoice_header.csv",
+      sourceRow: 2,
+    });
+    expect(pos.find((p) => p.id === "PO-UKPO1001")).toMatchObject({
+      sourceFile: "po_header.csv",
+      sourceRow: 2,
+    });
+    const orders = await repo.listSalesOrders();
+    expect(orders[0]).toMatchObject({
+      sourceFile: "sales_order_header.csv",
+      sourceRow: 2,
+    });
+    const rems = await repo.listRemittances();
+    expect(rems[0]).toMatchObject({
+      sourceFile: "remittance.csv",
+      sourceRow: 2,
+    });
   });
 });
 

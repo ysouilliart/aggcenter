@@ -3,25 +3,35 @@
  * quotes ("") and CRLF/LF line endings. Returns an array of row objects keyed
  * by the (lower-cased, trimmed) header names.
  */
-export function parseCsv(input: string): Record<string, string>[] {
+/** One CSV data row plus its 1-based physical row number (header is row 1). */
+export interface CsvRecord {
+  rowNumber: number;
+  record: Record<string, string>;
+}
+
+export function parseCsvRecords(input: string): CsvRecord[] {
   const rows = parseRows(input);
   if (rows.length === 0) return [];
 
   const headers = rows[0].map((h) => h.trim().toLowerCase());
-  const records: Record<string, string>[] = [];
+  const records: CsvRecord[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const cells = rows[i];
-    // Skip fully blank lines.
+    // Skip fully blank lines, but keep the physical row number of real data.
     if (cells.length === 1 && cells[0].trim() === "") continue;
     const record: Record<string, string> = {};
     headers.forEach((h, idx) => {
       record[h] = (cells[idx] ?? "").trim();
     });
-    records.push(record);
+    records.push({ rowNumber: i + 1, record });
   }
 
   return records;
+}
+
+export function parseCsv(input: string): Record<string, string>[] {
+  return parseCsvRecords(input).map((row) => row.record);
 }
 
 function parseRows(input: string): string[][] {

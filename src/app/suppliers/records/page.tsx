@@ -8,6 +8,7 @@ import {
   IssueBadge,
   PageHeader,
   SeverityBadge,
+  SortTh,
   Spinner,
   VatCheckBadge,
 } from "@/components/ui";
@@ -21,6 +22,7 @@ import type {
 import { isStandardPaymentTerms, STANDARD_PAYMENT_TERMS } from "@/lib/suppliers/rationalise";
 import { parseViesAddress } from "@/lib/suppliers/viesCompare";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
 
 const SOURCE_FILTERS: { id: string; label: string }[] = [
   { id: "oci-supplier", label: "Conversion" },
@@ -37,6 +39,23 @@ const ISSUE_FILTERS: { id: "" | "any" | SupplierIssueType; label: string }[] = [
 ];
 
 type ListResponse = { total: number; records: SupplierRecord[] };
+
+function supplierSortValue(row: SupplierRecord, key: string): unknown {
+  switch (key) {
+    case "supplier":
+      return row.supplier.name;
+    case "site":
+      return row.site.siteCode || row.site.city || "";
+    case "terms":
+      return row.site.paymentTerms || row.site.payGroup || "";
+    case "vat":
+      return row.site.siteVat || row.supplier.supplierVat || "";
+    case "issues":
+      return row.issues.length;
+    default:
+      return "";
+  }
+}
 
 function dash(value: string | undefined): string {
   return value?.trim() ? value : "—";
@@ -59,6 +78,7 @@ export default function SupplierRecordsPage() {
 
   const list = useFetch<ListResponse>(url);
   const records = list.data?.records ?? [];
+  const sorted = useSort(records, supplierSortValue);
 
   return (
     <div>
@@ -107,7 +127,7 @@ export default function SupplierRecordsPage() {
         </span>
       </div>
 
-      {list.loading ? <Spinner /> : null}
+      {list.loading && !list.data ? <Spinner /> : null}
       {list.error ? <ErrorNote message={list.error} /> : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
@@ -116,15 +136,15 @@ export default function SupplierRecordsPage() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white">
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3 font-medium">Supplier</th>
-                  <th className="px-4 py-3 font-medium">Site</th>
-                  <th className="px-4 py-3 font-medium">Terms / group</th>
-                  <th className="px-4 py-3 font-medium">VAT IDs</th>
-                  <th className="px-4 py-3 font-medium">Issues</th>
+                  <SortTh className="px-4 py-3 font-medium" label="Supplier" column="supplier" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                  <SortTh className="px-4 py-3 font-medium" label="Site" column="site" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                  <SortTh className="px-4 py-3 font-medium" label="Terms / group" column="terms" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                  <SortTh className="px-4 py-3 font-medium" label="VAT IDs" column="vat" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                  <SortTh className="px-4 py-3 font-medium" label="Issues" column="issues" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {records.map((r) => {
+                {sorted.rows.map((r) => {
                   const types = [...new Set(r.issues.map((i) => i.type))];
                   return (
                     <tr

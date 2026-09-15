@@ -3,10 +3,32 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 
-import { Card, ErrorNote, PageHeader, Spinner, StatusBadge } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, SortTh, Spinner, StatusBadge } from "@/components/ui";
 import type { BankAccount, Statement } from "@/lib/domain/types";
 import { formatDate } from "@/lib/format";
-import { useFetch } from "@/lib/useFetch";
+import { invalidateCashFetchCache, useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
+
+function statementSortValue(row: Statement, key: string): unknown {
+  switch (key) {
+    case "file":
+      return row.fileName;
+    case "account":
+      return row.accountId;
+    case "bank":
+      return row.bankCode || row.header?.bankName || "";
+    case "status":
+      return row.parseStatus ?? "";
+    case "source":
+      return row.source;
+    case "period":
+      return row.periodEnd;
+    case "txns":
+      return row.transactionCount;
+    default:
+      return "";
+  }
+}
 
 export default function StatementsPage() {
   const statementsState = useFetch<{ statements: Statement[] }>("/api/statements");
@@ -33,6 +55,7 @@ export default function StatementsPage() {
         `Replaced previous parses from ${json.provider} (${json.prefix}): ${json.ingested.length} ingested, ` +
           `${json.skipped.length} skipped, ${json.errors.length} error(s).`,
       );
+      invalidateCashFetchCache();
       statementsState.reload();
     } catch (err) {
       setSyncMessage(err instanceof Error ? err.message : "Sync failed");
@@ -66,6 +89,7 @@ export default function StatementsPage() {
           (json.errors?.length ? ` (${json.errors.length} row warnings)` : ""),
       );
       if (fileRef.current) fileRef.current.value = "";
+      invalidateCashFetchCache();
       statementsState.reload();
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
@@ -74,11 +98,8 @@ export default function StatementsPage() {
     }
   }
 
-  const statements = (statementsState.data?.statements ?? []).slice().sort((a, b) => {
-    const uploaded = (b.uploadedAt ?? "").localeCompare(a.uploadedAt ?? "");
-    if (uploaded !== 0) return uploaded;
-    return b.periodEnd.localeCompare(a.periodEnd);
-  });
+  const statements = (statementsState.data?.statements ?? []).slice();
+  const sorted = useSort(statements, statementSortValue, "period", "desc");
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? id;
 
   return (
@@ -161,7 +182,7 @@ export default function StatementsPage() {
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="font-semibold text-slate-900">Imported statements</h2>
           </div>
-          {statementsState.loading ? (
+          {statementsState.loading && !statementsState.data ? (
             <div className="px-5">
               <Spinner />
             </div>
@@ -174,24 +195,24 @@ export default function StatementsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-medium">Statement</th>
-                    <th className="px-5 py-3 font-medium">Account</th>
-                    <th className="px-5 py-3 font-medium">Bank</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">Source</th>
-                    <th className="px-5 py-3 font-medium">Period</th>
-                    <th className="px-5 py-3 text-right font-medium">Txns</th>
+                    <SortTh label="Statement" column="file" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Account" column="account" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Bank" column="bank" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Status" column="status" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Source" column="source" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Period" column="period" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Txns" column="txns" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {statements.length === 0 ? (
+                  {sorted.rows.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-400">
                         No statements yet. Sync from the bucket or upload a CSV.
                       </td>
                     </tr>
                   ) : (
-                    statements.map((s) => (
+                    sorted.rows.map((s) => (
                     <tr key={s.id} className="hover:bg-slate-50">
                       <td className="px-5 py-3 font-medium text-slate-900">
                         <Link

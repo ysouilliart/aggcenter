@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
-import { Card, ErrorNote, KpiCard, PageHeader, Spinner, StatusBadge } from "@/components/ui";
+import { Card, ErrorNote, KpiCard, PageHeader, SortTh, Spinner, StatusBadge } from "@/components/ui";
 import type { InvoiceRecord, InvoiceSummary } from "@/lib/invoices/types";
 
 type ClassifyStatus = {
@@ -14,8 +14,28 @@ type ClassifyStatus = {
 };
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
 
 const FOLDERS = ["", "landing", "received", "processed", "archived", "anomaly"] as const;
+
+function invoiceSortValue(row: InvoiceRecord, key: string): unknown {
+  switch (key) {
+    case "invoice":
+      return row.invoiceNumber || row.fileName;
+    case "supplier":
+      return row.supplierName || "";
+    case "date":
+      return row.invoiceDate || "";
+    case "total":
+      return row.total ?? 0;
+    case "folder":
+      return row.folder;
+    case "status":
+      return row.parseStatus;
+    default:
+      return "";
+  }
+}
 
 export default function InvoicesPage() {
   const [folder, setFolder] = useState<string>("");
@@ -85,6 +105,7 @@ export default function InvoicesPage() {
   }
 
   const invoices = list.data?.invoices ?? [];
+  const sorted = useSort(invoices, invoiceSortValue);
   const counts = summary.data?.byFolder;
 
   return (
@@ -184,7 +205,7 @@ export default function InvoicesPage() {
               ))}
             </div>
           </div>
-          {list.loading ? (
+          {list.loading && !list.data ? (
             <div className="px-5">
               <Spinner />
             </div>
@@ -197,23 +218,23 @@ export default function InvoicesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-medium">Invoice</th>
-                    <th className="px-5 py-3 font-medium">Supplier</th>
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 text-right font-medium">Total</th>
-                    <th className="px-5 py-3 font-medium">Folder</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
+                    <SortTh label="Invoice" column="invoice" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Supplier" column="supplier" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Total" column="total" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
+                    <SortTh label="Folder" column="folder" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
+                    <SortTh label="Status" column="status" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {invoices.length === 0 ? (
+                  {sorted.rows.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">
                         No invoices yet. Sync the landing folder or upload a file.
                       </td>
                     </tr>
                   ) : (
-                    invoices.map((inv) => (
+                    sorted.rows.map((inv) => (
                       <tr key={inv.id} className="hover:bg-slate-50">
                         <td className="px-5 py-3">
                           <Link

@@ -9,11 +9,34 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SortTh,
   Spinner,
 } from "@/components/ui";
 import type { AccountCashPosition, CashForecast, CashPosition } from "@/lib/domain/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
+import { useSort } from "@/lib/useSort";
+
+function accountSortValue(row: AccountCashPosition, key: string): unknown {
+  switch (key) {
+    case "name":
+      return row.accountName;
+    case "bank":
+      return row.bank;
+    case "opening":
+      return row.openingBalance;
+    case "inflows":
+      return row.inflows;
+    case "outflows":
+      return row.outflows;
+    case "closing":
+      return row.closingBalance;
+    case "txns":
+      return row.transactionCount;
+    default:
+      return "";
+  }
+}
 
 export default function DashboardPage() {
   const { data, error, loading } = useFetch<{ positions: CashPosition[] }>(
@@ -35,6 +58,7 @@ export default function DashboardPage() {
       forecastState.data?.forecasts.find((f) => f.currency === active.currency) ?? null
     );
   }, [active, forecastState.data]);
+  const accounts = useSort(active?.accounts ?? [], accountSortValue);
 
   return (
     <div>
@@ -62,7 +86,7 @@ export default function DashboardPage() {
         }
       />
 
-      {loading ? <Spinner /> : null}
+      {loading && !data ? <Spinner /> : null}
       {error ? <ErrorNote message={error} /> : null}
 
       {active ? (
@@ -184,17 +208,17 @@ export default function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-medium">Account</th>
-                    <th className="px-5 py-3 font-medium">Bank</th>
-                    <th className="px-5 py-3 text-right font-medium">Opening</th>
-                    <th className="px-5 py-3 text-right font-medium">Inflows</th>
-                    <th className="px-5 py-3 text-right font-medium">Outflows</th>
-                    <th className="px-5 py-3 text-right font-medium">Closing</th>
-                    <th className="px-5 py-3 text-right font-medium">Txns</th>
+                    <SortTh label="Account" column="name" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
+                    <SortTh label="Bank" column="bank" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
+                    <SortTh label="Opening" column="opening" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
+                    <SortTh label="Inflows" column="inflows" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
+                    <SortTh label="Outflows" column="outflows" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
+                    <SortTh label="Closing" column="closing" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
+                    <SortTh label="Txns" column="txns" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {active.accounts.map((a) => (
+                  {accounts.rows.map((a) => (
                     <tr key={a.accountId} className="hover:bg-slate-50">
                       <td className="px-5 py-3 font-medium text-slate-900">
                         {a.accountName}

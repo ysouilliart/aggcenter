@@ -1,4 +1,5 @@
 import type {
+  AnalysisStep,
   BankTransaction,
   FlowType,
   MatchLookup,
@@ -10,6 +11,7 @@ import type {
   SalesOrder,
   SupportingDocRef,
 } from "../domain/types";
+import { formatSourceLocator } from "../reference/util";
 
 export const AMOUNT_RULE = "exact amount";
 
@@ -48,7 +50,7 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
   {
     title: "SO/PO + remittance",
     detail:
-      "If an SO or PO and a remittance both uniquely identify the same bank line with matching amounts, that is a match. Both numbers are shown in Matched to so you can verify source data.",
+      "If an SO or PO and a remittance both uniquely identify the same bank line with matching amounts, that is a match. Both numbers are shown in Matched to so you can verify source data. If the SO/PO amount differs but a remittance uniquely matches the exact bank amount, the remittance wins and the SO/PO stays in Matched to.",
   },
   {
     title: "Partial",
@@ -59,6 +61,11 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
     title: "Unmatched",
     detail:
       "No supporting SO, PO or remittance in the loaded files identifies this bank payment.",
+  },
+  {
+    title: "Path",
+    detail:
+      "Each row includes an analysis plan: bank file and line, tokens taken from the narrative, lookup hits with extract file name and CSV row, then the result. Use that path to open the same row in the source file.",
   },
 ];
 
@@ -90,7 +97,14 @@ export interface MatchContext {
 }
 
 export function soSupportingDoc(so: SalesOrder): SupportingDocRef {
-  return { kind: "SO", id: so.id, number: so.id, label: `SO ${so.id}` };
+  return {
+    kind: "SO",
+    id: so.id,
+    number: so.id,
+    label: `SO ${so.id}`,
+    sourceFile: so.sourceFile,
+    sourceRow: so.sourceRow,
+  };
 }
 
 export function poSupportingDoc(po: PurchaseOrder): SupportingDocRef {
@@ -102,7 +116,14 @@ export function poSupportingDoc(po: PurchaseOrder): SupportingDocRef {
       : "";
   const label =
     number !== po.id ? `PO ${number} (${po.id})${extra}` : `PO ${po.id}${extra}`;
-  return { kind: "PO", id: po.id, number, label };
+  return {
+    kind: "PO",
+    id: po.id,
+    number,
+    label,
+    sourceFile: po.sourceFile,
+    sourceRow: po.sourceRow,
+  };
 }
 
 export function remSupportingDoc(rem: Remittance): SupportingDocRef {
@@ -111,7 +132,14 @@ export function remSupportingDoc(rem: Remittance): SupportingDocRef {
   const parts = [`Remittance ${number}`];
   if (number !== rem.id) parts.push(`(${rem.id})`);
   if (invoices.length) parts.push(`inv ${invoices.join(", ")}`);
-  return { kind: "remittance", id: rem.id, number, label: parts.join(" ") };
+  return {
+    kind: "remittance",
+    id: rem.id,
+    number,
+    label: parts.join(" "),
+    sourceFile: rem.sourceFile,
+    sourceRow: rem.sourceRow,
+  };
 }
 
 export function uniqueSupportingDocs(docs: SupportingDocRef[]): SupportingDocRef[] {
@@ -261,6 +289,84 @@ export function formatAttempts(attempts: LookupAttempt[]): string {
     .join(" · ");
 }
 
+function locatorForDoc(doc: SupportingDocRef): string {
+  const loc = formatSourceLocator(doc.sourceFile, doc.sourceRow);
+  return loc ? `${doc.label} · ${loc}` : doc.label;
+}
+
+function docsForAttempt(
+  ctx: MatchContext,
+  pattern: MatchPattern,
+): SupportingDocRef[] {
+  if (
+    pattern === "so_po_id" ||
+    pattern === "po_invoice_number" ||
+    pattern === "so_po_unique_amount"
+  ) {
+    return ctx.flow === "O2C" ? ctx.soDocs : ctx.poDocs;
+  }
+  return ctx.remDocs;
+}
+
+export function buildAnalysisPlan(
+  ctx: MatchContext,
+  opts: {
+    status: MatchStatus;
+    pattern: MatchPattern;
+    amountDiffPlain?: string;
+    matchedType?: ReconciliationResult["matchedType"];
+    matchedId?: string;
+  },
+): AnalysisStep[] {
+  const steps: AnalysisStep[] = [];
+  let step = 1;
+  const txn = ctx.txn;
+  const bankFile = txn.sourceFile;
+  const bankRow = txn.lineNumber;
+  const bankLoc = formatSourceLocator(bankFile, bankRow, txn.page);
+  steps.push({
+    step: step++,
+    label: "Bank baseline",
+    fileName: bankFile,
+    row: bankRow,
+    page: txn.page,
+    detail: bankLoc
+      ? `${bankLoc} · ${bankNarrative(txn) || "—"}`
+      : bankNarrative(txn) || "—",
+  });
+  steps.push({
+    step: step++,
+    label: "Tokens",
+    detail: ctx.tokens.length ? ctx.tokens.join(", ") : "none in bank text",
+  });
+  for (const attempt of ctx.attempts) {
+    const docs = docsForAttempt(ctx, attempt.pattern).slice(0, 3);
+    const locators = docs
+      .map((doc) => locatorForDoc(doc))
+      .slice(0, 2);
+    steps.push({
+      step: step++,
+      label: attempt.approach,
+      fileName: docs[0]?.sourceFile,
+      row: docs[0]?.sourceRow,
+      detail: locators.length
+        ? `${attempt.hits} hit(s) · ${locators.join("; ")}`
+        : `${attempt.hits} hit(s)`,
+    });
+  }
+  const winner = supportingDocsForResult(ctx, opts.matchedType, opts.matchedId)[0];
+  const resultLoc = winner ? locatorForDoc(winner) : "no unique supporting row";
+  const diff = opts.amountDiffPlain ? ` · amount differs by ${opts.amountDiffPlain}` : "";
+  steps.push({
+    step: step++,
+    label: "Result",
+    fileName: winner?.sourceFile,
+    row: winner?.sourceRow,
+    detail: `${opts.status} via ${MATCH_PATTERN_LABELS[opts.pattern]} · ${resultLoc}${diff}`,
+  });
+  return steps;
+}
+
 export function proposeRemediation(
   ctx: MatchContext,
   status: Exclude<MatchStatus, "matched">,
@@ -335,6 +441,13 @@ export function buildMatchFields(
     candidateCount: opts.candidateCount,
     tokens: ctx.tokens.slice(0, 8),
     supportingDocs: supportingDocsForResult(ctx, opts.matchedType, opts.matchedId),
+    analysisPlan: buildAnalysisPlan(ctx, {
+      status: opts.status,
+      pattern: opts.pattern,
+      amountDiffPlain: opts.amountDiffPlain,
+      matchedType: opts.matchedType,
+      matchedId: opts.matchedId,
+    }),
   };
   const remediation =
     opts.status === "matched"

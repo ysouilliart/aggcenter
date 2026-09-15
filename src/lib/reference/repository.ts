@@ -108,6 +108,8 @@ export class PostgresReferenceRepository implements ReferenceRepository {
           customerPo: o.customerPo ?? null,
           operatingUnit: o.operatingUnit ?? null,
           source,
+          sourceFile: o.sourceFile ?? null,
+          sourceRow: o.sourceRow ?? null,
         }));
         if (chunk.length) await tx.insert(salesOrders).values(chunk);
       }
@@ -125,6 +127,8 @@ export class PostgresReferenceRepository implements ReferenceRepository {
           operatingUnit: o.operatingUnit ?? null,
           country: o.country ?? null,
           source,
+          sourceFile: o.sourceFile ?? null,
+          sourceRow: o.sourceRow ?? null,
         }));
         if (chunk.length) await tx.insert(purchaseOrders).values(chunk);
       }
@@ -142,6 +146,8 @@ export class PostgresReferenceRepository implements ReferenceRepository {
           operatingUnit: r.operatingUnit ?? null,
           status: r.status ?? null,
           source,
+          sourceFile: r.sourceFile ?? null,
+          sourceRow: r.sourceRow ?? null,
         }));
         if (chunk.length) await tx.insert(remittances).values(chunk);
       }
@@ -162,6 +168,8 @@ export class PostgresReferenceRepository implements ReferenceRepository {
       status: r.status as SalesOrder["status"],
       customerPo: r.customerPo ?? undefined,
       operatingUnit: r.operatingUnit ?? undefined,
+      sourceFile: r.sourceFile ?? undefined,
+      sourceRow: r.sourceRow ?? undefined,
     }));
   }
 
@@ -181,6 +189,8 @@ export class PostgresReferenceRepository implements ReferenceRepository {
       poNumbers: splitList(r.poNumbers),
       operatingUnit: r.operatingUnit ?? undefined,
       country: r.country ?? undefined,
+      sourceFile: r.sourceFile ?? undefined,
+      sourceRow: r.sourceRow ?? undefined,
     }));
   }
 
@@ -200,6 +210,8 @@ export class PostgresReferenceRepository implements ReferenceRepository {
       invoiceNumbers: splitList(r.invoiceNumbers),
       operatingUnit: r.operatingUnit ?? undefined,
       status: r.status ?? undefined,
+      sourceFile: r.sourceFile ?? undefined,
+      sourceRow: r.sourceRow ?? undefined,
     }));
   }
 

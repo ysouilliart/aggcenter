@@ -4,6 +4,25 @@ export function compactId(value: string): string {
   return value.replace(/\.0+$/, "").trim();
 }
 
+/** Basename of an object-storage key, for analysis-plan locators. */
+export function sourceFileName(keyOrName: string | undefined): string | undefined {
+  if (!keyOrName) return undefined;
+  const base = keyOrName.split("/").pop()?.trim();
+  return base || undefined;
+}
+
+export function formatSourceLocator(
+  file?: string,
+  row?: number,
+  page?: number,
+): string {
+  const parts: string[] = [];
+  if (file) parts.push(file);
+  if (row != null) parts.push(`row ${row}`);
+  if (page != null) parts.push(`page ${page}`);
+  return parts.join(" ");
+}
+
 export function parseExtractDate(value: string | undefined): string {
   const v = (value ?? "").trim();
   const iso = v.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);

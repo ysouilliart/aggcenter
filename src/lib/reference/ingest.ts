@@ -1,9 +1,11 @@
+import { invalidateCashWorkspace } from "../cash/cache";
 import { getConfig } from "../config";
 import {
   cashObjectPrefix,
   DEFAULT_CASH_ORG_ROOT,
 } from "../cash/paths";
-import { parseCsv } from "../parse/csv";
+import { parseCsvRecords, type CsvRecord } from "../parse/csv";
+import { sourceFileName } from "./util";
 import { getStorageProvider, type StorageProvider } from "../storage";
 import {
   mapSalesOrders,
@@ -32,9 +34,9 @@ export interface ReferenceIngestResult {
 async function loadCsv(
   storage: StorageProvider,
   key: string,
-): Promise<Record<string, string>[]> {
+): Promise<CsvRecord[]> {
   const buf = await storage.get(key);
-  return parseCsv(buf.toString("utf8"));
+  return parseCsvRecords(buf.toString("utf8"));
 }
 
 function pickLatest(keys: string[], match: (name: string) => boolean): string | undefined {
@@ -110,15 +112,15 @@ export async function ingestReferenceDocuments(deps?: {
   const soChargeKey = pickByPatterns(soKeys, [/charges_component/]);
   const remKey = pickLatest(remKeys, (n) => n.includes("remittance"));
 
-  let apHeaders: Record<string, string>[] = [];
-  let apLines: Record<string, string>[] = [];
-  let poHeaders: Record<string, string>[] = [];
-  let poLines: Record<string, string>[] = [];
-  let soHeaders: Record<string, string>[] = [];
-  let soCharges: Record<string, string>[] = [];
-  let remRows: Record<string, string>[] = [];
+  let apHeaders: CsvRecord[] = [];
+  let apLines: CsvRecord[] = [];
+  let poHeaders: CsvRecord[] = [];
+  let poLines: CsvRecord[] = [];
+  let soHeaders: CsvRecord[] = [];
+  let soCharges: CsvRecord[] = [];
+  let remRows: CsvRecord[] = [];
 
-  async function take(key: string | undefined, assign: (rows: Record<string, string>[]) => void) {
+  async function take(key: string | undefined, assign: (rows: CsvRecord[]) => void) {
     if (!key) return;
     try {
       const rows = await loadCsv(storage, key);
@@ -154,8 +156,16 @@ export async function ingestReferenceDocuments(deps?: {
     remRows = rows;
   });
 
-  const apInvoices = mapUkApInvoices({ headers: apHeaders, lines: apLines });
-  const purchaseOrders = mapUkPurchaseOrders({ headers: poHeaders, lines: poLines });
+  const apInvoices = mapUkApInvoices({
+    headers: apHeaders,
+    lines: apLines,
+    headerFile: sourceFileName(apHeaderKey),
+  });
+  const purchaseOrders = mapUkPurchaseOrders({
+    headers: poHeaders,
+    lines: poLines,
+    headerFile: sourceFileName(poHeaderKey),
+  });
   const seen = new Set(purchaseOrders.map((po) => po.id));
   const mergedPos = [
     ...purchaseOrders,
@@ -163,11 +173,16 @@ export async function ingestReferenceDocuments(deps?: {
   ];
 
   const snapshot = {
-    salesOrders: mapSalesOrders({ headers: soHeaders, chargeComponents: soCharges }),
+    salesOrders: mapSalesOrders({
+      headers: soHeaders,
+      chargeComponents: soCharges,
+      headerFile: sourceFileName(soHeaderKey),
+    }),
     purchaseOrders: mergedPos,
-    remittances: mapUkRemittances(remRows),
+    remittances: mapUkRemittances(remRows, remKey),
   };
   await repo.replaceAll(snapshot);
+  invalidateCashWorkspace();
   result.salesOrders = snapshot.salesOrders.length;
   result.purchaseOrders = purchaseOrders.length;
   result.apInvoices = apInvoices.length;

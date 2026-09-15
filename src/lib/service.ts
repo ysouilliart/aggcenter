@@ -24,6 +24,7 @@ import {
   usesBundledReferenceSamples,
 } from "./cash/baseline";
 import { detectAnomalies } from "./anomalies/detect";
+import { sourceFileName } from "./reference/util";
 import type {
   Anomaly,
   BankAccount,
@@ -252,13 +253,27 @@ interface CashWorkspace {
   anomalies: Anomaly[];
 }
 
+function withBankSource(
+  transactions: BankTransaction[],
+  statements: Statement[],
+): BankTransaction[] {
+  const fileById = new Map(
+    statements.map((s) => [s.id, sourceFileName(s.fileName) ?? s.fileName]),
+  );
+  return transactions.map((txn) => ({
+    ...txn,
+    sourceFile: txn.sourceFile || fileById.get(txn.statementId),
+  }));
+}
+
 async function buildCashWorkspace(): Promise<CashWorkspace> {
-  const [transactions, accounts, statements, supporting] = await Promise.all([
+  const [transactionsRaw, accounts, statements, supporting] = await Promise.all([
     getAllTransactions(),
     getAccounts(),
     getStatements(),
     getSupportingDocuments(),
   ]);
+  const transactions = withBankSource(transactionsRaw, statements);
   const merged = ensureAccountsForTransactions(accounts, transactions);
   const reconResults = reconcile({
     transactions,

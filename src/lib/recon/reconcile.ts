@@ -1,6 +1,7 @@
 import type {
   BankTransaction,
   FlowType,
+  MatchPattern,
   PurchaseOrder,
   ReconciliationResult,
   Remittance,
@@ -55,6 +56,55 @@ function remittanceRefs(rem: Remittance): string[] {
   if (isDistinctiveReference(rem.remittanceNumber)) refs.push(rem.remittanceNumber!);
   if (isDistinctiveReference(rem.reference)) refs.push(rem.reference);
   return refs.map((r) => r.toUpperCase().replace(/\s+/g, ""));
+}
+
+function uniqueExactRemittance(
+  abs: number,
+  remByRef: Remittance[],
+  remWindow: Remittance[],
+  remNamed: Remittance[],
+): {
+  rem: Remittance;
+  pattern: MatchPattern;
+  approach: string;
+  confidence: number;
+} | undefined {
+  if (remByRef.length === 1 && amountsMatch(abs, remByRef[0].amount)) {
+    return {
+      rem: remByRef[0],
+      pattern: "remittance_invoice_ref",
+      approach: "remittance invoice/payment ref → 1 (amount match)",
+      confidence: 0.96,
+    };
+  }
+  if (remByRef.length > 1) {
+    const amountHits = remByRef.filter((rem) => amountsMatch(abs, rem.amount));
+    if (amountHits.length === 1) {
+      return {
+        rem: amountHits[0],
+        pattern: "remittance_invoice_ref",
+        approach: `remittance invoice/payment ref → ${remByRef.length}, unique amount among refs`,
+        confidence: 0.9,
+      };
+    }
+  }
+  if (remWindow.length === 1) {
+    return {
+      rem: remWindow[0],
+      pattern: "remittance_amount_window",
+      approach: `remittance ${AMOUNT_RULE} → 1 unique`,
+      confidence: 0.8,
+    };
+  }
+  if (remNamed.length === 1) {
+    return {
+      rem: remNamed[0],
+      pattern: "remittance_amount_name",
+      approach: `remittance ${AMOUNT_RULE} + counterparty name → 1`,
+      confidence: 0.85,
+    };
+  }
+  return undefined;
 }
 
 function poRefs(po: PurchaseOrder): string[] {
@@ -269,6 +319,25 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
           },
         );
       }
+      const remWin = uniqueExactRemittance(abs, remByRef, remWindow, remNamed);
+      if (remWin) {
+        return finish(
+          {
+            ...base,
+            status: "matched",
+            matchedType: "remittance",
+            matchedId: remWin.rem.id,
+            confidence: remWin.confidence,
+            amountDiff: abs - remWin.rem.amount,
+          },
+          {
+            status: "matched",
+            pattern: remWin.pattern,
+            approach: `${matchedType} id token → 1 (amount differs); ${remWin.approach}`,
+            candidateCount: 1,
+          },
+        );
+      }
       return finish(
         {
           ...base,
@@ -306,6 +375,25 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
             status: "matched",
             pattern: "po_invoice_number",
             approach: "PO/AP invoice or PO number → 1 (amount match)",
+            candidateCount: 1,
+          },
+        );
+      }
+      const remWin = uniqueExactRemittance(abs, remByRef, remWindow, remNamed);
+      if (remWin) {
+        return finish(
+          {
+            ...base,
+            status: "matched",
+            matchedType: "remittance",
+            matchedId: remWin.rem.id,
+            confidence: remWin.confidence,
+            amountDiff: abs - remWin.rem.amount,
+          },
+          {
+            status: "matched",
+            pattern: remWin.pattern,
+            approach: `PO/AP invoice or PO number → 1 (amount differs); ${remWin.approach}`,
             candidateCount: 1,
           },
         );

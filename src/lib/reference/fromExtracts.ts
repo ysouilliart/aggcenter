@@ -1,4 +1,5 @@
 import type { PurchaseOrder, Remittance, SalesOrder } from "../domain/types";
+import type { CsvRecord } from "../parse/csv";
 import {
   compactId,
   firstField,
@@ -6,16 +7,53 @@ import {
   isUkOrgRow,
   parseExtractAmount,
   parseExtractDate,
+  sourceFileName,
 } from "./util";
+
+export type ExtractInputRow = Record<string, string> | CsvRecord;
+
+export function isCsvRecord(row: ExtractInputRow): row is CsvRecord {
+  return (
+    typeof row === "object" &&
+    row != null &&
+    "record" in row &&
+    typeof (row as CsvRecord).rowNumber === "number" &&
+    typeof (row as CsvRecord).record === "object" &&
+    (row as CsvRecord).record != null
+  );
+}
+
+export function extractRecord(row: ExtractInputRow): {
+  record: Record<string, string>;
+  rowNumber?: number;
+} {
+  if (isCsvRecord(row)) return { record: row.record, rowNumber: row.rowNumber };
+  return { record: row };
+}
+
+/**
+ * Fusion AP extracts often store `invoice_amount` as 0 while the payable
+ * total is `discountable_amount` + `tax_control_amount` (net + VAT).
+ */
+export function apInvoiceAmount(row: Record<string, string>): number {
+  const header = parseExtractAmount(row.invoice_amount);
+  if (header) return header;
+  return (
+    parseExtractAmount(row.discountable_amount) +
+    parseExtractAmount(row.tax_control_amount)
+  );
+}
 
 export const REFERENCE_SOURCE = "oci-uk";
 
 export function mapSalesOrders(input: {
-  headers: Record<string, string>[];
-  chargeComponents: Record<string, string>[];
+  headers: ExtractInputRow[];
+  chargeComponents: ExtractInputRow[];
+  headerFile?: string;
 }): SalesOrder[] {
   const netBySource = new Map<string, number>();
-  for (const row of input.chargeComponents) {
+  for (const raw of input.chargeComponents) {
+    const { record: row } = extractRecord(raw);
     if ((row.price_element_code ?? "").toUpperCase() !== "QP_NET_PRICE") continue;
     const sourceId = compactId(row.source_trans_id ?? "");
     if (!sourceId) continue;
@@ -27,7 +65,9 @@ export function mapSalesOrders(input: {
 
   const orders: SalesOrder[] = [];
   const seen = new Set<string>();
-  for (const row of input.headers) {
+  const headerFile = sourceFileName(input.headerFile);
+  for (const raw of input.headers) {
+    const { record: row, rowNumber } = extractRecord(raw);
     const sourceId = compactId(row.sourcetransid ?? row.source_trans_id ?? "");
     const orderNum = compactId(row.source_trans_num ?? sourceId);
     if (!orderNum || seen.has(orderNum)) continue;
@@ -43,17 +83,21 @@ export function mapSalesOrders(input: {
       status: "invoiced",
       customerPo: row.cust_ponum || undefined,
       operatingUnit: row.rqstng_bu_unit || undefined,
+      sourceFile: headerFile,
+      sourceRow: rowNumber,
     });
   }
   return orders;
 }
 
 export function mapUkApInvoices(input: {
-  headers: Record<string, string>[];
-  lines: Record<string, string>[];
+  headers: ExtractInputRow[];
+  lines: ExtractInputRow[];
+  headerFile?: string;
 }): PurchaseOrder[] {
   const poByInvoice = new Map<string, Set<string>>();
-  for (const row of input.lines) {
+  for (const raw of input.lines) {
+    const { record: row } = extractRecord(raw);
     const invoiceId = compactId(row.invoice_id ?? "");
     const po = (row.po_number ?? "").trim();
     if (!invoiceId || !po) continue;
@@ -63,7 +107,9 @@ export function mapUkApInvoices(input: {
   }
 
   const invoices: PurchaseOrder[] = [];
-  for (const row of input.headers) {
+  const headerFile = sourceFileName(input.headerFile);
+  for (const raw of input.headers) {
+    const { record: row, rowNumber } = extractRecord(raw);
     if (!isGbCountry(row.taxation_country)) continue;
     const invoiceId = compactId(row.invoice_id ?? "");
     const invoiceNumber = (row.invoice_number ?? "").trim() || invoiceId;
@@ -73,7 +119,7 @@ export function mapUkApInvoices(input: {
     invoices.push({
       id: `AP-${invoiceId}`,
       vendor: row.supplier_name || "Unknown supplier",
-      amount: parseExtractAmount(row.invoice_amount),
+      amount: apInvoiceAmount(row),
       currency: (row.invoice_currency || row.payment_currency || "EUR").toUpperCase(),
       orderDate: date,
       dueDate: due,
@@ -82,6 +128,8 @@ export function mapUkApInvoices(input: {
       poNumbers: [...(poByInvoice.get(invoiceId) ?? [])],
       operatingUnit: row.business_unit || undefined,
       country: (row.taxation_country || "").toUpperCase(),
+      sourceFile: headerFile,
+      sourceRow: rowNumber,
     });
   }
   return invoices;
@@ -120,11 +168,13 @@ function lineAmount(row: Record<string, string>): number {
  * Header amount is used when present; otherwise line amounts are summed.
  */
 export function mapUkPurchaseOrders(input: {
-  headers: Record<string, string>[];
-  lines?: Record<string, string>[];
+  headers: ExtractInputRow[];
+  lines?: ExtractInputRow[];
+  headerFile?: string;
 }): PurchaseOrder[] {
   const amountByKey = new Map<string, number>();
-  for (const row of input.lines ?? []) {
+  for (const raw of input.lines ?? []) {
+    const { record: row } = extractRecord(raw);
     const keys = [
       compactId(
         firstField(row, ["po_number", "document_number", "order_number", "po_order"]),
@@ -139,7 +189,9 @@ export function mapUkPurchaseOrders(input: {
 
   const orders: PurchaseOrder[] = [];
   const seen = new Set<string>();
-  for (const row of input.headers) {
+  const headerFile = sourceFileName(input.headerFile);
+  for (const raw of input.headers) {
+    const { record: row, rowNumber } = extractRecord(raw);
     if (!isUkOrgRow(row)) continue;
     const rawNumber = compactId(
       firstField(row, [
@@ -190,6 +242,8 @@ export function mapUkPurchaseOrders(input: {
       country:
         firstField(row, ["country", "bill_to_country", "taxation_country"]).toUpperCase() ||
         undefined,
+      sourceFile: headerFile,
+      sourceRow: rowNumber,
     });
   }
   return orders;
@@ -206,11 +260,17 @@ interface RemittanceAcc {
   status: string;
   operatingUnit: string;
   invoices: Set<string>;
+  sourceRow?: number;
 }
 
-export function mapUkRemittances(rows: Record<string, string>[]): Remittance[] {
+export function mapUkRemittances(
+  rows: ExtractInputRow[],
+  sourceFile?: string,
+): Remittance[] {
   const grouped = new Map<string, RemittanceAcc>();
-  for (const row of rows) {
+  const file = sourceFileName(sourceFile);
+  for (const raw of rows) {
+    const { record: row, rowNumber } = extractRecord(raw);
     const ou = row.operating_unit_name ?? "";
     if (!/uk/i.test(ou) && row.org_id !== "112") continue;
     const flow = (row.flow_direction ?? "").toUpperCase();
@@ -236,6 +296,7 @@ export function mapUkRemittances(rows: Record<string, string>[]): Remittance[] {
         status: (row.remittance_status ?? "").trim(),
         operatingUnit: ou,
         invoices: new Set(),
+        sourceRow: rowNumber,
       };
       grouped.set(id, acc);
     }
@@ -257,6 +318,8 @@ export function mapUkRemittances(rows: Record<string, string>[]): Remittance[] {
       invoiceNumbers: invoices,
       operatingUnit: acc.operatingUnit || undefined,
       status: acc.status || undefined,
+      sourceFile: file,
+      sourceRow: acc.sourceRow,
     };
   });
 }

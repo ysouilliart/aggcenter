@@ -326,6 +326,135 @@ describe("reconcile supporting documents", () => {
   });
 });
 
+describe("analysis plan and remittance precedence", () => {
+  it("prefers a unique remittance exact amount when SO id hits but amount differs", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "health",
+          amount: 12769,
+          currency: "GBP",
+          narrative: "THE HEALTH SUITE L /EREF/3139693 /ROC/3139693",
+          sourceFile: "UK GBP HSBC CURRENT ACC AUG-26_3840.pdf",
+          lineNumber: 249,
+          page: 23,
+        }),
+      ],
+      salesOrders: [
+        {
+          id: "3139693",
+          customer: "The Health Suite",
+          amount: 10641,
+          currency: "GBP",
+          orderDate: "2026-09-14",
+          dueDate: "2026-09-14",
+          status: "invoiced",
+          sourceFile: "SO_Header_112.csv",
+          sourceRow: 57963,
+        },
+      ],
+      purchaseOrders: [],
+      remittances: [
+        {
+          id: "AR-12068352",
+          party: "customer",
+          name: "The Health Suite",
+          reference: "2000854260",
+          amount: 12769,
+          currency: "GBP",
+          date: "2026-08-19",
+          remittanceNumber: "BACS",
+          invoiceNumbers: ["2000854260"],
+          sourceFile: "remittance_112.csv",
+          sourceRow: 7208,
+        },
+      ],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("remittance");
+    expect(r.matchedId).toBe("AR-12068352");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.analysisPlan?.[0]).toMatchObject({
+      label: "Bank baseline",
+      fileName: "UK GBP HSBC CURRENT ACC AUG-26_3840.pdf",
+      row: 249,
+      page: 23,
+    });
+    expect(
+      r.lookup?.analysisPlan?.some(
+        (step) => step.fileName === "SO_Header_112.csv" && step.row === 57963,
+      ),
+    ).toBe(true);
+    expect(
+      r.lookup?.analysisPlan?.some(
+        (step) => step.fileName === "remittance_112.csv" && step.row === 7208,
+      ),
+    ).toBe(true);
+    expect(r.lookup?.analysisPlan?.at(-1)?.label).toBe("Result");
+  });
+
+  it("prefers a unique remittance when PO/AP invoice amount differs", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "fleet",
+          amount: -1028366,
+          currency: "GBP",
+          narrative: "3MJN335-278103, FLEET OPERATIONS",
+          sourceFile: "UK GBP HSBC CURRENT ACC AUG-26_3840.pdf",
+          lineNumber: 248,
+          page: 23,
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [
+        {
+          id: "AP-13338806",
+          vendor: "FLEET OPERATIONS LIMITED",
+          amount: 0,
+          currency: "GBP",
+          orderDate: "2026-07-26",
+          dueDate: "2026-07-26",
+          status: "billed",
+          invoiceNumber: "278103",
+          sourceFile: "INV_Header_112.csv",
+          sourceRow: 18138,
+        },
+      ],
+      remittances: [
+        {
+          id: "AP-6798339",
+          party: "vendor",
+          name: "FLEET OPERATIONS LIMITED",
+          reference: "278103",
+          amount: 1028366,
+          currency: "GBP",
+          date: "2026-08-20",
+          remittanceNumber: "114388",
+          invoiceNumbers: ["278103"],
+          sourceFile: "remittance_112.csv",
+          sourceRow: 7150,
+        },
+      ],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("remittance");
+    expect(r.matchedId).toBe("AP-6798339");
+    expect(r.matchPattern).toBe("remittance_invoice_ref");
+    expect(r.lookup?.poFound).toBe(true);
+    expect(
+      r.lookup?.analysisPlan?.some(
+        (step) => step.fileName === "INV_Header_112.csv" && step.row === 18138,
+      ),
+    ).toBe(true);
+    expect(
+      r.lookup?.analysisPlan?.some(
+        (step) => step.fileName === "remittance_112.csv" && step.row === 7150,
+      ),
+    ).toBe(true);
+  });
+});
+
 function emptyMatchCtx(
   overrides: Partial<MatchContext> & Pick<MatchContext, "flow">,
 ): MatchContext {

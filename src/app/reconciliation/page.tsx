@@ -13,6 +13,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import type {
+  AnalysisStep,
   MatchStatus,
   ReconciliationResult,
   SupportingDocRef,
@@ -386,6 +387,35 @@ function MatchNotes({ result }: { result: ReconciliationResult }) {
           <span className="font-medium">Next:</span> {result.remediation}
         </div>
       ) : null}
+      <AnalysisPlan steps={lookup.analysisPlan ?? []} />
+    </div>
+  );
+}
+
+function AnalysisPlan({ steps }: { steps: AnalysisStep[] }) {
+  if (!steps.length) return null;
+  return (
+    <div className="mt-1 rounded-md bg-slate-50 px-2 py-1.5">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        Path
+      </div>
+      <ol className="mt-1 space-y-0.5 text-[11px] leading-snug text-slate-600">
+        {steps.map((step) => (
+          <li key={step.step} className="break-words">
+            <span className="font-medium text-slate-700">
+              {step.step}. {step.label}
+            </span>
+            {step.fileName ? (
+              <span className="ml-1 font-mono text-slate-800">
+                {step.fileName}
+                {step.row != null ? ` row ${step.row}` : ""}
+                {step.page != null ? ` page ${step.page}` : ""}
+              </span>
+            ) : null}
+            <span className="text-slate-500"> — {step.detail}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

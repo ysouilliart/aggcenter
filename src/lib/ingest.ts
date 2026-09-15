@@ -4,6 +4,7 @@ import { getConfig } from "./config";
 import { getDataSource } from "./datasource";
 import type { BankAccount, Statement } from "./domain/types";
 import { cashObjectPrefix } from "./cash/paths";
+import { invalidateCashWorkspace } from "./cash/cache";
 import { openingFromRunningBalances } from "./cash/opening";
 import { resolveAccountFromHeader } from "./ingest/accounts";
 import { parseBankStatementCsv } from "./parse/bankStatement";
@@ -363,7 +364,7 @@ export async function ingestFromObjectStorage(
   if (options?.replace) {
     await getStatementRepository().clearAll();
   }
-  return ingestStatements({
+  const result = await ingestStatements({
     storage: getStorageProvider(),
     repo: getStatementRepository(),
     accounts: await getDataSource().getAccounts(),
@@ -371,4 +372,6 @@ export async function ingestFromObjectStorage(
       ? [prefix]
       : uniquePrefixes([config.statementCsvPrefix, config.statementPdfPrefix]),
   });
+  invalidateCashWorkspace();
+  return result;
 }

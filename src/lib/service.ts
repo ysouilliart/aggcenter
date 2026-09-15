@@ -12,6 +12,14 @@ import { reconcile, summarize } from "./recon/reconcile";
 import { computeCashPosition } from "./cash/position";
 import { buildCashForecast } from "./cash/forecast";
 import {
+  cashWorkspaceGeneration,
+  getCachedCashWorkspace,
+  getInflightCashWorkspace,
+  invalidateCashWorkspace,
+  setCachedCashWorkspace,
+  setInflightCashWorkspace,
+} from "./cash/cache";
+import {
   usesBundledCashSamples,
   usesBundledReferenceSamples,
 } from "./cash/baseline";
@@ -177,6 +185,7 @@ export async function addUploadedStatement(
   };
 
   await getStatementRepository().addUpload(statement, transactions);
+  invalidateCashWorkspace();
 
   return { statement, errors };
 }
@@ -215,41 +224,6 @@ async function getSupportingDocuments(): Promise<{
   };
 }
 
-export async function getReconciliation(): Promise<{
-  results: ReconciliationResult[];
-  summary: ReturnType<typeof summarize>;
-}> {
-  const [transactions, supporting] = await Promise.all([
-    getAllTransactions(),
-    getSupportingDocuments(),
-  ]);
-  const results = reconcile({
-    transactions,
-    salesOrders: supporting.salesOrders,
-    purchaseOrders: supporting.purchaseOrders,
-    remittances: supporting.remittances,
-  });
-  return { results, summary: summarize(results) };
-}
-
-export async function getCashPositions(): Promise<CashPosition[]> {
-  const [accounts, transactions] = await Promise.all([
-    getAccounts(),
-    getAllTransactions(),
-  ]);
-  const merged = ensureAccountsForTransactions(accounts, transactions);
-  const reporting = getConfig().reportingCurrency;
-  const currencies = [...new Set(merged.map((a) => a.currency))];
-  currencies.sort((a, b) => {
-    if (a === reporting) return -1;
-    if (b === reporting) return 1;
-    return a.localeCompare(b);
-  });
-  return currencies.map((currency) =>
-    computeCashPosition({ currency, accounts: merged, transactions }),
-  );
-}
-
 function ensureAccountsForTransactions(
   accounts: BankAccount[],
   transactions: BankTransaction[],
@@ -268,39 +242,106 @@ function ensureAccountsForTransactions(
   return [...byId.values()];
 }
 
-export async function getAnomalies(): Promise<Anomaly[]> {
-  const [transactions, accounts, recon] = await Promise.all([
-    getAllTransactions(),
-    getAccounts(),
-    getReconciliation(),
-  ]);
-  return detectAnomalies({
-    transactions,
-    reconciliation: recon.results,
-    accounts: ensureAccountsForTransactions(accounts, transactions),
-  });
+interface CashWorkspace {
+  recon: {
+    results: ReconciliationResult[];
+    summary: ReturnType<typeof summarize>;
+  };
+  positions: CashPosition[];
+  forecasts: CashForecast[];
+  anomalies: Anomaly[];
 }
 
-export async function getCashForecasts(): Promise<CashForecast[]> {
-  const [transactions, supporting, recon, positions, statements] = await Promise.all([
+async function buildCashWorkspace(): Promise<CashWorkspace> {
+  const [transactions, accounts, statements, supporting] = await Promise.all([
     getAllTransactions(),
-    getSupportingDocuments(),
-    getReconciliation(),
-    getCashPositions(),
+    getAccounts(),
     getStatements(),
+    getSupportingDocuments(),
   ]);
+  const merged = ensureAccountsForTransactions(accounts, transactions);
+  const reconResults = reconcile({
+    transactions,
+    salesOrders: supporting.salesOrders,
+    purchaseOrders: supporting.purchaseOrders,
+    remittances: supporting.remittances,
+  });
+  const recon = { results: reconResults, summary: summarize(reconResults) };
+
+  const reporting = getConfig().reportingCurrency;
+  const currencies = [...new Set(merged.map((a) => a.currency))];
+  currencies.sort((a, b) => {
+    if (a === reporting) return -1;
+    if (b === reporting) return 1;
+    return a.localeCompare(b);
+  });
+  const positions = currencies.map((currency) =>
+    computeCashPosition({ currency, accounts: merged, transactions }),
+  );
+
   const periodStart = [...statements.map((s) => s.periodStart)].sort()[0];
   const closingByCurrency: Record<string, number> = {};
   for (const position of positions) {
     closingByCurrency[position.currency] = position.closingBalance;
   }
-  return buildCashForecast({
+  const forecasts = buildCashForecast({
     remittances: supporting.remittances,
     reconciliation: recon.results,
     transactions,
     periodStart,
     closingByCurrency,
   });
+  const anomalies = detectAnomalies({
+    transactions,
+    reconciliation: recon.results,
+    accounts: merged,
+  });
+  return { recon, positions, forecasts, anomalies };
+}
+
+async function getCashWorkspace(): Promise<CashWorkspace> {
+  const cached = getCachedCashWorkspace<CashWorkspace>();
+  if (cached) return cached;
+  const pending = getInflightCashWorkspace<CashWorkspace>();
+  if (pending) return pending;
+  const generation = cashWorkspaceGeneration();
+  const promise = buildCashWorkspace().then((workspace) => {
+    if (generation === cashWorkspaceGeneration()) {
+      setCachedCashWorkspace(workspace);
+    }
+    return workspace;
+  });
+  setInflightCashWorkspace(promise);
+  try {
+    return await promise;
+  } finally {
+    setInflightCashWorkspace(null);
+  }
+}
+
+export { invalidateCashWorkspace };
+
+export async function getReconciliation(): Promise<{
+  results: ReconciliationResult[];
+  summary: ReturnType<typeof summarize>;
+}> {
+  const workspace = await getCashWorkspace();
+  return workspace.recon;
+}
+
+export async function getCashPositions(): Promise<CashPosition[]> {
+  const workspace = await getCashWorkspace();
+  return workspace.positions;
+}
+
+export async function getAnomalies(): Promise<Anomaly[]> {
+  const workspace = await getCashWorkspace();
+  return workspace.anomalies;
+}
+
+export async function getCashForecasts(): Promise<CashForecast[]> {
+  const workspace = await getCashWorkspace();
+  return workspace.forecasts;
 }
 
 export interface IntegrationStatus {

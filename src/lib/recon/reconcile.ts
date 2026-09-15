@@ -85,6 +85,7 @@ function newContext(
     poLoaded,
     remLoaded,
     soIdHits: 0,
+    poIdHits: 0,
     poInvoiceHits: 0,
     remRefHits: 0,
     remWindowHits: 0,
@@ -171,6 +172,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
       .map((ref) => byId.get(ref))
       .filter((doc): doc is SalesOrder | PurchaseOrder => Boolean(doc && doc.currency === txn.currency));
     ctx.soIdHits = flow === "O2C" ? idHits.length : 0;
+    ctx.poIdHits = flow === "P2P" ? idHits.length : 0;
     ctx.attempts.push({
       pattern: "so_po_id",
       approach: `${matchedType} id token`,

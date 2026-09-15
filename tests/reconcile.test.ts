@@ -6,6 +6,7 @@ import type {
   Remittance,
   SalesOrder,
 } from "@/lib/domain/types";
+import { foundFlags, type MatchContext } from "@/lib/recon/match-notes";
 import { reconcile, summarize } from "@/lib/recon/reconcile";
 
 const salesOrders: SalesOrder[] = [
@@ -86,6 +87,8 @@ describe("reconcile", () => {
     expect(r.status).toBe("matched");
     expect(r.flow).toBe("P2P");
     expect(r.matchedType).toBe("PO");
+    expect(r.lookup?.poFound).toBe(true);
+    expect(r.lookup?.supportingDocs.some((d) => d.id === "PO-1")).toBe(true);
   });
 
   it("falls back to a unique amount match without a reference", () => {
@@ -321,5 +324,53 @@ describe("reconcile supporting documents", () => {
     const docs = r.lookup?.supportingDocs ?? [];
     expect(docs.some((d) => d.label.includes("REM-100"))).toBe(true);
     expect(docs.filter((d) => d.kind === "SO")).toHaveLength(0);
+  });
+});
+
+function emptyMatchCtx(
+  overrides: Partial<MatchContext> & Pick<MatchContext, "flow">,
+): MatchContext {
+  return {
+    txn: txn({ id: "ctx", amount: overrides.flow === "P2P" ? -500 : 500 }),
+    tokens: [],
+    soLoaded: 0,
+    poLoaded: 0,
+    remLoaded: 0,
+    soIdHits: 0,
+    poIdHits: 0,
+    poInvoiceHits: 0,
+    remRefHits: 0,
+    remWindowHits: 0,
+    remNamedHits: 0,
+    soPoAmountHits: 0,
+    attempts: [],
+    soDocs: [],
+    poDocs: [],
+    remDocs: [],
+    ...overrides,
+  };
+}
+
+describe("foundFlags", () => {
+  it("sets poFound from P2P id hits even when invoice and amount hits are zero", () => {
+    const flags = foundFlags(
+      emptyMatchCtx({
+        flow: "P2P",
+        poIdHits: 1,
+        poDocs: [{ kind: "PO", id: "PO-1", number: "PO-1", label: "PO PO-1" }],
+      }),
+    );
+    expect(flags.poFound).toBe(true);
+    expect(flags.soFound).toBe(false);
+  });
+
+  it("does not treat SO id hits as a P2P PO find", () => {
+    const flags = foundFlags(
+      emptyMatchCtx({
+        flow: "P2P",
+        soIdHits: 2,
+      }),
+    );
+    expect(flags.poFound).toBe(false);
   });
 });

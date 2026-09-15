@@ -66,6 +66,8 @@ export interface MatchContext {
   poLoaded: number;
   remLoaded: number;
   soIdHits: number;
+  /** P2P id-token hits (PO id in bank text). Distinct from soIdHits so chips stay correct. */
+  poIdHits: number;
   poInvoiceHits: number;
   remRefHits: number;
   remWindowHits: number;
@@ -119,7 +121,12 @@ function isRemittanceUnique(ctx: MatchContext): boolean {
 }
 
 function isCommercialUnique(ctx: MatchContext): boolean {
-  return ctx.soIdHits === 1 || ctx.poInvoiceHits === 1 || ctx.soPoAmountHits === 1;
+  return (
+    ctx.soIdHits === 1 ||
+    ctx.poIdHits === 1 ||
+    ctx.poInvoiceHits === 1 ||
+    ctx.soPoAmountHits === 1
+  );
 }
 
 /**
@@ -162,7 +169,7 @@ export function supportingDocsForResult(
 
   if (matchedType === "remittance") {
     if (commercialUnique) ordered.push(...commercial.slice(0, 1));
-    else if (ctx.soIdHits > 0 || ctx.poInvoiceHits > 0) {
+    else if (ctx.soIdHits > 0 || ctx.poIdHits > 0 || ctx.poInvoiceHits > 0) {
       ordered.push(...commercial.slice(0, 3));
     }
   } else {
@@ -209,9 +216,17 @@ export function foundFlags(
   ctx: MatchContext,
 ): Pick<MatchLookup, "soFound" | "poFound" | "remittanceFound"> {
   return {
-    soFound: ctx.flow === "O2C" && (ctx.soIdHits > 0 || ctx.soPoAmountHits > 0),
-    poFound: ctx.flow === "P2P" && (ctx.soIdHits > 0 || ctx.poInvoiceHits > 0 || ctx.soPoAmountHits > 0),
-    remittanceFound: ctx.remRefHits > 0 || ctx.remWindowHits > 0,
+    soFound:
+      ctx.flow === "O2C" &&
+      (ctx.soDocs.length > 0 || ctx.soIdHits > 0 || ctx.soPoAmountHits > 0),
+    poFound:
+      ctx.flow === "P2P" &&
+      (ctx.poDocs.length > 0 ||
+        ctx.poIdHits > 0 ||
+        ctx.poInvoiceHits > 0 ||
+        ctx.soPoAmountHits > 0),
+    remittanceFound:
+      ctx.remDocs.length > 0 || ctx.remRefHits > 0 || ctx.remWindowHits > 0,
   };
 }
 
@@ -268,6 +283,7 @@ export function proposeRemediation(
   if (
     ctx.tokens.length &&
     ctx.soIdHits === 0 &&
+    ctx.poIdHits === 0 &&
     ctx.poInvoiceHits === 0 &&
     ctx.remRefHits === 0 &&
     ctx.remWindowHits === 0

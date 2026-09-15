@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { Card, ErrorNote, PageHeader, Spinner, StatusBadge } from "@/components/ui";
 import type { InvoiceDetail } from "@/lib/invoices/types";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { fromCents } from "@/lib/money";
 import { useFetch } from "@/lib/useFetch";
 
 function Field({ label, value }: { label: string; value?: string | number | null }) {
@@ -26,12 +27,23 @@ function Field({ label, value }: { label: string; value?: string | number | null
   );
 }
 
+function majorInput(cents?: number): string {
+  return cents == null ? "" : fromCents(cents).toFixed(2);
+}
+
 export default function InvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const state = useFetch<InvoiceDetail>(`/api/invoices/${encodeURIComponent(id)}`);
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const [actor, setActor] = useState("operator");
+  const [rejectReason, setRejectReason] = useState("");
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [editsFor, setEditsFor] = useState("");
 
   async function handleArchive() {
     setArchiving(true);
@@ -55,12 +67,74 @@ export default function InvoiceDetailPage() {
   const detail = state.data;
   const invoice = detail?.invoice;
   const isPdf = invoice?.fileName.toLowerCase().endsWith(".pdf") || invoice?.mimeType === "application/pdf";
+  const needsReview =
+    Boolean(invoice?.needsConfirm) ||
+    invoice?.folder === "anomaly" ||
+    invoice?.parseStatus === "partial" ||
+    invoice?.parseStatus === "anomaly";
+
+  const editKey = invoice ? `${invoice.id}:${invoice.confirmedAt ?? ""}` : "";
+  if (invoice && editsFor !== editKey) {
+    setEditsFor(editKey);
+    setEdits({});
+  }
+  const form: Record<string, string> = invoice
+    ? {
+        invoiceNumber: invoice.invoiceNumber ?? "",
+        invoiceDate: invoice.invoiceDate ?? "",
+        dueDate: invoice.dueDate ?? "",
+        supplierName: invoice.supplierName ?? "",
+        currency: invoice.currency ?? "",
+        totalMajor: majorInput(invoice.total),
+        taxTotalMajor: majorInput(invoice.taxTotal),
+        amountDueMajor: majorInput(invoice.amountDue),
+        paymentTerms: invoice.paymentTerms ?? "",
+        poNumber: invoice.poNumber ?? "",
+        notes: invoice.notes ?? "",
+        ...edits,
+      }
+    : {};
+
+  function setField(key: string, value: string) {
+    setEdits((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleConfirm(action: "confirm" | "reject") {
+    setConfirming(true);
+    setConfirmError(null);
+    setConfirmMessage(null);
+    try {
+      const res = await fetch(`/api/invoices/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          actor,
+          reason: rejectReason || undefined,
+          fields: action === "confirm" ? form : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Confirm failed");
+      setConfirmMessage(action === "reject" ? "Invoice rejected and kept in Needs review." : "Confirmed and moved to processed.");
+      setEdits({});
+      state.reload();
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : "Confirm failed");
+    } finally {
+      setConfirming(false);
+    }
+  }
 
   return (
     <div>
       <PageHeader
         title={invoice?.invoiceNumber || invoice?.fileName || "Invoice"}
-        subtitle={invoice ? `${invoice.fileName} · ${invoice.vendor ?? "generic"} parser` : "Loading classified invoice"}
+        subtitle={
+          invoice
+            ? `${invoice.fileName} · ${invoice.vendor ?? "generic"} · ${invoice.classifyMode ?? "static"} classify`
+            : "Loading classified invoice"
+        }
         actions={
           <div className="flex items-center gap-2">
             <Link href="/invoices" className="text-sm font-medium text-slate-600 hover:text-slate-900">
@@ -83,6 +157,12 @@ export default function InvoiceDetailPage() {
       {state.loading ? <Spinner /> : null}
       {state.error ? <ErrorNote message={state.error} /> : null}
       {archiveError ? <ErrorNote message={archiveError} /> : null}
+      {confirmError ? <ErrorNote message={confirmError} /> : null}
+      {confirmMessage ? (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {confirmMessage}
+        </div>
+      ) : null}
 
       {invoice ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -116,11 +196,27 @@ export default function InvoiceDetailPage() {
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <StatusBadge status={invoice.folder} />
                 <StatusBadge status={invoice.parseStatus} />
+                <StatusBadge status={invoice.classifyMode ?? "static"} />
                 <span className="text-xs text-slate-500">confidence {invoice.confidence}%</span>
               </div>
+              {invoice.classifierWarning ? (
+                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {invoice.classifierWarning}
+                </p>
+              ) : invoice.classifyMode === "llm" ? (
+                <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
+                  Classified by LLM. Extracted text was sent to the configured model provider.
+                </p>
+              ) : null}
               {invoice.reviewReason ? (
                 <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   {invoice.reviewReason}
+                </p>
+              ) : null}
+              {invoice.confirmedAt ? (
+                <p className="mb-4 text-sm text-slate-600">
+                  {invoice.confirmAction === "reject" ? "Rejected" : "Confirmed"} by{" "}
+                  {invoice.confirmedBy || "operator"} · {formatDate(invoice.confirmedAt)}
                 </p>
               ) : null}
               <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -159,6 +255,91 @@ export default function InvoiceDetailPage() {
                 <Field label="Customer #" value={invoice.customerNumber} />
               </dl>
             </Card>
+
+            {needsReview && invoice.folder !== "archived" && invoice.confirmAction !== "accept" ? (
+              <Card>
+                <h2 className="mb-1 font-semibold text-slate-900">Human confirm</h2>
+                <p className="mb-4 text-sm text-slate-500">
+                  Review or edit key fields, then accept to move this invoice to processed, or
+                  reject to keep it in Needs review. Confirm is recorded in the audit trail.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      ["invoiceNumber", "Invoice number"],
+                      ["invoiceDate", "Invoice date"],
+                      ["dueDate", "Due date"],
+                      ["supplierName", "Supplier"],
+                      ["currency", "Currency"],
+                      ["totalMajor", "Total (major units)"],
+                      ["taxTotalMajor", "Tax (major units)"],
+                      ["amountDueMajor", "Amount due (major units)"],
+                      ["paymentTerms", "Payment terms"],
+                      ["poNumber", "PO number"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key} className="block text-sm">
+                      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {label}
+                      </span>
+                      <input
+                        value={form[key] ?? ""}
+                        onChange={(e) => setField(key, e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
+                      />
+                    </label>
+                  ))}
+                  <label className="block text-sm sm:col-span-2">
+                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Notes
+                    </span>
+                    <input
+                      value={form.notes ?? ""}
+                      onChange={(e) => setField("notes", e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Operator
+                    </span>
+                    <input
+                      value={actor}
+                      onChange={(e) => setActor(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Reject reason
+                    </span>
+                    <input
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleConfirm("confirm")}
+                    disabled={confirming}
+                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    {confirming ? "Saving…" : "Accept & process"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirm("reject")}
+                    disabled={confirming}
+                    className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </Card>
+            ) : null}
 
             <Card>
               <h2 className="mb-3 font-semibold text-slate-900">Supplier (origin)</h2>
@@ -272,6 +453,25 @@ export default function InvoiceDetailPage() {
             <Card className="lg:col-span-2">
               <h2 className="mb-2 font-semibold text-slate-900">Notes</h2>
               <p className="text-sm text-slate-700">{invoice.notes}</p>
+            </Card>
+          ) : null}
+
+          {detail.confirmEvents.length > 0 ? (
+            <Card className="lg:col-span-2">
+              <h2 className="mb-3 font-semibold text-slate-900">Confirm audit</h2>
+              <ul className="space-y-2 text-sm">
+                {detail.confirmEvents.map((ev) => (
+                  <li key={ev.id} className="text-slate-700">
+                    <span className="font-medium text-slate-500">{ev.action}</span>
+                    {ev.field ? ` · ${ev.field} ${ev.oldValue || "—"} → ${ev.newValue || "—"}` : ""}
+                    {" · "}
+                    {ev.actor}
+                    {ev.reason ? ` · ${ev.reason}` : ""}
+                    {" · "}
+                    {formatDate(ev.createdAt)}
+                  </li>
+                ))}
+              </ul>
             </Card>
           ) : null}
 

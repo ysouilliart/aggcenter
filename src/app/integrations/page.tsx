@@ -26,6 +26,15 @@ interface IntegrationStatus {
   };
   externalApi: { configured: boolean; baseUrl?: string };
   database: { configured: boolean; provider: string };
+  invoiceClassify?: {
+    mode: "llm" | "static";
+    llmEnabled: boolean;
+    llmReady: boolean;
+    model: string;
+    staticFastPath: boolean;
+    warning?: string;
+    seedSamples: boolean;
+  };
 }
 
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
@@ -236,6 +245,41 @@ export default function IntegrationsPage() {
             {syncMessage ? (
               <p className="mt-3 text-xs text-slate-500">{syncMessage}</p>
             ) : null}
+          </Card>
+
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Invoice classify</h2>
+              <StatusPill
+                ok={Boolean(data.invoiceClassify?.llmReady)}
+                label={data.invoiceClassify?.llmReady ? "LLM ready" : "Static parser"}
+              />
+            </div>
+            <p className="text-sm text-slate-600">
+              Deterministic extract plus optional schema-constrained LLM mapping. When the LLM is
+              off or the key is missing, Hotjar / Tesla / Origin overlays and generic regex run.
+              Extracted text is sent to the model provider only when LLM classify runs.
+            </p>
+            <dl className="mt-4 space-y-1 text-sm">
+              <Row label="Mode" value={data.invoiceClassify?.mode ?? "static"} />
+              <Row label="Model" value={data.invoiceClassify?.model ?? "—"} />
+              <Row
+                label="Static fast path"
+                value={data.invoiceClassify?.staticFastPath ? "On" : "Off"}
+              />
+              <Row
+                label="Sample seed"
+                value={data.invoiceClassify?.seedSamples ? "On" : "Off"}
+              />
+            </dl>
+            {data.invoiceClassify?.warning ? (
+              <p className="mt-3 text-xs text-amber-700">{data.invoiceClassify.warning}</p>
+            ) : (
+              <p className="mt-3 text-xs text-slate-400">
+                Set INVOICE_LLM_CLASSIFY=true, INVOICE_LLM_API_KEY, and optional
+                INVOICE_LLM_MODEL / INVOICE_LLM_API_BASE.
+              </p>
+            )}
           </Card>
 
           <Card>

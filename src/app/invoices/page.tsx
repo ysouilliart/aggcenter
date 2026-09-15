@@ -5,6 +5,13 @@ import { useMemo, useRef, useState } from "react";
 
 import { Card, ErrorNote, KpiCard, PageHeader, Spinner, StatusBadge } from "@/components/ui";
 import type { InvoiceRecord, InvoiceSummary } from "@/lib/invoices/types";
+
+type ClassifyStatus = {
+  mode: "llm" | "static";
+  llmReady: boolean;
+  warning?: string;
+  model?: string;
+};
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
 
@@ -17,7 +24,7 @@ export default function InvoicesPage() {
     [folder],
   );
   const list = useFetch<{ invoices: InvoiceRecord[] }>(listUrl);
-  const summary = useFetch<InvoiceSummary>("/api/invoices/summary");
+  const summary = useFetch<InvoiceSummary & { classify?: ClassifyStatus }>("/api/invoices/summary");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +91,7 @@ export default function InvoicesPage() {
     <div>
       <PageHeader
         title="Invoice parser"
-        subtitle="Read PDF, Word and Excel invoices, classify supplier / bank / lines / tax / dates, and store them in the OCI pipeline folders"
+        subtitle="Extract text deterministically, classify with a static vendor overlay or a schema-constrained LLM, then confirm uncertain results before they are treated as processed"
         actions={
           <button
             type="button"
@@ -96,6 +103,18 @@ export default function InvoicesPage() {
           </button>
         }
       />
+
+      {summary.data?.classify?.warning ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {summary.data.classify.warning}
+        </div>
+      ) : summary.data?.classify?.llmReady ? (
+        <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          LLM classify is on ({summary.data.classify.model}). Extracted invoice text is sent to the
+          configured model provider. Low-confidence or partial results stay in Needs review until
+          an operator confirms.
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Landing" value={String(counts?.landing ?? 0)} sub="Drop zone" />

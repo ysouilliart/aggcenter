@@ -61,12 +61,67 @@ export interface AppConfig {
   supplierFbdiPrefix: string;
   /** Invoice parser drop-zone root (`aggcenter/invoices/{landing,received,processed,archived,anomaly}/`). */
   invoicePrefix: string;
+  /** When true, empty landing is seeded from bundled sample invoices. Off by default. */
+  invoiceSeedSamples: boolean;
+  /** Invoice classify strategy (static regex/overlays vs schema-constrained LLM). */
+  invoiceClassify: InvoiceClassifyConfig;
   /** EU VIES REST API base (no trailing path). Public, no key. */
   viesApiUrl: string;
 }
 
+export interface InvoiceClassifyConfig {
+  /** `INVOICE_LLM_CLASSIFY` — request the LLM path when a key is also present. */
+  llmEnabled: boolean;
+  /** Enabled and an API key is configured. */
+  llmReady: boolean;
+  /** Use Hotjar/Tesla/Origin (and high-confidence static) without calling the LLM. */
+  staticFastPath: boolean;
+  model: string;
+  apiBase: string;
+  /** Secret — never log or return to the client. */
+  apiKey?: string;
+  timeoutMs: number;
+  /** Operator-facing reason the static parser is in use. */
+  warning?: string;
+}
+
 function bool(value: string | undefined): boolean {
   return value != null && value.trim().length > 0;
+}
+
+function flag(value: string | undefined, defaultValue = false): boolean {
+  if (value == null || value.trim() === "") return defaultValue;
+  return /^(1|true|yes|on)$/i.test(value.trim());
+}
+
+function resolveInvoiceClassifyConfig(): InvoiceClassifyConfig {
+  const llmEnabled = flag(process.env.INVOICE_LLM_CLASSIFY, false);
+  const apiKey = process.env.INVOICE_LLM_API_KEY?.trim() || undefined;
+  const llmReady = llmEnabled && bool(apiKey);
+  const staticFastPath = flag(process.env.INVOICE_STATIC_FAST_PATH, true);
+  const model = process.env.INVOICE_LLM_MODEL?.trim() || "gpt-4o-mini";
+  const apiBase = (process.env.INVOICE_LLM_API_BASE?.trim() || "https://api.openai.com/v1").replace(
+    /\/+$/,
+    "",
+  );
+  const timeoutMs = Number(process.env.INVOICE_LLM_TIMEOUT_MS);
+  let warning: string | undefined;
+  if (!llmEnabled) {
+    warning = "LLM classify is off. Using the static vendor/regex parser.";
+  } else if (!llmReady) {
+    warning =
+      "LLM classify is enabled but INVOICE_LLM_API_KEY is missing. Using the static parser.";
+  }
+  return {
+    llmEnabled,
+    llmReady,
+    staticFastPath,
+    model,
+    apiBase,
+    apiKey,
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30_000,
+    warning,
+  };
 }
 
 function withTrailingSlash(value: string): string {
@@ -158,6 +213,8 @@ export function getConfig(): AppConfig {
     invoicePrefix: withTrailingSlash(
       process.env.INVOICE_PREFIX || "aggcenter/invoices",
     ),
+    invoiceSeedSamples: flag(process.env.INVOICE_SEED_SAMPLES, false),
+    invoiceClassify: resolveInvoiceClassifyConfig(),
     viesApiUrl: (process.env.VIES_API_URL || "https://ec.europa.eu/taxation_customs/vies/rest-api").replace(
       /\/+$/,
       "",

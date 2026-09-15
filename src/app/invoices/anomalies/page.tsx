@@ -16,7 +16,7 @@ export default function InvoiceAnomaliesPage() {
     <div>
       <PageHeader
         title="Needs review"
-        subtitle="Invoices in the anomaly folder — scanned documents, unsupported types, or low-confidence parses"
+        subtitle="Anomaly folder: scanned/empty extracts, partial parses, unknown currency, and low-confidence LLM results. Open a row to accept, edit, or reject."
       />
       <Card className="p-0">
         {list.loading ? (

@@ -273,6 +273,15 @@ export interface IntegrationStatus {
   externalApi: { configured: boolean; baseUrl?: string };
   database: { configured: boolean; provider: string };
   reportingCurrency: string;
+  invoiceClassify: {
+    mode: "llm" | "static";
+    llmEnabled: boolean;
+    llmReady: boolean;
+    model: string;
+    staticFastPath: boolean;
+    warning?: string;
+    seedSamples: boolean;
+  };
 }
 
 export function getIntegrationStatus(): IntegrationStatus {
@@ -304,6 +313,15 @@ export function getIntegrationStatus(): IntegrationStatus {
       provider: getStatementRepository().name,
     },
     reportingCurrency: config.reportingCurrency,
+    invoiceClassify: {
+      mode: config.invoiceClassify.llmReady ? "llm" : "static",
+      llmEnabled: config.invoiceClassify.llmEnabled,
+      llmReady: config.invoiceClassify.llmReady,
+      model: config.invoiceClassify.model,
+      staticFastPath: config.invoiceClassify.staticFastPath,
+      warning: config.invoiceClassify.warning,
+      seedSamples: config.invoiceSeedSamples,
+    },
   };
 }
 

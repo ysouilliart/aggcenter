@@ -80,6 +80,9 @@ const STATUS_STYLES: Record<string, string> = {
   archived: "bg-slate-100 text-slate-700 ring-slate-600/20",
   received: "bg-sky-50 text-sky-700 ring-sky-600/20",
   landing: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  llm: "bg-sky-50 text-sky-700 ring-sky-600/20",
+  static: "bg-slate-100 text-slate-700 ring-slate-600/20",
+  "static-fallback": "bg-amber-50 text-amber-700 ring-amber-600/20",
 };
 
 export function StatusBadge({ status }: { status: string }) {

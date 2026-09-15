@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { archiveInvoice, getInvoiceDetail } from "@/lib/invoices";
+import { archiveInvoice, confirmInvoice, getInvoiceDetail } from "@/lib/invoices";
+import type { InvoiceConfirmFields } from "@/lib/invoices/confirm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,19 +23,39 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  let action = "archive";
+  let body: {
+    action?: string;
+    actor?: string;
+    reason?: string;
+    fields?: Record<string, unknown>;
+  } = {};
   try {
-    const body = (await request.json()) as { action?: string };
-    if (body.action) action = body.action;
+    body = (await request.json()) as typeof body;
   } catch {
-    // default archive
+    body = { action: "archive" };
   }
-  if (action !== "archive") {
-    return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
+  const action = body.action ?? "archive";
+
+  if (action === "archive") {
+    const invoice = await archiveInvoice(id);
+    if (!invoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+    return NextResponse.json({ invoice });
   }
-  const invoice = await archiveInvoice(id);
-  if (!invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+
+  if (action === "confirm" || action === "reject") {
+    const detail = await confirmInvoice(id, {
+      action: action === "reject" ? "reject" : "accept",
+      actor: body.actor,
+      reason: body.reason,
+      fields: body.fields as InvoiceConfirmFields | undefined,
+    });
+    if (!detail) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+    return NextResponse.json(detail);
   }
-  return NextResponse.json({ invoice });
+
+  return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
 }

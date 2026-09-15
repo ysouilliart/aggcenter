@@ -1,4 +1,4 @@
-import { bigint, index, integer, pgSchema, text } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgSchema, text } from "drizzle-orm/pg-core";
 
 /**
  * Cash persistence lives in the dedicated `aggc-cash` Postgres schema (created by
@@ -358,6 +358,12 @@ export const invoices = invoiceSchema.table(
     pageCount: integer("page_count"),
     reviewReason: text("review_reason"),
     extractedText: text("extracted_text"),
+    classifyMode: text("classify_mode"),
+    classifierWarning: text("classifier_warning"),
+    needsConfirm: boolean("needs_confirm").notNull().default(false),
+    confirmedAt: text("confirmed_at"),
+    confirmedBy: text("confirmed_by"),
+    confirmAction: text("confirm_action"),
     uploadedAt: text("uploaded_at").notNull(),
     processedAt: text("processed_at"),
     archivedAt: text("archived_at"),
@@ -475,3 +481,21 @@ export type InvoiceBankRow = typeof invoiceBankDetails.$inferSelect;
 export type InvoiceFieldRow = typeof invoiceFields.$inferSelect;
 export type InvoiceParseJobRow = typeof invoiceParseJobs.$inferSelect;
 export type InvoiceParseEventRow = typeof invoiceParseEvents.$inferSelect;
+
+export const invoiceConfirmEvents = invoiceSchema.table(
+  "invoice_confirm_events",
+  {
+    id: text("id").primaryKey(),
+    invoiceId: text("invoice_id").notNull(),
+    action: text("action").notNull(),
+    field: text("field"),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    actor: text("actor").notNull(),
+    reason: text("reason"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("invoice_confirm_events_invoice_id_idx").on(t.invoiceId)],
+);
+
+export type InvoiceConfirmEventRow = typeof invoiceConfirmEvents.$inferSelect;

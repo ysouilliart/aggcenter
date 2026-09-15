@@ -6,9 +6,13 @@
 
 export const INVOICE_PARSER_ID = "invoice-generic";
 export const INVOICE_PARSER_VERSION = "1.0.0";
+export const INVOICE_LLM_PARSER_ID = "invoice-llm";
+export const INVOICE_LLM_PARSER_VERSION = "1.0.0";
 
 export type InvoiceParseStatus = "parsed" | "partial" | "anomaly" | "failed";
 export type InvoiceFolder = "landing" | "received" | "processed" | "archived" | "anomaly";
+export type InvoiceClassifyMode = "static" | "llm" | "static-fallback";
+export type InvoiceConfirmAction = "accept" | "reject" | "edit";
 export type InvoiceFieldCategory =
   | "supplier"
   | "customer"
@@ -118,6 +122,12 @@ export interface InvoiceParseResult {
   trace: InvoiceParseTraceEvent[];
   pageCount: number;
   extractedText: string;
+  /** How fields were classified (static overlays vs schema-constrained LLM). */
+  classifyMode: InvoiceClassifyMode;
+  /** Operator-facing note when LLM is off, missing a key, or fell back. */
+  classifierWarning?: string;
+  /** Uncertain / partial / low-confidence results must be confirmed before processed. */
+  needsConfirm: boolean;
 }
 
 export interface ExtractedDocument {

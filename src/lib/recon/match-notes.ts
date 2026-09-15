@@ -65,7 +65,7 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
   {
     title: "Path",
     detail:
-      "Each row includes an analysis plan: bank file and line, tokens taken from the narrative, lookup hits with extract file name and CSV row, then the result. Use that path to open the same row in the source file.",
+      "Hover or focus the found chips and narrative to see the analysis plan: bank file and line, tokens, lookup hits with extract file name and CSV row, then the result. The Path popup fades out when you leave that area.",
   },
 ];
 

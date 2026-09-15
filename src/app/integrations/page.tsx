@@ -90,10 +90,7 @@ export default function IntegrationsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
       setSyncMessage(
-        `Reset cash tables. Loaded ${json.purchaseOrders} purchase orders, ${json.apInvoices} UK AP invoices, ${json.salesOrders} sales orders, ${json.remittances} UK remittances.` +
-          (json.statements
-            ? ` Parsed ${json.statements.ingested?.length ?? 0} bank statement(s) (${json.statements.errors?.length ?? 0} error(s)).`
-            : ""),
+        `Reset to the bank-statement baseline. Parsed ${json.statements?.ingested?.length ?? 0} statement(s). Supporting files: ${json.purchaseOrders} POs, ${json.apInvoices} UK AP invoices, ${json.salesOrders} SOs, ${json.remittances} remittances.`,
       );
       reference.reload();
     } catch (err) {
@@ -156,7 +153,7 @@ export default function IntegrationsPage() {
               />
             </div>
             <p className="text-sm text-slate-600">
-              Reference data (sales orders, purchase orders, remittances).
+              Reference data (supporting sales orders, purchase orders, remittances).
               Currently using the{" "}
               <span className="font-medium text-slate-900">{data.dataSource}</span>{" "}
               source.
@@ -234,11 +231,15 @@ export default function IntegrationsPage() {
               </button>
             </div>
             <p className="text-sm text-slate-600">
-              UK AP invoices, purchase orders, sales orders, and remittances from{" "}
+              The <strong>bank statement</strong> in{" "}
+              <span className="font-medium text-slate-900">
+                {folderName(data.cashFiles?.bank, "BANK_112")}
+              </span>{" "}
+              is the cash baseline for reconciliation. Supporting files from{" "}
               <span className="font-medium text-slate-900">
                 {data.cashFiles?.orgRoot ?? "aggCenter/ORG_112 - UK"}
-              </span>
-              . Default folders:{" "}
+              </span>{" "}
+              identify those payments:{" "}
               <span className="font-medium text-slate-900">
                 {folderName(data.cashFiles?.inv, "INV_112")}
               </span>
@@ -254,14 +255,11 @@ export default function IntegrationsPage() {
               <span className="font-medium text-slate-900">
                 {folderName(data.cashFiles?.rem, "REM_112")}
               </span>
-              . Bank statements sync from{" "}
-              <span className="font-medium text-slate-900">
-                {folderName(data.cashFiles?.bank, "BANK_112")}
-              </span>
-              . <strong>Load from bucket</strong> clears cash tables and
-              re-parses one baseline (reference CSVs + a single bank-statement
-              parse). AP rows keep taxation country GB; remittances keep OU
-              ResMed UK.
+              . Remittances that have not landed on the statement feed the cash
+              forecast (predicted in / out), not anomalies.{" "}
+              <strong>Load from bucket</strong> clears cash tables, parses the
+              bank file once, then reloads supporting CSVs. AP rows keep
+              taxation country GB; remittances keep OU ResMed UK.
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row

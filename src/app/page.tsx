@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AreaLineChart, GroupedBarChart } from "@/components/charts";
@@ -10,13 +11,16 @@ import {
   PageHeader,
   Spinner,
 } from "@/components/ui";
-import type { AccountCashPosition, CashPosition } from "@/lib/domain/types";
+import type { AccountCashPosition, CashForecast, CashPosition } from "@/lib/domain/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
 
 export default function DashboardPage() {
   const { data, error, loading } = useFetch<{ positions: CashPosition[] }>(
     "/api/cash-position",
+  );
+  const forecastState = useFetch<{ forecasts: CashForecast[] }>(
+    "/api/cash-forecast?summary=1",
   );
   const [currency, setCurrency] = useState<string | null>(null);
 
@@ -25,12 +29,18 @@ export default function DashboardPage() {
     if (positions.length === 0) return null;
     return positions.find((p) => p.currency === currency) ?? positions[0];
   }, [positions, currency]);
+  const forecast = useMemo(() => {
+    if (!active) return null;
+    return (
+      forecastState.data?.forecasts.find((f) => f.currency === active.currency) ?? null
+    );
+  }, [active, forecastState.data]);
 
   return (
     <div>
       <PageHeader
         title="Cash Position"
-        subtitle="Order-to-Cash & Procure-to-Pay — consolidated from reconciled bank statements"
+        subtitle="Actual cash from the bank-statement baseline. Remittances not yet on the statement are a forecast (predicted in / out)."
         actions={
           positions.length > 1 ? (
             <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
@@ -79,6 +89,44 @@ export default function DashboardPage() {
               sub={closingKpiSub(active)}
             />
           </div>
+
+          {forecast ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <KpiCard
+                label="Predicted in"
+                value={formatCurrency(forecast.predictedInflows, forecast.currency)}
+                tone="positive"
+                sub={`${forecast.inflowCount} customer remittances`}
+              />
+              <KpiCard
+                label="Predicted out"
+                value={formatCurrency(forecast.predictedOutflows, forecast.currency)}
+                tone="negative"
+                sub={`${forecast.outflowCount} vendor remittances`}
+              />
+              <KpiCard
+                label="Projected close"
+                value={formatCurrency(forecast.projectedClosing, forecast.currency)}
+                sub={`Statement close ${formatCurrency(forecast.statementClosing, forecast.currency)}`}
+              />
+              <Card className="flex items-center justify-between px-5 py-4">
+                <div>
+                  <div className="text-sm font-medium text-slate-600">
+                    Remittance forecast
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Supporting remittances still to land — not anomalies.
+                  </p>
+                </div>
+                <Link
+                  href="/forecast"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  View forecast
+                </Link>
+              </Card>
+            </div>
+          ) : null}
 
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">

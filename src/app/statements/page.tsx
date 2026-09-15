@@ -85,7 +85,7 @@ export default function StatementsPage() {
     <div>
       <PageHeader
         title="Statements"
-        subtitle="Bank statements consumed by the reconciliation engine. Sync from bucket replaces the previous parse so each file is loaded once."
+        subtitle="Bank-statement baseline consumed by reconciliation. Sync from bucket replaces the previous parse so each file is loaded once."
         actions={
           <div className="flex flex-col items-end gap-1">
             <button

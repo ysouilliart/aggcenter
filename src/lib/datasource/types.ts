@@ -14,10 +14,11 @@ export interface StatementManifestEntry {
 }
 
 /**
- * Reference-data source for the reconciliation engine: accounts and the
- * expected side of each flow (sales orders, purchase orders, remittances).
- * The local implementation reads bundled sample data; the Snowflake
- * implementation would query the data warehouse.
+ * Supporting-file source used to identify bank-statement payments: accounts,
+ * sales orders, purchase orders, and remittances. The local implementation
+ * reads bundled sample data; the Snowflake implementation would query the
+ * data warehouse. Remittances that are not on the statement also feed the
+ * cash forecast.
  */
 export interface DataSource {
   readonly name: string;

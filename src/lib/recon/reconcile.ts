@@ -91,13 +91,16 @@ function newContext(
 }
 
 /**
- * Reconcile bank transactions against the expected side of each flow:
- *   - credits (inflows) are matched to Sales Orders (Order to Cash)
- *   - debits (outflows) are matched to Purchase Orders (Procure to Pay)
- *   - remittances (AR receipts / AP payments) are used when SO/PO refs are absent
+ * Identify each bank-statement payment using supporting SO / PO / remittance
+ * files:
+ *   - credits (inflows) look up Sales Orders (Order to Cash)
+ *   - debits (outflows) look up Purchase Orders (Procure to Pay)
+ *   - remittances identify the payment when SO/PO refs are absent
  *
- * Matching prefers an explicit document reference, then a date-windowed unique
- * remittance amount, then a unique amount+currency match on SO/PO.
+ * The bank line is the baseline. Matching prefers an explicit document
+ * reference, then a date-windowed unique remittance amount, then a unique
+ * amount+currency match on SO/PO. Remittances that never hit the statement
+ * are a cash forecast, not unmatched bank lines.
  */
 export function reconcile(input: ReconcileInput): ReconciliationResult[] {
   const { transactions, salesOrders, purchaseOrders } = input;

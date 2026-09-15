@@ -14,6 +14,7 @@ const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }
 const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> = {
   cash: [
     { href: "/", label: "Cash Position", icon: "M3 12h4l2 5 4-13 2 8h6" },
+    { href: "/forecast", label: "Forecast", icon: "M4 19V5m4 14V9m4 10V8m4 11V3" },
     { href: "/reconciliation", label: "Reconciliation", icon: "M4 7h16M4 12h16M4 17h10" },
     { href: "/anomalies", label: "Anomalies", icon: "M12 3l9 16H3l9-16zm0 6v4m0 3h.01" },
     { href: "/statements", label: "Statements", icon: "M6 3h9l4 4v14H6zM14 3v5h5" },

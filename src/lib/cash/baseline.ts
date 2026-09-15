@@ -17,12 +17,13 @@ export interface CashBaselineResult {
 }
 
 /**
- * One cash baseline from the UK org folders: wipe statement/parse tables,
- * reload reference CSVs, then parse bank files once.
+ * Load the UK cash baseline: wipe statement/parse tables, parse bank files
+ * once (the reconciliation baseline), then load supporting SO/PO/AP/remittance
+ * CSVs used to identify those payments.
  *
- * Reconciliation and cash position are derived from those tables, so this
- * also resets analysis. Bundled sample statements stay out of the way once
- * OCI statements exist (see `usesBundledCashSamples`).
+ * Cash position, reconciliation, forecast, and anomalies are derived from
+ * those tables, so they reset with the load. Bundled sample statements stay
+ * out of the way once OCI statements exist (see `usesBundledCashSamples`).
  */
 export async function loadCashBaseline(deps?: {
   storage?: StorageProvider;
@@ -35,11 +36,6 @@ export async function loadCashBaseline(deps?: {
 
   await statementRepo.clearAll();
 
-  const reference = await ingestReferenceDocuments({
-    storage,
-    repo: deps?.referenceRepo,
-  });
-
   const statements =
     deps?.storage || deps?.statementRepo
       ? await ingestStatements({
@@ -49,6 +45,11 @@ export async function loadCashBaseline(deps?: {
           prefixes: [config.statementCsvPrefix, config.statementPdfPrefix],
         })
       : await ingestFromObjectStorage(undefined, { replace: true });
+
+  const reference = await ingestReferenceDocuments({
+    storage,
+    repo: deps?.referenceRepo,
+  });
 
   return { reset: true, reference, statements };
 }

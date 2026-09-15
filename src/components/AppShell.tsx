@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hint = WORKSPACES.find((w) => w.id === workspace)?.hint ?? "";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-hidden">
       <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 text-slate-200 md:flex">
         <div className="flex items-center gap-3 px-6 py-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-sky-400 font-bold text-slate-900">

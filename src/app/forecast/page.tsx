@@ -25,7 +25,13 @@ export default function ForecastPage() {
   const forecasts = useMemo(() => data?.forecasts ?? [], [data]);
   const active = useMemo(() => {
     if (forecasts.length === 0) return null;
-    return forecasts.find((f) => f.currency === currency) ?? forecasts[0];
+    if (currency) {
+      return forecasts.find((f) => f.currency === currency) ?? forecasts[0];
+    }
+    return (
+      [...forecasts].sort((a, b) => b.statementClosing - a.statementClosing)[0] ??
+      forecasts[0]
+    );
   }, [forecasts, currency]);
 
   const lines = useMemo(() => {
@@ -45,6 +51,7 @@ export default function ForecastPage() {
               {forecasts.map((f) => (
                 <button
                   key={f.currency}
+                  type="button"
                   onClick={() => setCurrency(f.currency)}
                   className={`rounded-md px-3 py-1 font-medium transition-colors ${
                     active?.currency === f.currency

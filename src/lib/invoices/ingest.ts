@@ -34,6 +34,8 @@ export interface InvoiceIngestDeps {
   repo: InvoiceRepository;
   prefix?: string;
   sampleDir?: string;
+  /** Override env `INVOICE_SEED_SAMPLES`. Tests pass true to use bundled fixtures. */
+  seedSamples?: boolean;
 }
 
 function invoiceIdFor(seed: string): string {
@@ -77,7 +79,7 @@ async function persistParse(options: {
   receivedKey: string;
 }): Promise<InvoiceRecord> {
   const parsed = await parseInvoiceDocument(options.buf, { fileName: options.fileName });
-  const destFolder = folderForStatus(parsed.status);
+  const destFolder = folderForStatus(parsed.status, { needsConfirm: parsed.needsConfirm });
   const destKey = invoiceFolderKey(options.prefix, destFolder, options.id, options.fileName);
   await options.storage.put(destKey, options.buf, contentTypeForName(options.fileName));
   if (options.receivedKey !== destKey) {
@@ -142,7 +144,8 @@ export async function ingestInvoices(deps?: InvoiceIngestDeps): Promise<InvoiceI
 
   let objects = (await storage.list(landingPrefix)).filter((o) => isInvoiceFileName(o.key));
   let usedSampleFallback = false;
-  if (objects.length === 0) {
+  const seedSamples = deps?.seedSamples ?? getConfig().invoiceSeedSamples;
+  if (objects.length === 0 && seedSamples) {
     const seeded = await seedLandingFromSamples(storage, prefix, sampleDir);
     usedSampleFallback = seeded > 0;
     objects = (await storage.list(landingPrefix)).filter((o) => isInvoiceFileName(o.key));

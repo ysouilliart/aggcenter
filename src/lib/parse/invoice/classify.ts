@@ -51,7 +51,7 @@ function field(
   fields.push({ category, key, value: trimmed, confidence });
 }
 
-function detectVendor(text: string, fileName: string): InvoiceVendor {
+export function detectVendor(text: string, fileName: string): InvoiceVendor {
   const hay = `${fileName}\n${text}`.toLowerCase();
   if (hay.includes("originenergy") || hay.includes("origin energy")) return "origin";
   if (hay.includes("tesla motors") || hay.includes("tesla.com")) return "tesla";
@@ -469,7 +469,7 @@ function parseOrigin(lines: string[], text: string, header: InvoiceHeader): Part
   };
 }
 
-function score(header: InvoiceHeader, lines: InvoiceLineItem[], bank?: InvoiceBankDetails): number {
+export function score(header: InvoiceHeader, lines: InvoiceLineItem[], bank?: InvoiceBankDetails): number {
   let n = 0;
   if (header.invoiceNumber) n += 20;
   if (header.invoiceDate) n += 15;
@@ -482,7 +482,9 @@ function score(header: InvoiceHeader, lines: InvoiceLineItem[], bank?: InvoiceBa
   return Math.min(100, n);
 }
 
-function statusFor(opts: {
+const KNOWN_CURRENCY = new Set(["AUD", "USD", "EUR", "GBP", "NZD", "CAD", "SGD", "JPY", "CHF", "HKD"]);
+
+export function statusFor(opts: {
   confidence: number;
   header: InvoiceHeader;
   extractedEmpty: boolean;
@@ -495,8 +497,17 @@ function statusFor(opts: {
   }
   if (!opts.header.invoiceNumber && opts.header.total == null && opts.header.amountDue == null) {
     reasons.push("Missing invoice number and totals.");
+  } else if (!opts.header.invoiceNumber) {
+    reasons.push("Invoice number was not classified.");
+  } else if (opts.header.total == null && opts.header.amountDue == null) {
+    reasons.push("Totals were not classified.");
   }
   if (!opts.header.supplierName) reasons.push("Supplier name was not classified.");
+  if (!opts.header.currency) {
+    reasons.push("Currency was not classified.");
+  } else if (!KNOWN_CURRENCY.has(opts.header.currency.toUpperCase())) {
+    reasons.push("Unknown or ambiguous currency.");
+  }
   if (opts.confidence < 40) reasons.push("Parse confidence is below the review threshold.");
   if (opts.warnings.length && opts.confidence < 70) {
     uniquePush(reasons, opts.warnings[0]);
@@ -506,6 +517,17 @@ function statusFor(opts: {
   }
   if (reasons.length || opts.confidence < 80) return { status: "partial", reasons };
   return { status: "parsed", reasons };
+}
+
+export function needsHumanConfirm(opts: {
+  status: InvoiceParseStatus;
+  confidence: number;
+  classifyMode: InvoiceParseResult["classifyMode"];
+}): boolean {
+  if (opts.status === "anomaly" || opts.status === "failed" || opts.status === "partial") {
+    return true;
+  }
+  return opts.classifyMode === "llm" && opts.confidence < 80;
 }
 
 export function classifyInvoice(input: ClassifyInput): InvoiceParseResult {
@@ -611,6 +633,7 @@ export function classifyInvoice(input: ClassifyInput): InvoiceParseResult {
     { vendor, invoiceNumber: header.invoiceNumber, total: header.total },
   );
 
+  const classifyMode = "static" as const;
   return {
     parserId: INVOICE_PARSER_ID,
     parserVersion: INVOICE_PARSER_VERSION,
@@ -627,5 +650,7 @@ export function classifyInvoice(input: ClassifyInput): InvoiceParseResult {
     trace: events,
     pageCount: input.pageCount,
     extractedText: input.fullText,
+    classifyMode,
+    needsConfirm: needsHumanConfirm({ status, confidence, classifyMode }),
   };
 }

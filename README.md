@@ -27,10 +27,12 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
   extracts plus those corrections and save them to `aggcenter/FBDI/supplier/`
   for later upload.
 - **Invoice parser** — new workspace. Upload or sync PDF, Word (DOCX), Excel
-  (XLSX) and CSV invoices. The parser classifies supplier (origin), bank
-  details, line items, tax, totals, payment terms and dates, persists them to
-  `aggc-invoice`, and keeps the original document for the in-app viewer.
-  Object storage uses `aggcenter/invoices/{landing,received,processed,archived,anomaly}/`.
+  (XLSX) and CSV invoices. Text is extracted deterministically (pdf.js / Office);
+  classification is either a static vendor/regex path or a **schema-constrained
+  LLM** mapped into the existing invoice field schema. Uncertain results go to
+  **Needs review** for human confirm (accept / edit / reject). Persists to
+  `aggc-invoice`. Object storage uses
+  `aggcenter/invoices/{landing,received,processed,archived,anomaly}/`.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),
   **Snowflake** (reference data) and an optional external API, all defaulting to
   safe local/sample implementations.
@@ -109,10 +111,10 @@ npm run build    # production build
 | GET    | `/api/suppliers/fbdi/download` | Download a saved FBDI object (ZIP, CSV, manifest) |
 | GET    | `/api/invoices`             | List parsed invoices (filter `folder`, `status`) |
 | POST   | `/api/invoices`             | Upload PDF/DOCX/XLSX/CSV; parse and store        |
-| POST   | `/api/invoices/ingest`      | Sync `aggcenter/invoices/landing/` (sample fallback) |
-| GET    | `/api/invoices/summary`     | Counts by pipeline folder                        |
-| GET    | `/api/invoices/:id`         | Header, lines, tax, bank, classified fields, trace |
-| PATCH  | `/api/invoices/:id`         | `{ "action": "archive" }` moves to archived      |
+| POST   | `/api/invoices/ingest`      | Sync `aggcenter/invoices/landing/` (sample seed only if `INVOICE_SEED_SAMPLES=true`) |
+| GET    | `/api/invoices/summary`     | Counts by pipeline folder + classify mode / warning |
+| GET    | `/api/invoices/:id`         | Header, lines, tax, bank, classified fields, trace, confirm audit |
+| PATCH  | `/api/invoices/:id`         | `{ "action": "archive" }` or `{ "action": "confirm" \| "reject", "fields", "actor" }` |
 | GET    | `/api/invoices/:id/file`    | Original document (inline viewer)                |
 
 ## Database (Postgres / Neon)
@@ -287,12 +289,62 @@ and image-only scans go to **anomaly**. Open an invoice to see classified
 supplier, customer, dates, tax, totals, bank/BPAY details, line items and the
 original document in the viewer. Archive moves the object to `archived/`.
 
+**Folders**
+
+- `processed` — `parsed` results that do not need confirm (high-confidence
+  static vendor overlays, or high-confidence LLM with invoice #, totals, and a
+  known currency).
+- `anomaly` (**Needs review**) — `partial`, `anomaly`, `failed`, empty/scanned
+  extracts, unknown currency, missing invoice # / totals, and low-confidence
+  LLM output. These are **not** treated as finished.
+
+**Classify modes**
+
+1. **Static (default)** — Hotjar / Tesla / Origin overlays plus generic regex.
+   Used when `INVOICE_LLM_CLASSIFY` is off, the API key is missing, or the LLM
+   call / schema validation fails (`static-fallback`).
+2. **Static fast path** — when LLM is on and `INVOICE_STATIC_FAST_PATH=true`
+   (default), a high-confidence Hotjar/Tesla/Origin parse skips the model.
+3. **LLM** — extracted text is mapped to the fixed JSON schema in
+   `src/lib/parse/invoice/schema.ts` (`InvoiceParseResult` header / lines / tax /
+   bank / fields). Amounts stay integer cents.
+
+**Human confirm**
+
+Open an invoice in Inbox or Needs review. When `needsConfirm` is set, edit key
+fields and **Accept & process** (moves to `processed`, status `parsed`) or
+**Reject** (stays in anomaly). Each confirm writes `invoice_confirm_events`
+(actor, action, field-level edits). Low-confidence LLM parses are never
+auto-promoted to processed.
+
+**Environment**
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `INVOICE_LLM_CLASSIFY` | `false` | Enable the LLM classify path |
+| `INVOICE_LLM_API_KEY` | — | Secret. Required for LLM; never commit |
+| `INVOICE_LLM_MODEL` | `gpt-4o-mini` | Chat model name |
+| `INVOICE_LLM_API_BASE` | `https://api.openai.com/v1` | OpenAI-compatible base URL |
+| `INVOICE_LLM_TIMEOUT_MS` | `30000` | Classify timeout |
+| `INVOICE_STATIC_FAST_PATH` | `true` | Skip LLM for high-confidence vendor overlays |
+| `INVOICE_SEED_SAMPLES` | `false` | Seed bundled samples into an empty landing folder |
+| `INVOICE_PREFIX` | `aggcenter/invoices` | Pipeline root |
+
+When LLM classify is off or the key is missing, the Inbox, APIs, and
+Integrations page show a warning and the static parser runs.
+
+**PII / provider** — extracted invoice text is sent to the configured model
+provider **only** when the LLM classify path runs. Full invoice text is not
+logged. Scanned / empty extracts stay in anomaly (no LLM call). OCR is a
+follow-up; this pipeline does not invent fields from blank text.
+
 When landing is empty, bundled samples under
 [`data/sample/invoices/landing/`](data/sample/invoices/landing/) are used
-(Hotjar, Tesla, Origin Energy, a scanned PDF, and a CSV). Override the root
-with `INVOICE_PREFIX`.
+**only if** `INVOICE_SEED_SAMPLES=true` (Hotjar, Tesla, Origin Energy, a
+scanned PDF, and a CSV). Override the root with `INVOICE_PREFIX`.
 
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).
 - Additional operational workspaces beyond cash, suppliers and invoices, and a workflow/approval layer.
+- Invoice OCR for scanned / image-only PDFs (today those stay in Needs review; the LLM path does not invent fields from blank extracts).

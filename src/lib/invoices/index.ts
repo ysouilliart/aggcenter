@@ -1,4 +1,5 @@
 export type {
+  InvoiceConfirmEvent,
   InvoiceDetail,
   InvoiceParseJob,
   InvoiceRecord,
@@ -15,5 +16,7 @@ export {
   listInvoices,
   uploadInvoice,
 } from "./ingest";
+export { confirmInvoice, applyConfirmFields } from "./confirm";
+export { folderForStatus } from "./fromParse";
 export { getInvoiceRepository, resetInvoiceRepositoryCache } from "./repository";
 export { DEFAULT_INVOICE_PREFIX, invoiceFolderKey, landingKey } from "./folders";

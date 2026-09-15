@@ -42,6 +42,9 @@ export function recordsFromInvoiceParse(options: {
     pageCount: options.parsed.pageCount,
     reviewReason: options.parsed.reviewReasons[0],
     extractedText: options.parsed.extractedText,
+    classifyMode: options.parsed.classifyMode,
+    classifierWarning: options.parsed.classifierWarning,
+    needsConfirm: options.parsed.needsConfirm,
     uploadedAt,
     processedAt: finishedAt,
     lineItemCount: options.parsed.lineItems.length,
@@ -66,7 +69,16 @@ export function recordsFromInvoiceParse(options: {
   return { invoice, parsed: options.parsed, job };
 }
 
-export function folderForStatus(status: InvoiceParseResult["status"]): InvoiceFolder {
-  if (status === "anomaly" || status === "failed") return "anomaly";
+/**
+ * Pipeline folder for a classify result.
+ * `partial`, `anomaly`, `failed`, and anything still needing human confirm
+ * land in `anomaly` (Needs review) — never `processed`.
+ */
+export function folderForStatus(
+  status: InvoiceParseResult["status"],
+  options?: { needsConfirm?: boolean },
+): InvoiceFolder {
+  if (status === "anomaly" || status === "failed" || status === "partial") return "anomaly";
+  if (options?.needsConfirm) return "anomaly";
   return "processed";
 }

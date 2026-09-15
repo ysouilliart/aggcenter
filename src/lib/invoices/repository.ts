@@ -11,7 +11,7 @@ import type {
   InvoiceLineItem,
   InvoiceTaxLine,
 } from "../parse/invoice/types";
-import type { InvoiceParseJob, InvoiceRecord, InvoiceSummary } from "./types";
+import type { InvoiceConfirmEvent, InvoiceParseJob, InvoiceRecord, InvoiceSummary } from "./types";
 import { INVOICE_FOLDERS } from "./types";
 
 export interface InvoiceSnapshot {
@@ -21,6 +21,7 @@ export interface InvoiceSnapshot {
   bank: Record<string, InvoiceBankDetails>;
   fields: Record<string, ClassifiedField[]>;
   jobs: Record<string, InvoiceParseJob>;
+  confirmEvents: Record<string, InvoiceConfirmEvent[]>;
 }
 
 export interface InvoiceRepository {
@@ -41,6 +42,7 @@ export interface InvoiceRepository {
     bank?: InvoiceBankDetails;
     fields: ClassifiedField[];
     job: InvoiceParseJob | null;
+    confirmEvents: InvoiceConfirmEvent[];
   } | undefined>;
   findByHash(hash: string): Promise<InvoiceRecord | undefined>;
   findByOriginalKey(key: string): Promise<InvoiceRecord | undefined>;
@@ -49,11 +51,23 @@ export interface InvoiceRepository {
     folder: InvoiceFolder,
     patch?: Partial<Pick<InvoiceRecord, "storageKey" | "archivedAt" | "parseStatus">>,
   ): Promise<InvoiceRecord | undefined>;
+  saveConfirm(input: {
+    invoice: InvoiceRecord;
+    events: InvoiceConfirmEvent[];
+  }): Promise<{
+    invoice: InvoiceRecord;
+    lineItems: InvoiceLineItem[];
+    taxLines: InvoiceTaxLine[];
+    bank?: InvoiceBankDetails;
+    fields: ClassifiedField[];
+    job: InvoiceParseJob | null;
+    confirmEvents: InvoiceConfirmEvent[];
+  } | undefined>;
   summary(): Promise<InvoiceSummary>;
 }
 
 function empty(): InvoiceSnapshot {
-  return { invoices: [], lineItems: {}, taxLines: {}, bank: {}, fields: {}, jobs: {} };
+  return { invoices: [], lineItems: {}, taxLines: {}, bank: {}, fields: {}, jobs: {}, confirmEvents: {} };
 }
 
 function toSummary(rows: InvoiceRecord[]): InvoiceSummary {
@@ -82,7 +96,7 @@ export class LocalJsonInvoiceRepository implements InvoiceRepository {
   private async read(): Promise<InvoiceSnapshot> {
     try {
       const parsed = JSON.parse(await fs.readFile(this.file, "utf8")) as Partial<InvoiceSnapshot>;
-      return { ...empty(), ...parsed };
+      return { ...empty(), ...parsed, confirmEvents: parsed.confirmEvents ?? {} };
     } catch {
       return empty();
     }
@@ -110,6 +124,7 @@ export class LocalJsonInvoiceRepository implements InvoiceRepository {
     else delete snap.bank[input.invoice.id];
     snap.fields[input.invoice.id] = input.fields;
     snap.jobs[input.invoice.id] = input.job;
+    if (!snap.confirmEvents[input.invoice.id]) snap.confirmEvents[input.invoice.id] = [];
     await this.write(snap);
   }
 
@@ -131,6 +146,7 @@ export class LocalJsonInvoiceRepository implements InvoiceRepository {
       bank: snap.bank[id],
       fields: snap.fields[id] ?? [],
       job: snap.jobs[id] ?? null,
+      confirmEvents: snap.confirmEvents[id] ?? [],
     };
   }
 
@@ -153,6 +169,17 @@ export class LocalJsonInvoiceRepository implements InvoiceRepository {
     snap.invoices[idx] = { ...snap.invoices[idx], folder, ...patch };
     await this.write(snap);
     return snap.invoices[idx];
+  }
+
+  async saveConfirm(input: { invoice: InvoiceRecord; events: InvoiceConfirmEvent[] }) {
+    const snap = await this.read();
+    const idx = snap.invoices.findIndex((r) => r.id === input.invoice.id);
+    if (idx < 0) return undefined;
+    snap.invoices[idx] = input.invoice;
+    const existing = snap.confirmEvents[input.invoice.id] ?? [];
+    snap.confirmEvents[input.invoice.id] = [...input.events, ...existing];
+    await this.write(snap);
+    return this.get(input.invoice.id);
   }
 
   async summary() {
@@ -261,6 +288,12 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
         pageCount: inv.pageCount ?? null,
         reviewReason: inv.reviewReason ?? null,
         extractedText: inv.extractedText ?? null,
+        classifyMode: inv.classifyMode ?? null,
+        classifierWarning: inv.classifierWarning ?? null,
+        needsConfirm: inv.needsConfirm ?? false,
+        confirmedAt: inv.confirmedAt ?? null,
+        confirmedBy: inv.confirmedBy ?? null,
+        confirmAction: inv.confirmAction ?? null,
         uploadedAt: inv.uploadedAt,
         processedAt: inv.processedAt ?? null,
         archivedAt: inv.archivedAt ?? null,
@@ -374,12 +407,13 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
     const db = getDb();
     const [row] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, id));
     if (!row) return undefined;
-    const [lines, taxes, banks, fields, jobs] = await Promise.all([
+    const [lines, taxes, banks, fields, jobs, confirmRows] = await Promise.all([
       db.select().from(schema.invoiceLineItems).where(eq(schema.invoiceLineItems.invoiceId, id)),
       db.select().from(schema.invoiceTaxLines).where(eq(schema.invoiceTaxLines.invoiceId, id)),
       db.select().from(schema.invoiceBankDetails).where(eq(schema.invoiceBankDetails.invoiceId, id)),
       db.select().from(schema.invoiceFields).where(eq(schema.invoiceFields.invoiceId, id)),
       db.select().from(schema.invoiceParseJobs).where(eq(schema.invoiceParseJobs.invoiceId, id)),
+      db.select().from(schema.invoiceConfirmEvents).where(eq(schema.invoiceConfirmEvents.invoiceId, id)),
     ]);
     const jobRow = jobs[0];
     const events = jobRow
@@ -457,6 +491,19 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
               })),
           }
         : null,
+      confirmEvents: confirmRows
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
+        .map((e) => ({
+          id: e.id,
+          invoiceId: e.invoiceId,
+          action: e.action as InvoiceConfirmEvent["action"],
+          field: e.field ?? undefined,
+          oldValue: e.oldValue ?? undefined,
+          newValue: e.newValue ?? undefined,
+          actor: e.actor,
+          reason: e.reason ?? undefined,
+          createdAt: e.createdAt,
+        })),
     };
   }
 
@@ -485,6 +532,57 @@ export class PostgresInvoiceRepository implements InvoiceRepository {
     await db.update(schema.invoices).set(set).where(eq(schema.invoices.id, id));
     const detail = await this.get(id);
     return detail?.invoice;
+  }
+
+  async saveConfirm(input: { invoice: InvoiceRecord; events: InvoiceConfirmEvent[] }) {
+    const { getDb } = await import("../db/client");
+    const schema = await import("../db/schema");
+    const db = getDb();
+    const inv = input.invoice;
+    await db.transaction(async (tx) => {
+      await tx
+        .update(schema.invoices)
+        .set({
+          invoiceNumber: inv.invoiceNumber ?? "",
+          invoiceDate: inv.invoiceDate ?? null,
+          dueDate: inv.dueDate ?? null,
+          paymentTerms: inv.paymentTerms ?? null,
+          currency: inv.currency ?? "",
+          subtotal: inv.subtotal ?? null,
+          taxTotal: inv.taxTotal ?? null,
+          total: inv.total ?? null,
+          amountDue: inv.amountDue ?? null,
+          poNumber: inv.poNumber ?? null,
+          notes: inv.notes ?? null,
+          supplierName: inv.supplierName ?? "",
+          folder: inv.folder,
+          storageKey: inv.storageKey ?? null,
+          parseStatus: inv.parseStatus,
+          reviewReason: inv.reviewReason ?? null,
+          needsConfirm: inv.needsConfirm ?? false,
+          confirmedAt: inv.confirmedAt ?? null,
+          confirmedBy: inv.confirmedBy ?? null,
+          confirmAction: inv.confirmAction ?? null,
+          processedAt: inv.processedAt ?? null,
+        })
+        .where(eq(schema.invoices.id, inv.id));
+      if (input.events.length) {
+        await tx.insert(schema.invoiceConfirmEvents).values(
+          input.events.map((e) => ({
+            id: e.id,
+            invoiceId: e.invoiceId,
+            action: e.action,
+            field: e.field ?? null,
+            oldValue: e.oldValue ?? null,
+            newValue: e.newValue ?? null,
+            actor: e.actor,
+            reason: e.reason ?? null,
+            createdAt: e.createdAt,
+          })),
+        );
+      }
+    });
+    return this.get(inv.id);
   }
 
   async summary() {
@@ -537,6 +635,12 @@ function rowToInvoice(row: import("../db/schema").InvoiceRow): InvoiceRecord {
     pageCount: row.pageCount ?? undefined,
     reviewReason: row.reviewReason ?? undefined,
     extractedText: row.extractedText ?? undefined,
+    classifyMode: (row.classifyMode as InvoiceRecord["classifyMode"]) ?? undefined,
+    classifierWarning: row.classifierWarning ?? undefined,
+    needsConfirm: Boolean(row.needsConfirm),
+    confirmedAt: row.confirmedAt ?? undefined,
+    confirmedBy: row.confirmedBy ?? undefined,
+    confirmAction: (row.confirmAction as InvoiceRecord["confirmAction"]) ?? undefined,
     uploadedAt: row.uploadedAt,
     processedAt: row.processedAt ?? undefined,
     archivedAt: row.archivedAt ?? undefined,

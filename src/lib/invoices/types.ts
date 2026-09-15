@@ -1,6 +1,8 @@
 import type {
   ClassifiedField,
   InvoiceBankDetails,
+  InvoiceClassifyMode,
+  InvoiceConfirmAction,
   InvoiceFolder,
   InvoiceHeader,
   InvoiceLineItem,
@@ -45,10 +47,28 @@ export interface InvoiceRecord extends InvoiceHeader {
   pageCount?: number;
   reviewReason?: string;
   extractedText?: string;
+  classifyMode?: InvoiceClassifyMode;
+  classifierWarning?: string;
+  needsConfirm?: boolean;
+  confirmedAt?: string;
+  confirmedBy?: string;
+  confirmAction?: InvoiceConfirmAction;
   uploadedAt: string;
   processedAt?: string;
   archivedAt?: string;
   lineItemCount: number;
+}
+
+export interface InvoiceConfirmEvent {
+  id: string;
+  invoiceId: string;
+  action: InvoiceConfirmAction;
+  field?: string;
+  oldValue?: string;
+  newValue?: string;
+  actor: string;
+  reason?: string;
+  createdAt: string;
 }
 
 export interface InvoiceDetail {
@@ -58,6 +78,7 @@ export interface InvoiceDetail {
   bank?: InvoiceBankDetails;
   fields: ClassifiedField[];
   job: InvoiceParseJob | null;
+  confirmEvents: InvoiceConfirmEvent[];
 }
 
 export interface InvoiceSummary {

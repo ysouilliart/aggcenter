@@ -26,6 +26,7 @@ describe("invoice ingest pipeline", () => {
       repo,
       prefix: "aggcenter/invoices/",
       sampleDir: path.join(process.cwd(), "data/sample/invoices/landing"),
+      seedSamples: true,
     });
     expect(first.usedSampleFallback).toBe(true);
     expect(first.ingested.length).toBeGreaterThanOrEqual(5);
@@ -42,6 +43,7 @@ describe("invoice ingest pipeline", () => {
       repo,
       prefix: "aggcenter/invoices/",
       sampleDir: path.join(process.cwd(), "data/sample/invoices/landing"),
+      seedSamples: true,
     });
     expect(second.ingested).toHaveLength(0);
     expect(second.skipped.length).toBeGreaterThan(0);
@@ -78,7 +80,44 @@ describe("invoice ingest pipeline", () => {
     expect(again.id).toBe(invoice.id);
   });
 
-  it("defaults the invoice prefix", () => {
+  it("does not seed sample landing files unless opted in", async () => {
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonInvoiceRepository(path.join(root, "invoices.json"));
+    const result = await ingestInvoices({
+      storage,
+      repo,
+      prefix: "aggcenter/invoices/",
+      sampleDir: path.join(process.cwd(), "data/sample/invoices/landing"),
+      seedSamples: false,
+    });
+    expect(result.usedSampleFallback).toBe(false);
+    expect(result.ingested).toHaveLength(0);
+    expect((await storage.list("aggcenter/invoices/")).some((o) => o.key.includes("/landing/"))).toBe(
+      false,
+    );
+  });
+
+  it("routes a partial parse to needs-review (anomaly) instead of processed", async () => {
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonInvoiceRepository(path.join(root, "invoices.json"));
+    const invoice = await uploadInvoice({
+      fileName: "weak-unknown.txt",
+      content: Buffer.from("Random GmbH\nsomething 12.00\n"),
+      storage,
+      repo,
+    });
+    expect(invoice.folder).toBe("anomaly");
+    expect(["partial", "anomaly"]).toContain(invoice.parseStatus);
+    expect(invoice.needsConfirm).toBe(true);
+  });
+
+  it("defaults the invoice prefix and classify/seed flags", () => {
     expect(getConfig().invoicePrefix).toBe("aggcenter/invoices/");
+    expect(getConfig().invoiceSeedSamples).toBe(false);
+    expect(getConfig().invoiceClassify.llmEnabled).toBe(false);
+    expect(getConfig().invoiceClassify.llmReady).toBe(false);
+    expect(getConfig().invoiceClassify.warning).toMatch(/LLM classify is off/i);
   });
 });

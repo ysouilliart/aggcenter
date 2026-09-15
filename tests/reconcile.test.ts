@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import type {
   BankTransaction,
   PurchaseOrder,
+  Remittance,
   SalesOrder,
 } from "@/lib/domain/types";
+import { foundFlags, type MatchContext } from "@/lib/recon/match-notes";
 import { reconcile, summarize } from "@/lib/recon/reconcile";
 
 const salesOrders: SalesOrder[] = [
@@ -85,6 +87,8 @@ describe("reconcile", () => {
     expect(r.status).toBe("matched");
     expect(r.flow).toBe("P2P");
     expect(r.matchedType).toBe("PO");
+    expect(r.lookup?.poFound).toBe(true);
+    expect(r.lookup?.supportingDocs.some((d) => d.id === "PO-1")).toBe(true);
   });
 
   it("falls back to a unique amount match without a reference", () => {
@@ -118,6 +122,13 @@ describe("reconcile", () => {
     expect(r.lookup?.candidateCount).toBe(2);
     expect(r.remediation).toMatch(/ambiguous/);
     expect(r.reasons.join(" ")).toMatch(/ambiguous/);
+    expect(r.lookup?.supportingDocs.map((d) => d.id).sort()).toEqual([
+      "SO-1",
+      "SO-9",
+    ]);
+    expect(r.lookup?.supportingDocs.every((d) => d.label.includes("SO"))).toBe(
+      true,
+    );
   });
 
   it("marks a transaction with no candidate as unmatched", () => {
@@ -151,5 +162,215 @@ describe("reconcile", () => {
     expect(s.unmatched).toBe(1);
     // 1500 reconciled of 1750 total.
     expect(s.matchRate).toBeCloseTo(1500 / 1750, 5);
+  });
+});
+
+function remittance(overrides: Partial<Remittance> = {}): Remittance {
+  return {
+    id: "AR-1",
+    party: "customer",
+    name: "Acme",
+    reference: "INV-100",
+    remittanceNumber: "REM-100",
+    amount: 1000,
+    currency: "USD",
+    date: "2026-08-01",
+    invoiceNumbers: ["INV-100"],
+    ...overrides,
+  };
+}
+
+describe("reconcile supporting documents", () => {
+  it("treats a unique SO id plus a unique remittance as a match and lists both numbers", () => {
+    const [r] = reconcile({
+      transactions: [txn({ id: "so-rem", amount: 1000, reference: "SO-1" })],
+      salesOrders,
+      purchaseOrders,
+      remittances: [remittance()],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("SO");
+    expect(r.matchedId).toBe("SO-1");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.remittanceFound).toBe(true);
+    const labels = (r.lookup?.supportingDocs ?? []).map((d) => d.label).join(" ");
+    expect(labels).toMatch(/SO-1/);
+    expect(labels).toMatch(/REM-100/);
+  });
+
+  it("matches when a unique remittance and a unique SO both identify the line", () => {
+    const [r] = reconcile({
+      transactions: [txn({ id: "both", amount: 1000, description: "wire" })],
+      salesOrders,
+      purchaseOrders,
+      remittances: [remittance()],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.remittanceFound).toBe(true);
+    const labels = (r.lookup?.supportingDocs ?? []).map((d) => d.label).join(" ");
+    expect(labels).toMatch(/REM-100/);
+    expect(labels).toMatch(/SO-1/);
+    expect(r.lookup?.supportingDocs.map((d) => d.kind).sort()).toEqual([
+      "SO",
+      "remittance",
+    ]);
+  });
+
+  it("lists remittance numbers on a remittance match", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "rem-ref",
+          amount: 1000,
+          narrative: "Receipt INV-100 Acme",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders,
+      remittances: [remittance()],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("remittance");
+    expect(r.lookup?.supportingDocs[0]?.number).toBe("REM-100");
+    expect(r.lookup?.supportingDocs[0]?.label).toMatch(/REM-100/);
+  });
+
+  it("lists PO and remittance numbers when several share the amount", () => {
+    const pos: PurchaseOrder[] = [
+      { ...purchaseOrders[0], id: "PO-1", amount: 500 },
+      { ...purchaseOrders[0], id: "PO-9", amount: 500 },
+    ];
+    const remittances: Remittance[] = [
+      remittance({
+        id: "AP-1",
+        party: "vendor",
+        name: "CloudHost",
+        remittanceNumber: "REM-V-1",
+        reference: "INV-V-1",
+        amount: 500,
+        invoiceNumbers: ["INV-V-1"],
+      }),
+      remittance({
+        id: "AP-2",
+        party: "vendor",
+        name: "Other Host",
+        remittanceNumber: "REM-V-2",
+        reference: "INV-V-2",
+        amount: 500,
+        invoiceNumbers: ["INV-V-2"],
+      }),
+    ];
+    const [r] = reconcile({
+      transactions: [txn({ id: "p2p-amb", amount: -500, description: "payment" })],
+      salesOrders,
+      purchaseOrders: pos,
+      remittances,
+    });
+    expect(r.status).toBe("partial");
+    expect(r.matchedId).toBeUndefined();
+    expect(r.lookup?.poFound).toBe(true);
+    expect(r.lookup?.remittanceFound).toBe(true);
+    const labels = (r.lookup?.supportingDocs ?? []).map((d) => d.label).join(" ");
+    expect(labels).toMatch(/PO-1/);
+    expect(labels).toMatch(/PO-9/);
+    expect(labels).toMatch(/REM-V-1/);
+    expect(labels).toMatch(/REM-V-2/);
+  });
+
+  it("keeps remittance numbers visible when many SOs share the amount", () => {
+    const salesOrdersMany: SalesOrder[] = Array.from({ length: 12 }, (_, i) => ({
+      ...salesOrders[0],
+      id: `SO-${i + 1}`,
+    }));
+    const [r] = reconcile({
+      transactions: [txn({ id: "crowd", amount: 1000, description: "wire" })],
+      salesOrders: salesOrdersMany,
+      purchaseOrders,
+      remittances: [
+        remittance({ id: "AR-1", remittanceNumber: "REM-100" }),
+        remittance({
+          id: "AR-2",
+          remittanceNumber: "REM-200",
+          reference: "INV-200",
+          invoiceNumbers: ["INV-200"],
+        }),
+      ],
+    });
+    expect(r.status).toBe("partial");
+    expect(r.lookup?.soFound).toBe(true);
+    expect(r.lookup?.remittanceFound).toBe(true);
+    const labels = (r.lookup?.supportingDocs ?? []).map((d) => d.label).join(" ");
+    expect(labels).toMatch(/REM-100/);
+    expect(labels).toMatch(/REM-200/);
+    expect(labels).toMatch(/SO-/);
+  });
+
+  it("does not list every amount-sharing SO when a remittance uniquely matches", () => {
+    const salesOrdersMany: SalesOrder[] = Array.from({ length: 12 }, (_, i) => ({
+      ...salesOrders[0],
+      id: `SO-${i + 1}`,
+    }));
+    const [r] = reconcile({
+      transactions: [txn({ id: "unique-rem", amount: 1000, description: "wire" })],
+      salesOrders: salesOrdersMany,
+      purchaseOrders,
+      remittances: [remittance()],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("remittance");
+    expect(r.lookup?.remittanceFound).toBe(true);
+    expect(r.lookup?.soFound).toBe(true);
+    const docs = r.lookup?.supportingDocs ?? [];
+    expect(docs.some((d) => d.label.includes("REM-100"))).toBe(true);
+    expect(docs.filter((d) => d.kind === "SO")).toHaveLength(0);
+  });
+});
+
+function emptyMatchCtx(
+  overrides: Partial<MatchContext> & Pick<MatchContext, "flow">,
+): MatchContext {
+  return {
+    txn: txn({ id: "ctx", amount: overrides.flow === "P2P" ? -500 : 500 }),
+    tokens: [],
+    soLoaded: 0,
+    poLoaded: 0,
+    remLoaded: 0,
+    soIdHits: 0,
+    poIdHits: 0,
+    poInvoiceHits: 0,
+    remRefHits: 0,
+    remWindowHits: 0,
+    remNamedHits: 0,
+    soPoAmountHits: 0,
+    attempts: [],
+    soDocs: [],
+    poDocs: [],
+    remDocs: [],
+    ...overrides,
+  };
+}
+
+describe("foundFlags", () => {
+  it("sets poFound from P2P id hits even when invoice and amount hits are zero", () => {
+    const flags = foundFlags(
+      emptyMatchCtx({
+        flow: "P2P",
+        poIdHits: 1,
+        poDocs: [{ kind: "PO", id: "PO-1", number: "PO-1", label: "PO PO-1" }],
+      }),
+    );
+    expect(flags.poFound).toBe(true);
+    expect(flags.soFound).toBe(false);
+  });
+
+  it("does not treat SO id hits as a P2P PO find", () => {
+    const flags = foundFlags(
+      emptyMatchCtx({
+        flow: "P2P",
+        soIdHits: 2,
+      }),
+    );
+    expect(flags.poFound).toBe(false);
   });
 });

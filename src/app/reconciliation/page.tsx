@@ -11,11 +11,16 @@ import {
   Spinner,
   StatusBadge,
 } from "@/components/ui";
-import type { MatchStatus, ReconciliationResult } from "@/lib/domain/types";
+import type {
+  MatchStatus,
+  ReconciliationResult,
+  SupportingDocRef,
+} from "@/lib/domain/types";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import {
   MATCH_PATTERN_LABELS,
-  matchedDocLabel,
+  MATCH_RULES,
+  matchedToDocs,
 } from "@/lib/recon/match-notes";
 import { useFetch } from "@/lib/useFetch";
 
@@ -66,6 +71,26 @@ export default function ReconciliationPage() {
         title="Reconciliation"
         subtitle="Bank-statement baseline: each payment is identified with supporting SO, PO, and remittance files. Unmatched means that supporting file is not in the system."
       />
+
+      <Card className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-900">Matching rules</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          How a bank line becomes Matched, Partial, or Unmatched. Matched to
+          always lists the remittance / PO / SO numbers used as evidence.
+        </p>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {MATCH_RULES.map((rule) => (
+            <div key={rule.title} className="rounded-lg bg-slate-50 px-3 py-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                {rule.title}
+              </dt>
+              <dd className="mt-1 text-xs leading-relaxed text-slate-600">
+                {rule.detail}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
 
       {loading ? <Spinner /> : null}
       {error ? <ErrorNote message={error} /> : null}
@@ -204,8 +229,8 @@ export default function ReconciliationPage() {
                             : "—"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-medium text-slate-700">
-                        {matchedDocLabel(r.matchedType, r.matchedId)}
+                      <td className="px-5 py-3">
+                        <MatchedToCell result={r} />
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-slate-500">
                         {r.confidence > 0
@@ -234,7 +259,29 @@ export default function ReconciliationPage() {
   );
 }
 
-function FoundChip({ label, found }: { label: string; found: boolean }) {
+function docNumbers(docs: SupportingDocRef[], kind: SupportingDocRef["kind"]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const doc of docs) {
+    if (doc.kind !== kind) continue;
+    const value = doc.number || doc.id;
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+}
+
+function FoundChip({
+  label,
+  found,
+  numbers,
+}: {
+  label: string;
+  found: boolean;
+  numbers?: string[];
+}) {
+  const shown = (numbers ?? []).slice(0, 3);
   return (
     <span
       className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
@@ -244,7 +291,27 @@ function FoundChip({ label, found }: { label: string; found: boolean }) {
       }`}
     >
       {label} {found ? "found" : "not found"}
+      {found && shown.length ? ` · ${shown.join(", ")}` : ""}
     </span>
+  );
+}
+
+function MatchedToCell({ result }: { result: ReconciliationResult }) {
+  const docs = matchedToDocs(result);
+  if (!docs.length) {
+    return <span className="text-slate-400">—</span>;
+  }
+  return (
+    <div className="flex max-w-xs flex-col gap-1">
+      {docs.map((doc) => (
+        <span
+          key={`${doc.kind}:${doc.id}`}
+          className="inline-flex w-fit rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-800"
+        >
+          {doc.label}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -256,15 +323,32 @@ function MatchNotes({ result }: { result: ReconciliationResult }) {
     );
   }
 
+  const docs = lookup.supportingDocs ?? [];
   const showSo = result.flow === "O2C";
   const showPo = result.flow === "P2P";
 
   return (
     <div className="space-y-1 text-xs leading-relaxed text-slate-600">
       <div className="flex flex-wrap gap-1">
-        {showSo ? <FoundChip label="SO" found={lookup.soFound} /> : null}
-        {showPo ? <FoundChip label="PO" found={lookup.poFound} /> : null}
-        <FoundChip label="Remittance" found={lookup.remittanceFound} />
+        {showSo ? (
+          <FoundChip
+            label="SO"
+            found={lookup.soFound}
+            numbers={docNumbers(docs, "SO")}
+          />
+        ) : null}
+        {showPo ? (
+          <FoundChip
+            label="PO"
+            found={lookup.poFound}
+            numbers={docNumbers(docs, "PO")}
+          />
+        ) : null}
+        <FoundChip
+          label="Remittance"
+          found={lookup.remittanceFound}
+          numbers={docNumbers(docs, "remittance")}
+        />
       </div>
       <div>
         <span className="font-medium text-slate-700">Source:</span> {lookup.source}

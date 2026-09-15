@@ -284,6 +284,7 @@ describe("reconcile remittances", () => {
     expect(r.lookup?.remittanceFound).toBe(true);
     expect(r.lookup?.source).toMatch(/2000000001/);
     expect(r.lookup?.target).toMatch(/remittance customer GBP/);
+    expect(r.lookup?.supportingDocs[0]?.label).toMatch(/2000000001/);
     expect(r.remediation).toBeUndefined();
   });
 
@@ -328,6 +329,10 @@ describe("reconcile remittances", () => {
     });
     expect(r.status).toBe("matched");
     expect(r.matchedId).toBe("SO-1");
+    expect(r.lookup?.supportingDocs.map((d) => d.kind)).toContain("SO");
+    expect(r.lookup?.supportingDocs.some((d) => d.label.includes("SO-1"))).toBe(
+      true,
+    );
   });
 
   it("extracts invoice-like tokens from mixed bank text", () => {
@@ -369,10 +374,18 @@ describe("reconcile remittances", () => {
         { ...rem, id: "AR-10", name: "Other Trust", invoiceNumbers: ["2000000099"] },
       ],
     });
-    expect(r.status).toBe("unmatched");
+    expect(r.status).toBe("partial");
+    expect(r.matchPattern).toBe("exhausted");
     expect(r.lookup?.remittanceFound).toBe(true);
     expect(r.lookup?.soFound).toBe(false);
     expect(r.lookup?.approach).toMatch(/remittance amount ±5d → 2/);
+    expect(r.lookup?.supportingDocs.map((d) => d.id).sort()).toEqual([
+      "AR-10",
+      "AR-9",
+    ]);
+    expect(r.lookup?.supportingDocs.some((d) => d.label.includes("2000000001"))).toBe(
+      true,
+    );
     expect(r.remediation).toMatch(/counterparty alias|invoice numbers/);
   });
 

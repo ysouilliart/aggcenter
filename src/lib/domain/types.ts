@@ -194,6 +194,16 @@ export interface ParseJob {
 export type MatchStatus = "matched" | "partial" | "unmatched";
 export type MatchedDocType = "SO" | "PO" | "remittance";
 
+/** Supporting SO / PO / remittance row used to identify a bank line. */
+export interface SupportingDocRef {
+  kind: MatchedDocType;
+  id: string;
+  /** Remittance number, PO number, invoice, or document id. */
+  number: string;
+  /** Full label for the Matched to column. */
+  label: string;
+}
+
 /** Winning (or last) lookup pattern used for a bank line. */
 export type MatchPattern =
   | "so_po_id"
@@ -217,6 +227,8 @@ export interface MatchLookup {
   poFound: boolean;
   candidateCount: number;
   tokens: string[];
+  /** Supporting documents found (winner first, then corroborating / candidates). */
+  supportingDocs: SupportingDocRef[];
 }
 
 export interface ReconciliationResult {

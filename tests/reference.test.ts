@@ -8,7 +8,7 @@ import {
   mapUkPurchaseOrders,
   mapUkRemittances,
 } from "@/lib/reference/fromExtracts";
-import { extractMatchTokens, isGbCountry } from "@/lib/reference/util";
+import { extractMatchTokens, isGbCountry, namesLooselyMatch } from "@/lib/reference/util";
 import { ingestReferenceDocuments } from "@/lib/reference/ingest";
 import { LocalJsonReferenceRepository } from "@/lib/reference/repository";
 import { cashObjectPrefix } from "@/lib/cash/paths";
@@ -296,6 +296,48 @@ describe("zero-tolerance match helpers", () => {
     expect(MATCH_RULES.some((rule) => /Date is not a constraint/.test(rule.detail))).toBe(
       true,
     );
+  });
+});
+
+describe("namesLooselyMatch against HSBC narrative", () => {
+  it("matches a full remittance name that appears in the narrative", () => {
+    expect(
+      namesLooselyMatch(
+        "NHS Grampian",
+        "NHS GRAMPIAN, /SREF/064584, /DbAcct/83153100703002",
+      ),
+    ).toBe(true);
+  });
+
+  it("matches truncated HSBC names via distinctive tokens", () => {
+    expect(
+      namesLooselyMatch(
+        "Isle of Wight NHS Trust",
+        "28290174147, ISLE OF WIGHT NHS, /SREF/017995",
+      ),
+    ).toBe(true);
+    expect(
+      namesLooselyMatch(
+        "Worcestershire Acute Hospitals NHS Trust",
+        "8690466923, WORCESTERSHIRE ACU, /SREF/019523",
+      ),
+    ).toBe(true);
+    expect(
+      namesLooselyMatch("2gether Support Solutions Ltd", "0, 2GETHER SUPPORT SO, /SREF/017989"),
+    ).toBe(true);
+    expect(
+      namesLooselyMatch("LNWH NHS Trust", "205513, LNWH, /SREF/017992"),
+    ).toBe(true);
+  });
+
+  it("does not treat an HSBC payment id as a party name", () => {
+    expect(namesLooselyMatch("NHS Grampian", "064584")).toBe(false);
+    expect(namesLooselyMatch("FLEET OPERATIONS LIMITED", "67CAWQC-278155")).toBe(false);
+  });
+
+  it("does not match a different NHS board on generic wording", () => {
+    expect(namesLooselyMatch("NHS Grampian", "NHS Highland BACS")).toBe(false);
+    expect(namesLooselyMatch("NHS Grampian", "NHS BACS PAYMENT /SREF/064584")).toBe(false);
   });
 });
 

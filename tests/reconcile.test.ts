@@ -458,6 +458,192 @@ describe("analysis plan and remittance precedence", () => {
   });
 });
 
+describe("remittance counterparty name in bank narrative", () => {
+  const grampian: Remittance = {
+    id: "AR-GRAM",
+    party: "customer",
+    name: "NHS Grampian",
+    reference: "2000000100",
+    amount: 16848,
+    currency: "GBP",
+    date: "2026-08-28",
+    remittanceNumber: "BACS",
+    invoiceNumbers: ["2000000100"],
+  };
+  const highland: Remittance = {
+    ...grampian,
+    id: "AR-HIGH",
+    name: "NHS Highland",
+    reference: "2000000101",
+    invoiceNumbers: ["2000000101"],
+  };
+
+  it("disambiguates two exact-amount remittances using narrative, not the HSBC bank-ref counterparty", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "hsbc-name",
+          amount: 16848,
+          currency: "GBP",
+          counterparty: "064584",
+          bankReference: "064584",
+          customerReference: "NHS GRAMPIAN",
+          narrative: "NHS GRAMPIAN, /SREF/064584, /DbAcct/83153100703002",
+          description: "NHS GRAMPIAN, /SREF/064584, /DbAcct/83153100703002",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [grampian, highland],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("remittance");
+    expect(r.matchedId).toBe("AR-GRAM");
+    expect(r.matchPattern).toBe("remittance_amount_name");
+    expect(r.lookup?.remittanceFound).toBe(true);
+  });
+
+  it("matches a truncated HSBC narrative against the full remittance legal name", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "iow",
+          amount: 2472000,
+          currency: "GBP",
+          counterparty: "017995",
+          bankReference: "017995",
+          narrative: "28290174147, ISLE OF WIGHT NHS, /SREF/017995, /DbAcct/60708010014756",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [
+        {
+          id: "AR-IOW",
+          party: "customer",
+          name: "Isle of Wight NHS Trust",
+          reference: "2000000200",
+          amount: 2472000,
+          currency: "GBP",
+          date: "2026-08-27",
+          remittanceNumber: "BACS",
+          invoiceNumbers: ["2000000200"],
+        },
+        {
+          id: "AR-QVH",
+          party: "customer",
+          name: "The Queen Victoria Hospital NHS Trust",
+          reference: "2000000201",
+          amount: 2472000,
+          currency: "GBP",
+          date: "2026-08-27",
+          remittanceNumber: "BACS",
+          invoiceNumbers: ["2000000201"],
+        },
+      ],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedId).toBe("AR-IOW");
+    expect(r.matchPattern).toBe("remittance_amount_name");
+  });
+
+  it("does not unique-match on generic NHS wording among several trusts", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "generic-nhs",
+          amount: 16848,
+          currency: "GBP",
+          counterparty: "064584",
+          narrative: "NHS BACS PAYMENT, /SREF/064584",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [grampian, highland],
+    });
+    expect(r.status).toBe("partial");
+    expect(r.matchedId).toBeUndefined();
+    expect(r.matchPattern).toBe("exhausted");
+  });
+
+  it("keeps two remittances with the same name and amount as partial", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "dup-name",
+          amount: -87891,
+          currency: "GBP",
+          counterparty: "67CAWQC-278155",
+          bankReference: "67CAWQC-278155",
+          narrative: "67CAWQC-278155, FLEET OPERATIONS",
+        }),
+      ],
+      salesOrders: [],
+      purchaseOrders: [],
+      remittances: [
+        {
+          id: "AP-1",
+          party: "vendor",
+          name: "FLEET OPERATIONS LIMITED",
+          reference: "INV-FLEET-A",
+          amount: 87891,
+          currency: "GBP",
+          date: "2026-08-25",
+          remittanceNumber: "114001",
+          invoiceNumbers: ["INV-FLEET-A"],
+        },
+        {
+          id: "AP-2",
+          party: "vendor",
+          name: "FLEET OPERATIONS LIMITED",
+          reference: "INV-FLEET-B",
+          amount: 87891,
+          currency: "GBP",
+          date: "2026-08-26",
+          remittanceNumber: "114002",
+          invoiceNumbers: ["INV-FLEET-B"],
+        },
+      ],
+    });
+    expect(r.status).toBe("partial");
+    expect(r.matchedId).toBeUndefined();
+    expect(r.lookup?.remittanceFound).toBe(true);
+  });
+
+  it("does not override an SO id hit that already matches the amount", () => {
+    const [r] = reconcile({
+      transactions: [
+        txn({
+          id: "so-wins",
+          amount: 16848,
+          currency: "GBP",
+          reference: "SO-9",
+          narrative: "NHS GRAMPIAN SO-9",
+        }),
+      ],
+      salesOrders: [
+        {
+          id: "SO-9",
+          customer: "NHS Grampian",
+          amount: 16848,
+          currency: "GBP",
+          orderDate: "2026-08-01",
+          dueDate: "2026-08-01",
+          status: "invoiced",
+        },
+      ],
+      purchaseOrders: [],
+      remittances: [grampian, highland],
+    });
+    expect(r.status).toBe("matched");
+    expect(r.matchedType).toBe("SO");
+    expect(r.matchedId).toBe("SO-9");
+    expect(r.matchPattern).toBe("so_po_id");
+    expect(r.lookup?.remittanceFound).toBe(true);
+  });
+});
+
 function emptyMatchCtx(
   overrides: Partial<MatchContext> & Pick<MatchContext, "flow">,
 ): MatchContext {

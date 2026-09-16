@@ -110,11 +110,68 @@ export function normalizePartyName(value: string | undefined): string {
     .toUpperCase()
     .replace(/[^A-Z0-9\s]/g, " ")
     .replace(
-      /\b(LTD|LIMITED|PLC|NHS|TRUST|UHB|FT|HOSPITALS?|HOSPITAL|UNIVERSITY|THE|AND|&)\b/g,
+      /\b(LTD|LIMITED|PLC|LLC|NHS|TRUST|UHB|ULHB|LHB|FT|FOUNDATION|HOSPITALS?|HOSPITAL|UNIVERSITY|THE|AND|&)\b/g,
       " ",
     )
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Tokens that are too common in UK bank narratives / NHS legal names to
+ * isolate a counterparty on their own. Used only for overlap scoring after
+ * {@link normalizePartyName}; the full normalized string may still substring-match.
+ */
+const GENERIC_NAME_TOKENS = new Set([
+  "HEALTH",
+  "CARE",
+  "GROUP",
+  "BOARD",
+  "BANK",
+  "GBS",
+  "NATWEST",
+  "PAYMENT",
+  "TRANSFER",
+  "RECEIPT",
+  "INVOICE",
+  "REMI",
+  "SREF",
+  "DBACCT",
+  "NONREF",
+  "ADVICE",
+  "CONFIRMS",
+  "BACS",
+  "CHAPS",
+  "FASTER",
+  "PAYROLL",
+  "WAGES",
+  "HMRC",
+  "VAT",
+  "CASH",
+  "CHECK",
+  "CHEQUE",
+  "DIRECT",
+  "DEBIT",
+  "CREDIT",
+  "CENTRE",
+  "CENTER",
+  "AUTHORITY",
+  "AUTH",
+  "UNI",
+  "FOUND",
+  "HEALTHCARE",
+  "SERVICES",
+  "SERVICE",
+  "T",
+  "A",
+]);
+
+function distinctiveNameTokens(normalized: string): string[] {
+  return normalized.split(" ").filter((t) => t.length >= 4 && !GENERIC_NAME_TOKENS.has(t));
+}
+
+function hasWholeToken(haystack: string, token: string): boolean {
+  return new RegExp(`(?:^|\\s)${token}(?:\\s|$)`).test(haystack);
 }
 
 const GENERIC_REFS = new Set([
@@ -148,11 +205,62 @@ export function extractMatchTokens(parts: Array<string | undefined>): string[] {
   return [...new Set(found.map((t) => t.toUpperCase().replace(/\s+/g, "")))];
 }
 
+/**
+ * True when a remittance counterparty name overlaps a bank free-text blob
+ * (narrative / description / customer ref / counterparty / bank ref).
+ *
+ * HSBC PDF lines store a payment id in `counterparty` and truncate the
+ * legal name in Narrative (e.g. "ISLE OF WIGHT NHS", "WORCESTERSHIRE ACU"),
+ * so substring-of-full-name is not enough. Distinctive-token overlap covers
+ * truncation; generic tokens (HEALTH, GBS, BACS, …) cannot unique-match.
+ */
 export function namesLooselyMatch(a: string | undefined, b: string | undefined): boolean {
   const na = normalizePartyName(a);
   const nb = normalizePartyName(b);
-  if (na.length < 6 || nb.length < 6) return false;
-  return na.includes(nb) || nb.includes(na);
+  if (!na || !nb) return false;
+
+  if (na.length >= 6 && nb.length >= 6 && (na.includes(nb) || nb.includes(na))) {
+    return true;
+  }
+
+  // Short remainder after legal-form stripping, e.g. "LNWH NHS Trust" → "LNWH".
+  if (na.length >= 4 && na.length < 6 && !na.includes(" ") && hasWholeToken(nb, na)) {
+    return true;
+  }
+  if (nb.length >= 4 && nb.length < 6 && !nb.includes(" ") && hasWholeToken(na, nb)) {
+    return true;
+  }
+
+  return distinctiveTokenOverlap(na, nb);
+}
+
+function distinctiveTokenOverlap(na: string, nb: string): boolean {
+  const aToks = distinctiveNameTokens(na);
+  const bToks = distinctiveNameTokens(nb);
+  if (aToks.length === 0 || bToks.length === 0) return false;
+
+  const [nameToks, hayToks] =
+    aToks.length <= bToks.length ? [aToks, bToks] : [bToks, aToks];
+  const hay = new Set(hayToks);
+  const hits = nameToks.filter(
+    (t) =>
+      hay.has(t) ||
+      hayToks.some(
+        (h) =>
+          (h.startsWith(t) || t.startsWith(h)) && Math.min(t.length, h.length) >= 6,
+      ),
+  );
+  if (hits.length === 0) return false;
+  const longestHit = Math.max(...hits.map((t) => t.length));
+  if (longestHit >= 8) return true;
+  if (nameToks.length === 1) return nameToks[0].length >= 8 && hits.length === 1;
+  if (nameToks.length === 2) return hits.length === 2;
+  return hits.length >= 2;
+}
+
+/** Join bank free-text fields so a payment-id `counterparty` cannot hide Narrative. */
+export function bankPartyText(parts: Array<string | undefined>): string {
+  return parts.filter((v): v is string => Boolean(v && v.trim())).join(" ");
 }
 
 export function daysBetween(a: string, b: string): number {

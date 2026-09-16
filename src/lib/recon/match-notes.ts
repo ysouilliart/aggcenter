@@ -25,7 +25,7 @@ export const MATCH_PATTERN_LABELS: Record<MatchPattern, string> = {
   po_invoice_number: "PO/AP invoice number",
   remittance_invoice_ref: "remittance invoice/payment ref",
   remittance_amount_window: "unique remittance exact amount",
-  remittance_amount_name: "remittance exact amount + counterparty name",
+  remittance_amount_name: "remittance exact amount + counterparty name in bank text",
   so_po_unique_amount: "unique SO/PO exact amount",
   exhausted: "no unique match",
 };
@@ -40,7 +40,7 @@ export const MATCH_RULES: { title: string; detail: string }[] = [
   {
     title: "Lookup order",
     detail:
-      "(1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance at the exact amount, (5) same plus counterparty name, (6) unique SO/PO at the exact amount. Amount has 0 tolerance. Date is not a constraint.",
+      "(1) SO/PO id in bank text, (2) PO/AP invoice or PO number, (3) remittance invoice or remittance number, (4) unique remittance at the exact amount, (5) same plus counterparty name in bank narrative/free-text, (6) unique SO/PO at the exact amount. Amount has 0 tolerance. Date is not a constraint.",
   },
   {
     title: "Matched",

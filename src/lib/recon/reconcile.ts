@@ -9,6 +9,7 @@ import type {
 } from "../domain/types";
 import { formatCentsPlain } from "../money";
 import {
+  bankPartyText,
   extractMatchTokens,
   isDistinctiveReference,
   namesLooselyMatch,
@@ -48,6 +49,17 @@ function txnTokens(txn: BankTransaction): string[] {
     txn.customerReference,
     txn.bankReference,
     txn.counterparty,
+  ]);
+}
+
+/** Narrative + other free-text; HSBC stores a bank payment id in `counterparty`. */
+function txnPartyText(txn: BankTransaction): string {
+  return bankPartyText([
+    txn.narrative,
+    txn.description,
+    txn.customerReference,
+    txn.counterparty,
+    txn.bankReference,
   ]);
 }
 
@@ -100,7 +112,7 @@ function uniqueExactRemittance(
     return {
       rem: remNamed[0],
       pattern: "remittance_amount_name",
-      approach: `remittance ${AMOUNT_RULE} + counterparty name → 1`,
+      approach: `remittance ${AMOUNT_RULE} + counterparty name in bank text → 1`,
       confidence: 0.85,
     };
   }
@@ -256,12 +268,12 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
     });
 
     const remNamed = remWindow.filter((rem) =>
-      namesLooselyMatch(rem.name, txn.counterparty ?? txn.bankReference ?? txn.narrative),
+      namesLooselyMatch(rem.name, txnPartyText(txn)),
     );
     ctx.remNamedHits = remNamed.length;
     ctx.attempts.push({
       pattern: "remittance_amount_name",
-      approach: `remittance ${AMOUNT_RULE} + counterparty name`,
+      approach: `remittance ${AMOUNT_RULE} + counterparty name in bank text`,
       hits: remNamed.length,
     });
 
@@ -515,7 +527,7 @@ export function reconcile(input: ReconcileInput): ReconciliationResult[] {
         {
           status: "matched",
           pattern: "remittance_amount_name",
-          approach: `remittance ${AMOUNT_RULE} + counterparty name → 1`,
+          approach: `remittance ${AMOUNT_RULE} + counterparty name in bank text → 1`,
           candidateCount: 1,
         },
       );

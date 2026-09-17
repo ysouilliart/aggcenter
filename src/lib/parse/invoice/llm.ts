@@ -6,6 +6,7 @@
  */
 
 import type { InvoiceClassifyConfig } from "../../config";
+import { completeOpenAiJsonObject, truncateLlmText } from "../openaiCompatible";
 import { INVOICE_LLM_OUTPUT_SCHEMA } from "./schema";
 
 export interface InvoiceLlmRequest {
@@ -17,8 +18,6 @@ export interface InvoiceLlmRequest {
 export interface InvoiceLlmClient {
   complete(request: InvoiceLlmRequest): Promise<unknown>;
 }
-
-const MAX_TEXT_CHARS = 24_000;
 
 const SYSTEM_PROMPT = `You classify supplier invoices from extracted plain text.
 Return ONE JSON object that matches the provided schema. No markdown, no commentary.
@@ -37,10 +36,7 @@ Rules:
 Schema:
 ${JSON.stringify(INVOICE_LLM_OUTPUT_SCHEMA)}`;
 
-export function truncateInvoiceText(text: string, max = MAX_TEXT_CHARS): string {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max)}\n\n[truncated ${text.length - max} characters]`;
-}
+export const truncateInvoiceText = truncateLlmText;
 
 export function buildLlmMessages(fileName: string, text: string): { role: "system" | "user"; content: string }[] {
   return [
@@ -52,58 +48,15 @@ export function buildLlmMessages(fileName: string, text: string): { role: "syste
   ];
 }
 
-function parseJsonContent(content: string): unknown {
-  const trimmed = content.trim();
-  const unfenced = trimmed.startsWith("```")
-    ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
-    : trimmed;
-  return JSON.parse(unfenced) as unknown;
-}
-
 export function createOpenAiInvoiceLlmClient(config: InvoiceClassifyConfig): InvoiceLlmClient {
   return {
     async complete(request) {
-      if (!config.apiKey) {
-        throw new Error("INVOICE_LLM_API_KEY is not configured");
-      }
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), config.timeoutMs);
-      try {
-        const res = await fetch(`${config.apiBase}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${config.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: request.model || config.model,
-            temperature: 0,
-            response_format: { type: "json_object" },
-            messages: buildLlmMessages(request.fileName, request.text),
-          }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          throw new Error(`LLM HTTP ${res.status}`);
-        }
-        const body = (await res.json()) as {
-          choices?: { message?: { content?: string } }[];
-        };
-        const content = body.choices?.[0]?.message?.content;
-        if (!content) throw new Error("LLM response had no content");
-        return parseJsonContent(content);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "LLM classify failed";
-        // Do not log invoice text — only file name and model.
-        console.warn("[invoice-llm] classify failed", {
-          fileName: request.fileName,
-          model: request.model || config.model,
-          error: message,
-        });
-        throw err instanceof Error ? err : new Error(message);
-      } finally {
-        clearTimeout(timer);
-      }
+      return completeOpenAiJsonObject(config, {
+        fileName: request.fileName,
+        model: request.model || config.model,
+        messages: buildLlmMessages(request.fileName, request.text),
+        logLabel: "invoice-llm",
+      });
     },
   };
 }

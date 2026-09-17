@@ -395,6 +395,16 @@ export interface IntegrationStatus {
     warning?: string;
     seedSamples: boolean;
   };
+  peopleDocsClassify: {
+    mode: "llm" | "static";
+    llmEnabled: boolean;
+    llmReady: boolean;
+    model: string;
+    provider: "openai" | "xai";
+    warning?: string;
+    seedSamples: boolean;
+    prefix: string;
+  };
 }
 
 export function getIntegrationStatus(): IntegrationStatus {
@@ -445,6 +455,16 @@ export function getIntegrationStatus(): IntegrationStatus {
       staticFastPath: config.invoiceClassify.staticFastPath,
       warning: config.invoiceClassify.warning,
       seedSamples: config.invoiceSeedSamples,
+    },
+    peopleDocsClassify: {
+      mode: config.peopleDocsClassify.llmReady ? "llm" : "static",
+      llmEnabled: config.peopleDocsClassify.llmEnabled,
+      llmReady: config.peopleDocsClassify.llmReady,
+      model: config.peopleDocsClassify.model,
+      provider: config.peopleDocsClassify.provider,
+      warning: config.peopleDocsClassify.warning,
+      seedSamples: config.peopleDocsSeedSamples,
+      prefix: config.peopleDocsPrefix,
     },
   };
 }

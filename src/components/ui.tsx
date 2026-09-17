@@ -100,6 +100,21 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+export function ConfidencePill({ confidence, missing }: { confidence: number; missing?: boolean }) {
+  const tone = missing
+    ? "bg-slate-100 text-slate-600 ring-slate-600/20"
+    : confidence >= 80
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+      : confidence >= 50
+        ? "bg-amber-50 text-amber-700 ring-amber-600/20"
+        : "bg-rose-50 text-rose-700 ring-rose-600/20";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${tone}`}>
+      {missing ? "missing" : `${confidence}%`}
+    </span>
+  );
+}
+
 const SEVERITY_STYLES: Record<string, string> = {
   high: "bg-rose-50 text-rose-700 ring-rose-600/20",
   medium: "bg-amber-50 text-amber-700 ring-amber-600/20",

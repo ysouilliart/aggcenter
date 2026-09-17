@@ -76,6 +76,12 @@ export interface AppConfig {
   invoiceSeedSamples: boolean;
   /** Invoice classify strategy (static regex/overlays vs schema-constrained LLM). */
   invoiceClassify: InvoiceClassifyConfig;
+  /** People-docs parser root (`aggcenter/peopleDocs/{landing,processed,archived,anomaly}/`). */
+  peopleDocsPrefix: string;
+  /** When true, empty landing is seeded from bundled sample people docs. Off by default. */
+  peopleDocsSeedSamples: boolean;
+  /** People-docs classify — independent of invoice LLM (own kill switch + key). */
+  peopleDocsClassify: InvoiceClassifyConfig;
   /** EU VIES REST API base (no trailing path). Public, no key. */
   viesApiUrl: string;
 }
@@ -158,6 +164,69 @@ export function resolveInvoiceClassifyConfig(
   };
 }
 
+/**
+ * People-docs classify is independent of invoices.
+ * Kill switch: PEOPLE_DOCS_LLM_CLASSIFY=false keeps people docs static even when
+ * an invoice LLM key is present. Auto-enable (unset) only when a people-docs key
+ * or lab fallback key exists — not merely because invoice classify is on.
+ * Key order: PEOPLE_DOCS_LLM_API_KEY, then INVOICE_LLM_API_KEY / OPENAI_API_KEY /
+ * XAI_API_KEY. Production HR should set a dedicated key.
+ */
+export function resolvePeopleDocsClassifyConfig(
+  env: Record<string, string | undefined> = process.env,
+): InvoiceClassifyConfig {
+  const invoice = resolveInvoiceClassifyConfig(env);
+  const dedicatedKey = env.PEOPLE_DOCS_LLM_API_KEY?.trim() || undefined;
+  const labFallbackKey = firstNonEmpty(
+    env.INVOICE_LLM_API_KEY,
+    env.OPENAI_API_KEY,
+    env.XAI_API_KEY,
+  );
+  const apiKey = firstNonEmpty(dedicatedKey, labFallbackKey);
+  const llmEnabled = flag(env.PEOPLE_DOCS_LLM_CLASSIFY, bool(apiKey));
+  const llmReady = llmEnabled && bool(apiKey);
+  const explicitBase = env.PEOPLE_DOCS_LLM_API_BASE?.trim() || undefined;
+  const looksXai =
+    Boolean(explicitBase?.includes("api.x.ai")) ||
+    Boolean(apiKey?.startsWith("xai-")) ||
+    Boolean(env.XAI_API_KEY?.trim() && apiKey === env.XAI_API_KEY.trim());
+  const provider: "openai" | "xai" = looksXai ? "xai" : invoice.provider;
+  const model =
+    env.PEOPLE_DOCS_LLM_MODEL?.trim() ||
+    invoice.model ||
+    (provider === "xai" ? "grok-4-fast-non-reasoning" : "gpt-4o-mini");
+  const apiBase = (
+    explicitBase ||
+    invoice.apiBase ||
+    (provider === "xai" ? "https://api.x.ai/v1" : "https://api.openai.com/v1")
+  ).replace(/\/+$/, "");
+  const timeoutOverride = Number(env.PEOPLE_DOCS_LLM_TIMEOUT_MS);
+  const timeoutMs =
+    Number.isFinite(timeoutOverride) && timeoutOverride > 0 ? timeoutOverride : invoice.timeoutMs;
+  const classifyFlag = env.PEOPLE_DOCS_LLM_CLASSIFY;
+  const forcedOff =
+    classifyFlag != null && classifyFlag.trim() !== "" && !flag(classifyFlag, true);
+  let warning: string | undefined;
+  if (forcedOff) {
+    warning =
+      "People docs LLM classify is off (PEOPLE_DOCS_LLM_CLASSIFY=false). Using the static parser. Invoice classify is unchanged.";
+  } else if (!bool(apiKey)) {
+    warning =
+      "People docs LLM classify is off. Add PEOPLE_DOCS_LLM_API_KEY for production HR, or a lab fallback INVOICE_LLM_API_KEY / OPENAI_API_KEY / XAI_API_KEY. Using the static parser.";
+  }
+  return {
+    llmEnabled,
+    llmReady,
+    staticFastPath: invoice.staticFastPath,
+    provider,
+    model,
+    apiBase,
+    apiKey,
+    timeoutMs,
+    warning,
+  };
+}
+
 function withTrailingSlash(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;
 }
@@ -219,6 +288,8 @@ export function getConfig(): AppConfig {
     (snowflake.configured ? "snowflake" : "local");
 
   const cashFiles = resolveCashFilePrefixes();
+  const invoiceClassify = resolveInvoiceClassifyConfig();
+  const peopleDocsClassify = resolvePeopleDocsClassifyConfig();
 
   return {
     storageProvider,
@@ -242,7 +313,12 @@ export function getConfig(): AppConfig {
       process.env.INVOICE_PREFIX || "aggcenter/invoices",
     ),
     invoiceSeedSamples: flag(process.env.INVOICE_SEED_SAMPLES, false),
-    invoiceClassify: resolveInvoiceClassifyConfig(),
+    invoiceClassify,
+    peopleDocsPrefix: withTrailingSlash(
+      process.env.PEOPLE_DOCS_PREFIX || "aggcenter/peopleDocs",
+    ),
+    peopleDocsSeedSamples: flag(process.env.PEOPLE_DOCS_SEED_SAMPLES, false),
+    peopleDocsClassify,
     viesApiUrl: (process.env.VIES_API_URL || "https://ec.europa.eu/taxation_customs/vies/rest-api").replace(
       /\/+$/,
       "",

@@ -91,7 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const workspace = workspaceFromPath(pathname);
   const items = NAV[workspace];
   const hint = WORKSPACES.find((w) => w.id === workspace)?.hint ?? "";
-  const fillViewport = workspace === "people";
+  const fillViewport =
+    workspace === "people" ||
+    pathname === "/suppliers/records" ||
+    pathname === "/suppliers/review";
 
   return (
     <div className={`flex overflow-x-hidden ${fillViewport ? "h-dvh" : "min-h-screen"}`}>

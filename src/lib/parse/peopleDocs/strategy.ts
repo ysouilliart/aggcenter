@@ -37,7 +37,7 @@ function withMode(
 }
 
 function resolveConfig(options?: PeopleDocClassifyOptions): InvoiceClassifyConfig {
-  return options?.config ?? getConfig().invoiceClassify;
+  return options?.config ?? getConfig().peopleDocsClassify;
 }
 
 function resolveClient(config: InvoiceClassifyConfig, options?: PeopleDocClassifyOptions): PeopleDocLlmClient {
@@ -93,7 +93,7 @@ export async function classifyExtractedPeopleDoc(
   }
 }
 
-export function getPeopleDocClassifyStatus(config = getConfig().invoiceClassify) {
+export function getPeopleDocClassifyStatus(config = getConfig().peopleDocsClassify) {
   return {
     mode: config.llmReady ? ("llm" as const) : ("static" as const),
     llmEnabled: config.llmEnabled,

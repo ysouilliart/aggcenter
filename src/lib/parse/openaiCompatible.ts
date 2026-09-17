@@ -1,7 +1,7 @@
 /**
  * Shared OpenAI-compatible chat/completions client for classify.
- * Invoices and people docs use the same key, host, and request shape.
- * Do not log extracted document text.
+ * Callers pass a resolved InvoiceClassifyConfig (invoice and people docs
+ * resolve keys independently). Do not log extracted document text.
  */
 
 import type { InvoiceClassifyConfig } from "../config";
@@ -28,10 +28,11 @@ export async function completeOpenAiJsonObject(
     model: string;
     messages: { role: "system" | "user"; content: string }[];
     logLabel: string;
+    missingKeyError?: string;
   },
 ): Promise<unknown> {
   if (!config.apiKey) {
-    throw new Error("INVOICE_LLM_API_KEY is not configured");
+    throw new Error(input.missingKeyError ?? "INVOICE_LLM_API_KEY is not configured");
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);

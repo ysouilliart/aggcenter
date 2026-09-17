@@ -3,7 +3,7 @@ import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { InvoiceClassifyConfig } from "@/lib/config";
-import { getConfig, resolvePeopleDocsClassifyConfig } from "@/lib/config";
+import { getConfig, resolveInvoiceClassifyConfig, resolvePeopleDocsClassifyConfig } from "@/lib/config";
 import { folderForPeopleDocStatus } from "@/lib/peopleDocs/fromParse";
 import {
   ingestPeopleDocs,
@@ -348,30 +348,62 @@ describe("people doc ingest", () => {
     expect(again?.agreementId).toBe("AGR-2026-0441");
   });
 
-  it("defaults people-docs prefix and seed off, and shares the invoice LLM key", () => {
+  it("resolves people-docs LLM independently of invoice classify", () => {
     expect(getConfig().peopleDocsPrefix).toBe("aggcenter/peopleDocs/");
     expect(getConfig().peopleDocsSeedSamples).toBe(false);
-    const cfg = getConfig();
-    expect(cfg.peopleDocsClassify).toBe(cfg.invoiceClassify);
-    const off = resolvePeopleDocsClassifyConfig({});
-    expect(off.llmReady).toBe(false);
-    expect(off.warning).toMatch(/INVOICE_LLM_API_KEY/i);
-    const on = resolvePeopleDocsClassifyConfig({
-      INVOICE_LLM_API_KEY: "sk-test",
+
+    const unset = resolvePeopleDocsClassifyConfig({});
+    expect(unset.llmReady).toBe(false);
+    expect(unset.warning).toMatch(/PEOPLE_DOCS_LLM_API_KEY/i);
+
+    const invoiceOnPeopleOff = {
+      INVOICE_LLM_API_KEY: "sk-inv",
+      PEOPLE_DOCS_LLM_CLASSIFY: "false",
+    };
+    expect(resolveInvoiceClassifyConfig(invoiceOnPeopleOff).llmReady).toBe(true);
+    expect(resolveInvoiceClassifyConfig(invoiceOnPeopleOff).apiKey).toBe("sk-inv");
+    const peopleOff = resolvePeopleDocsClassifyConfig(invoiceOnPeopleOff);
+    expect(peopleOff.llmReady).toBe(false);
+    expect(peopleOff.llmEnabled).toBe(false);
+    expect(peopleOff.warning).toMatch(/PEOPLE_DOCS_LLM_CLASSIFY=false/i);
+
+    const dedicated = resolvePeopleDocsClassifyConfig({
+      INVOICE_LLM_API_KEY: "sk-inv",
+      PEOPLE_DOCS_LLM_API_KEY: "sk-hr",
+      PEOPLE_DOCS_LLM_MODEL: "hr-model",
+      PEOPLE_DOCS_LLM_API_BASE: "https://llm.hr.test/v1",
+      PEOPLE_DOCS_LLM_TIMEOUT_MS: "12000",
     });
-    expect(on.llmReady).toBe(true);
-    expect(on.apiKey).toBe("sk-test");
-    const viaOpenAi = resolvePeopleDocsClassifyConfig({
-      OPENAI_API_KEY: "sk-oa",
+    expect(dedicated.llmReady).toBe(true);
+    expect(dedicated.apiKey).toBe("sk-hr");
+    expect(dedicated.model).toBe("hr-model");
+    expect(dedicated.apiBase).toBe("https://llm.hr.test/v1");
+    expect(dedicated.timeoutMs).toBe(12_000);
+    expect(resolveInvoiceClassifyConfig({
+      INVOICE_LLM_API_KEY: "sk-inv",
+      PEOPLE_DOCS_LLM_API_KEY: "sk-hr",
+    }).apiKey).toBe("sk-inv");
+
+    const fallback = resolvePeopleDocsClassifyConfig({
+      INVOICE_LLM_API_KEY: "sk-inv",
     });
-    expect(viaOpenAi.llmReady).toBe(true);
-    expect(viaOpenAi.apiKey).toBe("sk-oa");
-    const forcedOff = resolvePeopleDocsClassifyConfig({
-      INVOICE_LLM_API_KEY: "sk-test",
+    expect(fallback.llmReady).toBe(true);
+    expect(fallback.apiKey).toBe("sk-inv");
+
+    const invoiceClassifyOff = {
+      INVOICE_LLM_API_KEY: "sk-inv",
       INVOICE_LLM_CLASSIFY: "false",
-    });
-    expect(forcedOff.llmReady).toBe(false);
-    expect(forcedOff.warning).toMatch(/INVOICE_LLM_CLASSIFY=false/i);
+    };
+    expect(resolveInvoiceClassifyConfig(invoiceClassifyOff).llmReady).toBe(false);
+    expect(resolvePeopleDocsClassifyConfig(invoiceClassifyOff).llmReady).toBe(true);
+    expect(resolvePeopleDocsClassifyConfig(invoiceClassifyOff).apiKey).toBe("sk-inv");
+
+    const peopleOnly = {
+      PEOPLE_DOCS_LLM_API_KEY: "sk-hr-only",
+    };
+    expect(resolveInvoiceClassifyConfig(peopleOnly).llmReady).toBe(false);
+    expect(resolvePeopleDocsClassifyConfig(peopleOnly).llmReady).toBe(true);
+    expect(resolvePeopleDocsClassifyConfig(peopleOnly).apiKey).toBe("sk-hr-only");
   });
 });
 
@@ -418,7 +450,7 @@ describe("parsePeopleDocument", () => {
 
     const locked = createOpenAiPeopleDocLlmClient(llmConfig({ apiKey: undefined }));
     await expect(locked.complete({ fileName: "a.txt", text: "secret-hr", model: "m" })).rejects.toThrow(
-      /INVOICE_LLM_API_KEY/,
+      /PEOPLE_DOCS_LLM_API_KEY/,
     );
 
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 429 })));

@@ -40,8 +40,9 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
 - **People docs** — HR agreements and policies. Split view with a document list
   and field-level confidence pills (agreement ID, requestor, type, subtype,
   business function, ResMed entity, start/end dates, auto-renew, perpetual).
-  Hybrid classify: static labelled regex is the floor; the LLM fills gaps;
-  Reprocess re-runs parse. Folders:
+  Hybrid classify: static labelled regex is the floor; the LLM fills gaps
+  (`PEOPLE_DOCS_LLM_*`, independent of invoice classify). Reprocess re-runs parse.
+  Folders:
   `aggcenter/peopleDocs/{landing,processed,archived,anomaly}/`.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),
   **Snowflake** (reference data) and an optional external API, all defaulting to
@@ -366,7 +367,8 @@ auto-promoted to processed.
 
 Put the key in `.env.local` for local dev, or as a Cursor **Secret**
 (`INVOICE_LLM_API_KEY`) in Cloud Agents — never commit it. xAI keys (`xai-…`
-or `XAI_API_KEY`) select `https://api.x.ai/v1` automatically.
+or `XAI_API_KEY`) select `https://api.x.ai/v1` automatically. Invoice classify
+is independent of people docs (`PEOPLE_DOCS_LLM_CLASSIFY` / `PEOPLE_DOCS_LLM_API_KEY`).
 
 When LLM classify is off or the key is missing, the Inbox, APIs, and
 Integrations page show a warning and the static parser runs.
@@ -407,16 +409,24 @@ with a confidence pill:
 - Auto renew
 - Perpetual
 
-Classify is identical to invoices: static labelled regex first, LLM overlay
-only fills empty fields, then static fallback if the model fails. People docs
-use the same `INVOICE_LLM_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` — there
-is no separate people-docs key. **Reprocess** re-runs parse on the stored file.
-Partial / low-confidence results stay in anomaly.
+Classify is the same hybrid as invoices: static labelled regex first, LLM
+overlay only fills empty fields, then static fallback if the model fails.
+People-docs LLM is **independent** of invoice classify. Set
+`PEOPLE_DOCS_LLM_CLASSIFY=false` to keep people docs on the static parser while
+invoices stay LLM. Production HR should set `PEOPLE_DOCS_LLM_API_KEY`; lab
+fallback is `INVOICE_LLM_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` when the
+people key is unset and classify is not forced off. **Reprocess** re-runs parse
+on the stored file. Partial / low-confidence results stay in anomaly.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PEOPLE_DOCS_PREFIX` | `aggcenter/peopleDocs` | Pipeline root |
 | `PEOPLE_DOCS_SEED_SAMPLES` | `false` | Seed bundled samples into empty landing |
+| `PEOPLE_DOCS_LLM_CLASSIFY` | on when a people or fallback key is present | Set `false` to force static people docs without changing invoices |
+| `PEOPLE_DOCS_LLM_API_KEY` | lab fallback to invoice / OpenAI / xAI keys | Dedicated HR secret (preferred in production) |
+| `PEOPLE_DOCS_LLM_MODEL` | invoice model | Optional override |
+| `PEOPLE_DOCS_LLM_API_BASE` | invoice API base | Optional override |
+| `PEOPLE_DOCS_LLM_TIMEOUT_MS` | invoice timeout | Optional override |
 
 ## Roadmap
 

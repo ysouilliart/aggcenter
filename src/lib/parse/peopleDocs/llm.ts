@@ -1,6 +1,6 @@
 /**
  * OpenAI-compatible chat client for people-document classify.
- * Uses the same INVOICE_LLM_* key, host, and request path as invoices.
+ * Uses the resolved people-docs classify config (PEOPLE_DOCS_LLM_API_KEY first).
  * Do not log extracted document text (HR / PII).
  */
 
@@ -58,6 +58,7 @@ export function createOpenAiPeopleDocLlmClient(config: InvoiceClassifyConfig): P
         model: request.model || config.model,
         messages: buildPeopleDocLlmMessages(request.fileName, request.text),
         logLabel: "people-docs-llm",
+        missingKeyError: "PEOPLE_DOCS_LLM_API_KEY is not configured",
       });
     },
   };

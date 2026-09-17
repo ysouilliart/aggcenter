@@ -142,7 +142,7 @@ export default function PeopleDocsPage() {
         <PageHeader
           className="mb-3"
           title="People docs"
-          subtitle="Hybrid classify for aggcenter/peopleDocs: static floor, then PEOPLE_DOCS_LLM_API_KEY. A dedicated people key stays on even if PEOPLE_DOCS_LLM_CLASSIFY=false. Reprocess after enabling LLM."
+          subtitle="Hybrid classify for aggcenter/peopleDocs: static floor, then PEOPLE_DOCS_LLM_API_KEY. Reprocess after enabling LLM."
           actions={
             <button
               type="button"

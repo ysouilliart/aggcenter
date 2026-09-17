@@ -289,7 +289,8 @@ export default function PeopleDocsPage() {
               </div>
 
               {selected.doc.classifierWarning &&
-              selected.doc.classifierWarning !== summary.data?.classify?.warning ? (
+              selected.doc.classifierWarning !== summary.data?.classify?.warning &&
+              !/LLM classify is off/i.test(selected.doc.classifierWarning) ? (
                 <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   {selected.doc.classifierWarning}
                 </p>

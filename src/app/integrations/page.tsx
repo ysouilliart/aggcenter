@@ -342,9 +342,9 @@ export default function IntegrationsPage() {
             </div>
             <p className="text-sm text-slate-600">
               Independent hybrid classify (static floor, LLM fills gaps). Production HR should set
-              PEOPLE_DOCS_LLM_API_KEY. Set PEOPLE_DOCS_LLM_CLASSIFY=false to keep people docs
-              static while invoice LLM stays on. Lab fallback: INVOICE_LLM_API_KEY / OPENAI_API_KEY
-              / XAI_API_KEY when the people key is unset.
+              PEOPLE_DOCS_LLM_API_KEY — that key turns people LLM on even if
+              PEOPLE_DOCS_LLM_CLASSIFY=false. The false flag only blocks lab fallback from
+              INVOICE_LLM_API_KEY / OPENAI_API_KEY / XAI_API_KEY when the people key is unset.
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row label="Prefix" value={data.peopleDocsClassify?.prefix ?? "aggcenter/peopleDocs/"} />
@@ -357,10 +357,15 @@ export default function IntegrationsPage() {
             </dl>
             {data.peopleDocsClassify?.warning ? (
               <p className="mt-3 text-xs text-amber-700">{data.peopleDocsClassify.warning}</p>
+            ) : data.peopleDocsClassify?.llmReady ? (
+              <p className="mt-3 text-xs text-slate-400">
+                People LLM is on. A dedicated PEOPLE_DOCS_LLM_API_KEY stays enabled even if
+                PEOPLE_DOCS_LLM_CLASSIFY=false (that flag only blocks invoice-key lab fallback).
+              </p>
             ) : (
               <p className="mt-3 text-xs text-slate-400">
-                Add PEOPLE_DOCS_LLM_API_KEY for production HR. Set PEOPLE_DOCS_LLM_CLASSIFY=false
-                to force the static parser without changing invoices.
+                Add PEOPLE_DOCS_LLM_API_KEY to enable hybrid classify. PEOPLE_DOCS_LLM_CLASSIFY=false
+                only blocks lab fallback when the people key is unset.
               </p>
             )}
           </Card>

@@ -396,8 +396,9 @@ aggcenter/peopleDocs/archived/     closed
 aggcenter/peopleDocs/anomaly/      needs review
 ```
 
-The screen lists documents on the left and classified fields on the right, each
-with a confidence pill:
+The screen lists documents on the left (that list scrolls on its own) and
+classified fields on the right (the detail pane stays in view), each with a
+confidence pill:
 
 - Agreement ID/number
 - Requestor
@@ -411,22 +412,23 @@ with a confidence pill:
 
 Classify is the same hybrid as invoices: static labelled regex first, LLM
 overlay only fills empty fields, then static fallback if the model fails.
-People-docs LLM is **independent** of invoice classify. Set
-`PEOPLE_DOCS_LLM_CLASSIFY=false` to keep people docs on the static parser while
-invoices stay LLM. Production HR should set `PEOPLE_DOCS_LLM_API_KEY`; lab
-fallback is `INVOICE_LLM_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` when the
-people key is unset and classify is not forced off. **Reprocess** re-runs parse
-on the stored file. Partial / low-confidence results stay in anomaly.
+People-docs LLM is **independent** of invoice classify. A dedicated
+`PEOPLE_DOCS_LLM_API_KEY` **always turns people LLM on**, even if
+`PEOPLE_DOCS_LLM_CLASSIFY=false`. That false flag only blocks lab fallback from
+`INVOICE_LLM_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` when the people key is
+unset. Production HR should set `PEOPLE_DOCS_LLM_API_KEY`. **Reprocess** re-runs
+parse on the stored file after enabling LLM. Partial / low-confidence results
+stay in anomaly.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PEOPLE_DOCS_PREFIX` | `aggcenter/peopleDocs` | Pipeline root |
 | `PEOPLE_DOCS_SEED_SAMPLES` | `false` | Seed bundled samples into empty landing |
-| `PEOPLE_DOCS_LLM_CLASSIFY` | on when a people or fallback key is present | Set `false` to force static people docs without changing invoices |
-| `PEOPLE_DOCS_LLM_API_KEY` | lab fallback to invoice / OpenAI / xAI keys | Dedicated HR secret (preferred in production) |
+| `PEOPLE_DOCS_LLM_CLASSIFY` | on when a people or fallback key is present | `false` only blocks lab fallback; a dedicated people key always enables LLM |
+| `PEOPLE_DOCS_LLM_API_KEY` | lab fallback to invoice / OpenAI / xAI keys | Dedicated HR secret (preferred in production; always enables people LLM) |
 | `PEOPLE_DOCS_LLM_MODEL` | invoice model | Optional override |
 | `PEOPLE_DOCS_LLM_API_BASE` | invoice API base | Optional override |
-| `PEOPLE_DOCS_LLM_TIMEOUT_MS` | invoice timeout | Optional override |
+| `PEOPLE_DOCS_LLM_TIMEOUT_MS` | max(invoice timeout, 45s) | Optional override |
 
 ## Roadmap
 

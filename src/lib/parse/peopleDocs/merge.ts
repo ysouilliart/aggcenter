@@ -46,8 +46,29 @@ function booleanSupported(flag: boolean, key: "autoRenew" | "perpetual", text: s
     if (flag) return /auto[\s-]?renew|renews automatically|automatic renewal/i.test(text);
     return /auto[\s-]?renew|does not renew|no automatic renewal/i.test(text);
   }
-  if (flag) return /perpetual|no end date|indefinite/i.test(text);
-  return /perpetual:\s*no|not perpetual/i.test(text) || /end date|expiry/i.test(text);
+  if (flag) return /perpetual|no end date|indefinite|until terminated/i.test(text);
+  return /perpetual:\s*no|not perpetual|non-perpetual/i.test(text) || /end date|expiry|fixed[\s-]?term/i.test(text);
+}
+
+const AGREEMENT_TYPE_ALIASES: Record<string, string[]> = {
+  NDA: ["nda", "non-disclosure", "non disclosure", "confidentiality"],
+  Employment: ["employment", "employee"],
+  Contractor: ["contractor", "independent contractor"],
+  Consultancy: ["consultancy", "consultant", "consulting"],
+  Policy: ["policy"],
+  "Offer Letter": ["offer letter", "letter of offer", "offer of employment"],
+  Secondment: ["secondment"],
+  "Collective Agreement": ["collective agreement", "enterprise agreement"],
+  Confidentiality: ["confidentiality", "confidential"],
+  Internship: ["internship", "intern"],
+  Assignment: ["assignment"],
+};
+
+function typeSupported(value: string, text: string): boolean {
+  if (stringAppearsInExtract(value, text)) return true;
+  const hay = text.toLowerCase();
+  const aliases = AGREEMENT_TYPE_ALIASES[value] ?? [value.toLowerCase()];
+  return aliases.some((alias) => hay.includes(alias));
 }
 
 export function mergeStaticAndLlmPeopleDoc(
@@ -62,12 +83,17 @@ export function mergeStaticAndLlmPeopleDoc(
   for (const key of STRING_KEYS) {
     if (isBlank(header[key]) && !isBlank(llmHeader[key])) {
       const value = String(llmHeader[key]);
-      if (!stringAppearsInExtract(value, fullText)) continue;
       if (key === "agreementId") {
+        if (!stringAppearsInExtract(value, fullText)) continue;
         const id = looksLikeAgreementId(value);
         if (id) header.agreementId = id;
         continue;
       }
+      if (key === "agreementType") {
+        if (typeSupported(value, fullText)) header.agreementType = value;
+        continue;
+      }
+      if (!stringAppearsInExtract(value, fullText)) continue;
       header[key] = value;
     }
   }

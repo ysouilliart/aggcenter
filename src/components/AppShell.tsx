@@ -5,12 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { prefetchFetch } from "@/lib/useFetch";
 
-type WorkspaceId = "cash" | "suppliers" | "invoices";
+type WorkspaceId = "cash" | "suppliers" | "invoices" | "people";
 
 const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }[] = [
   { id: "cash", label: "Cash", home: "/", hint: "O2C & P2P" },
   { id: "suppliers", label: "Suppliers", home: "/suppliers", hint: "Master data" },
   { id: "invoices", label: "Invoices", home: "/invoices", hint: "AP parser" },
+  { id: "people", label: "People", home: "/people-docs", hint: "HR agreements" },
 ];
 
 const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> = {
@@ -52,6 +53,9 @@ const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> 
       icon: "M12 3l9 16H3l9-16zm0 6v4m0 3h.01",
     },
   ],
+  people: [
+    { href: "/people-docs", label: "People docs", icon: "M8 7h8M8 12h8M8 17h5M5 4h14v16H5z" },
+  ],
 };
 
 const SHARED = [
@@ -64,17 +68,20 @@ const PREFETCH_APIS: Record<string, string[]> = {
   "/forecast": ["/api/cash-forecast"],
   "/reconciliation": ["/api/reconciliation"],
   "/anomalies": ["/api/anomalies"],
-  "/statements": ["/api/statements", "/api/accounts"],
+  "/people-docs": ["/api/people-docs", "/api/people-docs/summary"],
 };
 
 function workspaceFromPath(pathname: string): WorkspaceId {
   if (pathname === "/suppliers" || pathname.startsWith("/suppliers/")) return "suppliers";
   if (pathname === "/invoices" || pathname.startsWith("/invoices/")) return "invoices";
+  if (pathname === "/people-docs" || pathname.startsWith("/people-docs/")) return "people";
   return "cash";
 }
 
 function navActive(pathname: string, href: string): boolean {
-  if (href === "/" || href === "/suppliers" || href === "/invoices") return pathname === href;
+  if (href === "/" || href === "/suppliers" || href === "/invoices" || href === "/people-docs") {
+    return pathname === href;
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -99,7 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="px-3 pb-3">
-          <div className="flex rounded-lg bg-slate-800 p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-800 p-1">
             {WORKSPACES.map((ws) => (
               <button
                 key={ws.id}
@@ -107,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => {
                   if (ws.id !== workspace) router.push(ws.home);
                 }}
-                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
                   workspace === ws.id
                     ? "bg-slate-700 text-white"
                     : "text-slate-400 hover:text-white"
@@ -149,7 +156,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ? `Cash Position · ${hint}`
             : workspace === "suppliers"
               ? `Suppliers · ${hint}`
-              : `Invoices · ${hint}`}
+              : workspace === "people"
+                ? `People · ${hint}`
+                : `Invoices · ${hint}`}
         </div>
       </aside>
 

@@ -46,6 +46,16 @@ interface IntegrationStatus {
     warning?: string;
     seedSamples: boolean;
   };
+  peopleDocsClassify?: {
+    mode: "llm" | "static";
+    llmEnabled: boolean;
+    llmReady: boolean;
+    model: string;
+    provider?: "openai" | "xai";
+    warning?: string;
+    seedSamples: boolean;
+    prefix?: string;
+  };
 }
 
 function folderName(prefix: string | undefined, fallback: string): string {
@@ -320,6 +330,32 @@ export default function IntegrationsPage() {
                 .env.local. Set INVOICE_LLM_CLASSIFY=false to force the static parser.
               </p>
             )}
+          </Card>
+
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">People docs</h2>
+              <StatusPill
+                ok={Boolean(data.peopleDocsClassify?.llmReady)}
+                label={data.peopleDocsClassify?.llmReady ? "LLM ready" : "Static parser"}
+              />
+            </div>
+            <p className="text-sm text-slate-600">
+              HR agreements and policies in aggcenter/peopleDocs. Static labelled fields are the
+              floor; the LLM only fills gaps. Low-confidence results land in anomaly.
+            </p>
+            <dl className="mt-4 space-y-1 text-sm">
+              <Row label="Prefix" value={data.peopleDocsClassify?.prefix ?? "aggcenter/peopleDocs/"} />
+              <Row label="Mode" value={data.peopleDocsClassify?.mode ?? "static"} />
+              <Row label="Model" value={data.peopleDocsClassify?.model ?? "—"} />
+              <Row
+                label="Sample seed"
+                value={data.peopleDocsClassify?.seedSamples ? "On" : "Off"}
+              />
+            </dl>
+            {data.peopleDocsClassify?.warning ? (
+              <p className="mt-3 text-xs text-amber-700">{data.peopleDocsClassify.warning}</p>
+            ) : null}
           </Card>
 
           <Card>

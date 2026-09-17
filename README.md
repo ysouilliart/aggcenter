@@ -37,6 +37,12 @@ Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
   **Needs review** for human confirm (accept / edit / reject). Persists to
   `aggc-invoice`. Object storage uses
   `aggcenter/invoices/{landing,received,processed,archived,anomaly}/`.
+- **People docs** — HR agreements and policies. Split view with a document list
+  and field-level confidence pills (agreement ID, requestor, type, subtype,
+  business function, ResMed entity, start/end dates, auto-renew, perpetual).
+  Hybrid classify: static labelled regex is the floor; the LLM fills gaps;
+  Reprocess re-runs parse. Folders:
+  `aggcenter/peopleDocs/{landing,processed,archived,anomaly}/`.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),
   **Snowflake** (reference data) and an optional external API, all defaulting to
   safe local/sample implementations.
@@ -49,15 +55,17 @@ src/
     api/               #   /api/cash-position, /cash-forecast, /reconciliation, /anomalies, /statements, /suppliers, ...
     suppliers/         #   Supplier workspace (overview, records, review, audit, FBDI)
     invoices/          #   Invoice parser (inbox, needs-review, document viewer)
-  components/          # AppShell (Cash / Suppliers / Invoices workspaces), UI primitives, SVG charts
+    people-docs/       #   HR agreements / policies (list + field confidence)
+  components/          # AppShell (Cash / Suppliers / Invoices / People workspaces), UI primitives, SVG charts
   lib/
     domain/            # shared types
-    parse/             # CSV + bank-statement + invoice parsing
+    parse/             # CSV + bank-statement + invoice + people-doc parsing
     recon/             # reconciliation engine
     cash/              # cash-position calculator + remittance forecast
     anomalies/         # cash anomaly detection
     suppliers/         # supplier ingest, VAT/address checks, versions + audit, FBDI
     invoices/          # invoice ingest, OCI folder moves, repository
+    peopleDocs/        # people-doc ingest, OCI folder moves, repository
     storage/           # StorageProvider: local (default) + OCI adapter
     datasource/        # DataSource: local sample (default) + Snowflake adapter
     service.ts         # ties data loading, uploads and computations together
@@ -373,8 +381,46 @@ When landing is empty, bundled samples under
 **only if** `INVOICE_SEED_SAMPLES=true` (Hotjar, Tesla, Origin Energy, a
 scanned PDF, and a CSV). Override the root with `INVOICE_PREFIX`.
 
+### People docs
+
+HR agreements and policies live in a separate **People** workspace. Drop files
+into `aggcenter/peopleDocs/landing/` (or upload from People docs) then
+**Sync landing folder** (`POST /api/people-docs/ingest`):
+
+```
+aggcenter/peopleDocs/landing/      inbound drop zone
+aggcenter/peopleDocs/processed/    classified successfully
+aggcenter/peopleDocs/archived/     closed
+aggcenter/peopleDocs/anomaly/      needs review
+```
+
+The screen lists documents on the left and classified fields on the right, each
+with a confidence pill:
+
+- Agreement ID/number
+- Requestor
+- Agreement type
+- Agreement Sub type
+- Business Function
+- Resmed Entity
+- Agreement start date / end date
+- Auto renew
+- Perpetual
+
+Classify is the same hybrid as invoices: static labelled regex first, LLM
+overlay only fills empty fields, then static fallback if the model fails.
+**Reprocess** re-runs parse on the stored file. Partial / low-confidence
+results stay in anomaly.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PEOPLE_DOCS_PREFIX` | `aggcenter/peopleDocs` | Pipeline root |
+| `PEOPLE_DOCS_SEED_SAMPLES` | `false` | Seed bundled samples into empty landing |
+| `PEOPLE_DOCS_LLM_CLASSIFY` | follows invoice LLM | Set `false` to force static |
+| `PEOPLE_DOCS_LLM_API_KEY` | falls back to `INVOICE_LLM_API_KEY` | Secret |
+
 ## Roadmap
 
 - Real Snowflake client implementation (adapter and env wiring already in place).
-- Additional operational workspaces beyond cash, suppliers and invoices, and a workflow/approval layer.
+- Additional operational workspaces beyond cash, suppliers, invoices and people docs, and a workflow/approval layer.
 - Invoice OCR for scanned / image-only PDFs (today those stay in Needs review; the LLM path does not invent fields from blank extracts).

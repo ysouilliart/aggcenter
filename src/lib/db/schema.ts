@@ -5,6 +5,7 @@ import { bigint, boolean, index, integer, pgSchema, text } from "drizzle-orm/pg-
  * the migration). Monetary amounts are stored as integer minor units (cents),
  * matching the domain model. Supplier master data lives in `aggc-supplier`.
  * Parsed AP invoices live in `aggc-invoice`.
+ * People / HR agreements live in `aggc-people`.
  */
 export const cashSchema = pgSchema("aggc-cash");
 
@@ -505,3 +506,51 @@ export const invoiceConfirmEvents = invoiceSchema.table(
 );
 
 export type InvoiceConfirmEventRow = typeof invoiceConfirmEvents.$inferSelect;
+
+export const peopleSchema = pgSchema("aggc-people");
+
+export const peopleDocs = peopleSchema.table(
+  "people_docs",
+  {
+    id: text("id").primaryKey(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull().default("application/octet-stream"),
+    contentHash: text("content_hash").notNull().default(""),
+    source: text("source").notNull().default("upload"),
+    folder: text("folder").notNull().default("landing"),
+    storageKey: text("storage_key"),
+    originalKey: text("original_key"),
+    parseStatus: text("parse_status").notNull().default("parsed"),
+    parserId: text("parser_id"),
+    parserVersion: text("parser_version"),
+    confidence: integer("confidence").notNull().default(0),
+    pageCount: integer("page_count"),
+    reviewReason: text("review_reason"),
+    extractedText: text("extracted_text"),
+    classifyMode: text("classify_mode"),
+    classifierWarning: text("classifier_warning"),
+    needsConfirm: boolean("needs_confirm").notNull().default(false),
+    uploadedAt: text("uploaded_at").notNull(),
+    processedAt: text("processed_at"),
+    archivedAt: text("archived_at"),
+    agreementId: text("agreement_id"),
+    requestor: text("requestor"),
+    agreementType: text("agreement_type"),
+    agreementSubType: text("agreement_sub_type"),
+    businessFunction: text("business_function"),
+    resmedEntity: text("resmed_entity"),
+    startDate: text("start_date"),
+    endDate: text("end_date"),
+    autoRenew: boolean("auto_renew"),
+    perpetual: boolean("perpetual"),
+    fieldsJson: text("fields_json"),
+    jobJson: text("job_json"),
+  },
+  (t) => [
+    index("people_docs_folder_idx").on(t.folder),
+    index("people_docs_storage_key_idx").on(t.storageKey),
+    index("people_docs_content_hash_idx").on(t.contentHash),
+  ],
+);
+
+export type PeopleDocRow = typeof peopleDocs.$inferSelect;

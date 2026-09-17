@@ -56,3 +56,11 @@ export function isPeopleDocFileName(fileName: string): boolean {
   const ext = fileName.split(".").pop()?.toLowerCase();
   return Boolean(ext && PEOPLE_DOC_EXTENSIONS.has(ext));
 }
+
+/** List label: the document title from its file name, not agreement ID or other fields. */
+export function peopleDocDisplayTitle(fileName: string): string {
+  const base = (fileName.split(/[/\\]/).pop() ?? fileName).trim();
+  if (!base) return "Untitled document";
+  const stripped = base.replace(/\.[A-Za-z0-9]{1,8}$/, "");
+  return stripped.trim() || base;
+}

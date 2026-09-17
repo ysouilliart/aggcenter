@@ -6,6 +6,7 @@ import { Card, ConfidencePill, ErrorNote, KpiCard, PageHeader, Spinner, StatusBa
 import type { PeopleDocDetail, PeopleDocRecord, PeopleDocSummary } from "@/lib/peopleDocs/types";
 import { PEOPLE_DOC_FIELD_DEFS, type PeopleDocFieldKey } from "@/lib/parse/peopleDocs/types";
 import { formatDate } from "@/lib/format";
+import { peopleDocDisplayTitle } from "@/lib/peopleDocs/folders";
 import { useFetch } from "@/lib/useFetch";
 
 type ClassifyStatus = {
@@ -229,12 +230,8 @@ export default function PeopleDocsPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="truncate text-sm font-medium text-slate-900">
-                              {doc.agreementId || doc.fileName}
-                            </div>
-                            <div className="truncate text-xs text-slate-500">{doc.fileName}</div>
-                            <div className="mt-1 text-xs text-slate-500">
-                              {doc.agreementType || "—"} · {doc.resmedEntity || "—"}
+                            <div className="truncate text-sm font-medium text-slate-900" title={doc.fileName}>
+                              {peopleDocDisplayTitle(doc.fileName)}
                             </div>
                           </div>
                           <div className="flex shrink-0 flex-col items-end gap-1">

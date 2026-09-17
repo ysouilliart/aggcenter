@@ -115,7 +115,12 @@ export default function PeopleDocsPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `${action} failed`);
-      setMessage(action === "reprocess" ? "Reprocessed with static + LLM overlay." : "Archived.");
+      const mode = json.doc?.classifyMode ?? json.doc?.doc?.classifyMode;
+      setMessage(
+        action === "reprocess"
+          ? `Reprocessed (${mode ?? "static"}).`
+          : "Archived.",
+      );
       await reloadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : `${action} failed`);

@@ -288,7 +288,8 @@ export default function PeopleDocsPage() {
                 </div>
               </div>
 
-              {selected.doc.classifierWarning ? (
+              {selected.doc.classifierWarning &&
+              selected.doc.classifierWarning !== summary.data?.classify?.warning ? (
                 <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   {selected.doc.classifierWarning}
                 </p>

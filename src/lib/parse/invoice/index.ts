@@ -25,7 +25,8 @@ export {
 export { extractInvoiceDocument, mimeForFile, extensionOf } from "./extract";
 export { classifyInvoice, detectVendor, needsHumanConfirm, score, statusFor } from "./classify";
 export { classifyExtractedInvoice, getInvoiceClassifyStatus, isStaticFastPathHit } from "./strategy";
-export { validateLlmClassify, INVOICE_LLM_OUTPUT_SCHEMA } from "./schema";
+export { mergeStaticAndLlm, alignAmountToExtract, pickCurrency } from "./merge";
+export { validateLlmClassify, INVOICE_LLM_OUTPUT_SCHEMA, asMoneyCents } from "./schema";
 export { createOpenAiInvoiceLlmClient, buildLlmMessages, truncateInvoiceText } from "./llm";
 export type { InvoiceLlmClient } from "./llm";
 export { parseInvoiceDate } from "./dates";

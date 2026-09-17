@@ -24,14 +24,15 @@ const SYSTEM_PROMPT = `You classify supplier invoices from extracted plain text.
 Return ONE JSON object that matches the provided schema. No markdown, no commentary.
 
 Rules:
-- Amounts are integer minor units (cents): 189.00 USD → 18900.
+- Amounts: prefer integer minor units (cents): 189.00 USD → 18900. Decimal major units (189.00) are also accepted.
 - Dates are ISO YYYY-MM-DD.
-- currency is an ISO 4217 code (USD, AUD, EUR, GBP, CAD, …).
+- currency is an ISO 4217 code that appears in the text (USD, AUD, EUR, GBP, CAD, …). Do not default $ to AUD unless AUD is labelled.
 - vendor is origin, tesla, hotjar, or generic. Use generic unless the supplier is clearly that brand.
 - Do not invent values that are not supported by the text. Omit unknown fields.
 - If invoice number, totals, or currency are missing or ambiguous, say so in reviewReasons.
 - confidence is 0–100 for how complete and reliable the mapping is.
 - fields[] are category/key/value/confidence rows for notable classified values.
+- You fill gaps the static parser misses. Do not contradict labelled invoice numbers, totals, or currencies in the text.
 
 Schema:
 ${JSON.stringify(INVOICE_LLM_OUTPUT_SCHEMA)}`;

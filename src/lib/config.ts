@@ -81,12 +81,14 @@ export interface AppConfig {
 }
 
 export interface InvoiceClassifyConfig {
-  /** `INVOICE_LLM_CLASSIFY` — request the LLM path when a key is also present. */
+  /** `INVOICE_LLM_CLASSIFY` — on by default when an API key is present. */
   llmEnabled: boolean;
   /** Enabled and an API key is configured. */
   llmReady: boolean;
   /** Use Hotjar/Tesla/Origin (and high-confidence static) without calling the LLM. */
   staticFastPath: boolean;
+  /** Detected chat provider (OpenAI-compatible). */
+  provider: "openai" | "xai";
   model: string;
   apiBase: string;
   /** Secret — never log or return to the client. */
@@ -105,28 +107,49 @@ function flag(value: string | undefined, defaultValue = false): boolean {
   return /^(1|true|yes|on)$/i.test(value.trim());
 }
 
-function resolveInvoiceClassifyConfig(): InvoiceClassifyConfig {
-  const llmEnabled = flag(process.env.INVOICE_LLM_CLASSIFY, false);
-  const apiKey = process.env.INVOICE_LLM_API_KEY?.trim() || undefined;
+function firstNonEmpty(...values: (string | undefined)[]): string | undefined {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return undefined;
+}
+
+export function resolveInvoiceClassifyConfig(
+  env: Record<string, string | undefined> = process.env,
+): InvoiceClassifyConfig {
+  const invoiceKey = env.INVOICE_LLM_API_KEY?.trim() || undefined;
+  const xaiKey = env.XAI_API_KEY?.trim() || undefined;
+  const openaiKey = env.OPENAI_API_KEY?.trim() || undefined;
+  const apiKey = firstNonEmpty(invoiceKey, xaiKey, openaiKey);
+  const explicitBase = env.INVOICE_LLM_API_BASE?.trim() || undefined;
+  const looksXai =
+    Boolean(explicitBase?.includes("api.x.ai")) ||
+    Boolean(apiKey?.startsWith("xai-")) ||
+    Boolean(xaiKey && apiKey === xaiKey);
+  const provider: "openai" | "xai" = looksXai ? "xai" : "openai";
+  const llmEnabled = flag(env.INVOICE_LLM_CLASSIFY, bool(apiKey));
   const llmReady = llmEnabled && bool(apiKey);
-  const staticFastPath = flag(process.env.INVOICE_STATIC_FAST_PATH, true);
-  const model = process.env.INVOICE_LLM_MODEL?.trim() || "gpt-4o-mini";
-  const apiBase = (process.env.INVOICE_LLM_API_BASE?.trim() || "https://api.openai.com/v1").replace(
-    /\/+$/,
-    "",
-  );
-  const timeoutMs = Number(process.env.INVOICE_LLM_TIMEOUT_MS);
+  const staticFastPath = flag(env.INVOICE_STATIC_FAST_PATH, true);
+  const model =
+    env.INVOICE_LLM_MODEL?.trim() ||
+    (provider === "xai" ? "grok-4-fast-non-reasoning" : "gpt-4o-mini");
+  const apiBase = (
+    explicitBase || (provider === "xai" ? "https://api.x.ai/v1" : "https://api.openai.com/v1")
+  ).replace(/\/+$/, "");
+  const timeoutMs = Number(env.INVOICE_LLM_TIMEOUT_MS);
   let warning: string | undefined;
-  if (!llmEnabled) {
-    warning = "LLM classify is off. Using the static vendor/regex parser.";
-  } else if (!llmReady) {
+  if (!bool(apiKey)) {
     warning =
-      "LLM classify is enabled but INVOICE_LLM_API_KEY is missing. Using the static parser.";
+      "LLM classify is off. Add INVOICE_LLM_API_KEY (or OPENAI_API_KEY / XAI_API_KEY) to enable. Using the static parser.";
+  } else if (!llmEnabled) {
+    warning = "LLM classify is off (INVOICE_LLM_CLASSIFY=false). Using the static vendor/regex parser.";
   }
   return {
     llmEnabled,
     llmReady,
     staticFastPath,
+    provider,
     model,
     apiBase,
     apiKey,

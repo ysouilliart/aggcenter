@@ -112,7 +112,7 @@ export default function InvoicesPage() {
     <div>
       <PageHeader
         title="Invoice parser"
-        subtitle="Extract text deterministically, classify with a static vendor overlay or a schema-constrained LLM, then confirm uncertain results before they are treated as processed"
+        subtitle="Extract text deterministically, classify with static vendor/regex as the floor (LLM fills gaps), then confirm uncertain results before they are treated as processed"
         actions={
           <button
             type="button"
@@ -131,9 +131,10 @@ export default function InvoicesPage() {
         </div>
       ) : summary.data?.classify?.llmReady ? (
         <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          LLM classify is on ({summary.data.classify.model}). Extracted invoice text is sent to the
-          configured model provider. Low-confidence or partial results stay in Needs review until
-          an operator confirms.
+          LLM classify is on ({summary.data.classify.model}). Static scripting stays the floor; the
+          model only fills missing fields. Extracted invoice text is sent to the configured
+          provider. Low-confidence or partial results stay in Needs review until an operator
+          confirms.
         </div>
       ) : null}
 

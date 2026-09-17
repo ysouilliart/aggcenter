@@ -325,14 +325,15 @@ original document in the viewer. Archive moves the object to `archived/`.
 
 **Classify modes**
 
-1. **Static (default)** — Hotjar / Tesla / Origin overlays plus generic regex.
-   Used when `INVOICE_LLM_CLASSIFY` is off, the API key is missing, or the LLM
-   call / schema validation fails (`static-fallback`).
+1. **Static** — Hotjar / Tesla / Origin overlays plus generic regex. Used when
+   no API key is set, `INVOICE_LLM_CLASSIFY=false`, or the LLM call / schema
+   validation fails (`static-fallback`).
 2. **Static fast path** — when LLM is on and `INVOICE_STATIC_FAST_PATH=true`
    (default), a high-confidence Hotjar/Tesla/Origin parse skips the model.
-3. **LLM** — extracted text is mapped to the fixed JSON schema in
-   `src/lib/parse/invoice/schema.ts` (`InvoiceParseResult` header / lines / tax /
-   bank / fields). Amounts stay integer cents.
+3. **LLM overlay** — static scripting always runs first and is the floor. The
+   model only fills empty fields (and may correct a `$`→AUD default when the
+   extract labels another ISO currency). Amounts may be integer cents or
+   decimal major units; both map to integer cents.
 
 **Human confirm**
 
@@ -346,14 +347,18 @@ auto-promoted to processed.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `INVOICE_LLM_CLASSIFY` | `false` | Enable the LLM classify path |
-| `INVOICE_LLM_API_KEY` | — | Secret. Required for LLM; never commit |
-| `INVOICE_LLM_MODEL` | `gpt-4o-mini` | Chat model name |
-| `INVOICE_LLM_API_BASE` | `https://api.openai.com/v1` | OpenAI-compatible base URL |
+| `INVOICE_LLM_CLASSIFY` | on when a key is present | Set `false` to force the static parser |
+| `INVOICE_LLM_API_KEY` | — | Secret. Also accepts `OPENAI_API_KEY` / `XAI_API_KEY` |
+| `INVOICE_LLM_MODEL` | `gpt-4o-mini` (xAI: `grok-4-fast-non-reasoning`) | Chat model name |
+| `INVOICE_LLM_API_BASE` | OpenAI or `https://api.x.ai/v1` from the key | OpenAI-compatible base URL |
 | `INVOICE_LLM_TIMEOUT_MS` | `30000` | Classify timeout |
 | `INVOICE_STATIC_FAST_PATH` | `true` | Skip LLM for high-confidence vendor overlays |
 | `INVOICE_SEED_SAMPLES` | `false` | Seed bundled samples into an empty landing folder |
 | `INVOICE_PREFIX` | `aggcenter/invoices` | Pipeline root |
+
+Put the key in `.env.local` for local dev, or as a Cursor **Secret**
+(`INVOICE_LLM_API_KEY`) in Cloud Agents — never commit it. xAI keys (`xai-…`
+or `XAI_API_KEY`) select `https://api.x.ai/v1` automatically.
 
 When LLM classify is off or the key is missing, the Inbox, APIs, and
 Integrations page show a warning and the static parser runs.

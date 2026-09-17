@@ -76,6 +76,15 @@ export function parseYesNo(value: string | undefined | null): boolean | undefine
   return undefined;
 }
 
+export function looksLikeAgreementId(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const compact = value.replace(/\s+/g, "");
+  if (compact.length < 4 || compact.length > 40) return undefined;
+  if (!/\d/.test(compact)) return undefined;
+  if (/^(the|this|that|each|and|for|from|with|under|into)\b/i.test(compact)) return undefined;
+  return compact;
+}
+
 function formatFlag(value: boolean | undefined): string | undefined {
   if (value == null) return undefined;
   return value ? "Yes" : "No";
@@ -218,7 +227,7 @@ export function classifyPeopleDoc(input: PeopleDocClassifyInput): PeopleDocParse
     valueAfterLabel(lines, /perpetual/i, /Yes|No|True|False|Y|N/i);
 
   const header: PeopleDocHeader = {
-    agreementId: agreementId?.replace(/\s+/g, ""),
+    agreementId: looksLikeAgreementId(agreementId),
     requestor: requestor?.replace(/\s+/g, " ").trim(),
     agreementType: agreementType?.replace(/\s+/g, " ").trim(),
     agreementSubType: agreementSubType?.replace(/\s+/g, " ").trim(),

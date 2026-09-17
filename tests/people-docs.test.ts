@@ -95,6 +95,25 @@ describe("people doc static classify", () => {
     expect(parseYesNo("maybe")).toBeUndefined();
   });
 
+  it("does not treat ordinary words as an agreement ID", () => {
+    const parsed = classifyPeopleDoc({
+      fileName: "NDA Mutual General - Global.docx",
+      lines: [
+        "Non-Disclosure Agreement – Mutual - General",
+        "Effective Date: July 1, 2026",
+        "Parties:",
+        "ResMed Pty Ltd, 1 Elizabeth Macarthur Drive",
+      ],
+      fullText:
+        "Non-Disclosure Agreement – Mutual - General\nEffective Date: July 1, 2026\nParties:\nResMed Pty Ltd, 1 Elizabeth Macarthur Drive, Bella Vista\nThis agreement. Either party may be a discloser of confidential information. The agency of the parties is not an ID.\n",
+      pageCount: 1,
+    });
+    expect(parsed.header.agreementId).toBeUndefined();
+    expect(parsed.header.agreementType).toBe("NDA");
+    expect(parsed.header.resmedEntity).toMatch(/ResMed Pty Ltd/);
+    expect(parsed.header.startDate).toBe("2026-07-01");
+  });
+
   it("treats a perpetual agreement as complete without an end date", () => {
     const parsed = classifyPeopleDoc({
       fileName: "offer-letter.txt",

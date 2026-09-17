@@ -5,6 +5,7 @@
 import { parseInvoiceDate } from "../invoice/dates";
 import {
   fieldsFromHeader,
+  looksLikeAgreementId,
   needsPeopleDocConfirm,
   scorePeopleDoc,
   statusForPeopleDoc,
@@ -61,9 +62,13 @@ export function mergeStaticAndLlmPeopleDoc(
   for (const key of STRING_KEYS) {
     if (isBlank(header[key]) && !isBlank(llmHeader[key])) {
       const value = String(llmHeader[key]);
-      if (stringAppearsInExtract(value, fullText)) {
-        header[key] = value;
+      if (!stringAppearsInExtract(value, fullText)) continue;
+      if (key === "agreementId") {
+        const id = looksLikeAgreementId(value);
+        if (id) header.agreementId = id;
+        continue;
       }
+      header[key] = value;
     }
   }
   if (!header.startDate && llmHeader.startDate) {

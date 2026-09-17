@@ -407,17 +407,16 @@ with a confidence pill:
 - Auto renew
 - Perpetual
 
-Classify is the same hybrid as invoices: static labelled regex first, LLM
-overlay only fills empty fields, then static fallback if the model fails.
-**Reprocess** re-runs parse on the stored file. Partial / low-confidence
-results stay in anomaly.
+Classify is identical to invoices: static labelled regex first, LLM overlay
+only fills empty fields, then static fallback if the model fails. People docs
+use the same `INVOICE_LLM_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` — there
+is no separate people-docs key. **Reprocess** re-runs parse on the stored file.
+Partial / low-confidence results stay in anomaly.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PEOPLE_DOCS_PREFIX` | `aggcenter/peopleDocs` | Pipeline root |
 | `PEOPLE_DOCS_SEED_SAMPLES` | `false` | Seed bundled samples into empty landing |
-| `PEOPLE_DOCS_LLM_CLASSIFY` | follows invoice LLM | Set `false` to force static |
-| `PEOPLE_DOCS_LLM_API_KEY` | falls back to `INVOICE_LLM_API_KEY` | Secret |
 
 ## Roadmap
 

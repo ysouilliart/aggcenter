@@ -341,8 +341,8 @@ export default function IntegrationsPage() {
               />
             </div>
             <p className="text-sm text-slate-600">
-              HR agreements and policies in aggcenter/peopleDocs. Static labelled fields are the
-              floor; the LLM only fills gaps. Low-confidence results land in anomaly.
+              Same hybrid classify as invoices (`INVOICE_LLM_*` key, static floor, LLM fills
+              gaps, scripting fallback). Only the extracted HR fields differ.
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row label="Prefix" value={data.peopleDocsClassify?.prefix ?? "aggcenter/peopleDocs/"} />

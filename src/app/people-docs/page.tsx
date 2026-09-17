@@ -140,7 +140,7 @@ export default function PeopleDocsPage() {
     <div>
       <PageHeader
         title="People docs"
-        subtitle="Parse HR agreements and policies from aggcenter/peopleDocs. Static labelled fields are the floor; the LLM fills gaps. Reprocess when a file or model changes."
+        subtitle="Parse HR agreements and policies from aggcenter/peopleDocs. Same hybrid classify as invoices: static floor, then the shared INVOICE_LLM_* key fills gaps. Reprocess when a file or model changes."
         actions={
           <button
             type="button"
@@ -159,8 +159,9 @@ export default function PeopleDocsPage() {
         </div>
       ) : summary.data?.classify?.llmReady ? (
         <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          LLM classify is on ({summary.data.classify.model}). Scripting stays the floor; extracted
-          people-doc text is sent to the provider only when classify runs.
+          LLM classify is on ({summary.data.classify.model}), using the same key as invoices.
+          Scripting stays the floor; extracted people-doc text is sent to the provider only when
+          classify runs.
         </div>
       ) : null}
 

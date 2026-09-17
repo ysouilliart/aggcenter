@@ -348,18 +348,30 @@ describe("people doc ingest", () => {
     expect(again?.agreementId).toBe("AGR-2026-0441");
   });
 
-  it("defaults people-docs prefix and seed off", () => {
+  it("defaults people-docs prefix and seed off, and shares the invoice LLM key", () => {
     expect(getConfig().peopleDocsPrefix).toBe("aggcenter/peopleDocs/");
     expect(getConfig().peopleDocsSeedSamples).toBe(false);
-    const cfg = resolvePeopleDocsClassifyConfig({});
-    expect(cfg.llmReady).toBe(false);
-    expect(cfg.warning).toMatch(/People docs LLM classify is off/i);
+    const cfg = getConfig();
+    expect(cfg.peopleDocsClassify).toBe(cfg.invoiceClassify);
+    const off = resolvePeopleDocsClassifyConfig({});
+    expect(off.llmReady).toBe(false);
+    expect(off.warning).toMatch(/INVOICE_LLM_API_KEY/i);
+    const on = resolvePeopleDocsClassifyConfig({
+      INVOICE_LLM_API_KEY: "sk-test",
+    });
+    expect(on.llmReady).toBe(true);
+    expect(on.apiKey).toBe("sk-test");
+    const viaOpenAi = resolvePeopleDocsClassifyConfig({
+      OPENAI_API_KEY: "sk-oa",
+    });
+    expect(viaOpenAi.llmReady).toBe(true);
+    expect(viaOpenAi.apiKey).toBe("sk-oa");
     const forcedOff = resolvePeopleDocsClassifyConfig({
       INVOICE_LLM_API_KEY: "sk-test",
-      PEOPLE_DOCS_LLM_CLASSIFY: "false",
+      INVOICE_LLM_CLASSIFY: "false",
     });
     expect(forcedOff.llmReady).toBe(false);
-    expect(forcedOff.warning).toMatch(/PEOPLE_DOCS_LLM_CLASSIFY=false/i);
+    expect(forcedOff.warning).toMatch(/INVOICE_LLM_CLASSIFY=false/i);
   });
 });
 

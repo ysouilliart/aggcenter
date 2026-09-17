@@ -80,7 +80,7 @@ export interface AppConfig {
   peopleDocsPrefix: string;
   /** When true, empty landing is seeded from bundled sample people docs. Off by default. */
   peopleDocsSeedSamples: boolean;
-  /** People-docs classify (reuses invoice LLM keys unless PEOPLE_DOCS_* overrides). */
+  /** People-docs classify — same INVOICE_LLM_* config as invoices. */
   peopleDocsClassify: InvoiceClassifyConfig;
   /** EU VIES REST API base (no trailing path). Public, no key. */
   viesApiUrl: string;
@@ -167,26 +167,7 @@ export function resolveInvoiceClassifyConfig(
 export function resolvePeopleDocsClassifyConfig(
   env: Record<string, string | undefined> = process.env,
 ): InvoiceClassifyConfig {
-  const base = resolveInvoiceClassifyConfig(env);
-  const apiKey = firstNonEmpty(env.PEOPLE_DOCS_LLM_API_KEY, base.apiKey);
-  const llmEnabled = flag(env.PEOPLE_DOCS_LLM_CLASSIFY, base.llmEnabled);
-  const llmReady = llmEnabled && bool(apiKey);
-  let warning: string | undefined;
-  if (!bool(apiKey)) {
-    warning =
-      "People docs LLM classify is off. Add INVOICE_LLM_API_KEY (or PEOPLE_DOCS_LLM_API_KEY) to enable. Using the static parser.";
-  } else if (!llmEnabled) {
-    warning =
-      "People docs LLM classify is off (PEOPLE_DOCS_LLM_CLASSIFY=false). Using the static parser.";
-  }
-  return {
-    ...base,
-    apiKey,
-    llmEnabled,
-    llmReady,
-    model: env.PEOPLE_DOCS_LLM_MODEL?.trim() || base.model,
-    warning,
-  };
+  return resolveInvoiceClassifyConfig(env);
 }
 
 function withTrailingSlash(value: string): string {
@@ -250,6 +231,7 @@ export function getConfig(): AppConfig {
     (snowflake.configured ? "snowflake" : "local");
 
   const cashFiles = resolveCashFilePrefixes();
+  const invoiceClassify = resolveInvoiceClassifyConfig();
 
   return {
     storageProvider,
@@ -273,12 +255,12 @@ export function getConfig(): AppConfig {
       process.env.INVOICE_PREFIX || "aggcenter/invoices",
     ),
     invoiceSeedSamples: flag(process.env.INVOICE_SEED_SAMPLES, false),
-    invoiceClassify: resolveInvoiceClassifyConfig(),
+    invoiceClassify,
     peopleDocsPrefix: withTrailingSlash(
       process.env.PEOPLE_DOCS_PREFIX || "aggcenter/peopleDocs",
     ),
     peopleDocsSeedSamples: flag(process.env.PEOPLE_DOCS_SEED_SAMPLES, false),
-    peopleDocsClassify: resolvePeopleDocsClassifyConfig(),
+    peopleDocsClassify: invoiceClassify,
     viesApiUrl: (process.env.VIES_API_URL || "https://ec.europa.eu/taxation_customs/vies/rest-api").replace(
       /\/+$/,
       "",

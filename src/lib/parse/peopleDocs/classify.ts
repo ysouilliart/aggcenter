@@ -116,7 +116,10 @@ function detectAgreementType(text: string, fileName: string): string | undefined
     return known ?? labelledType.replace(/\s+/g, " ").trim();
   }
   const hay = `${fileName}\n${text}`.toLowerCase();
-  return AGREEMENT_TYPES.find((t) => hay.includes(t.toLowerCase()));
+  const fromList = AGREEMENT_TYPES.find((t) => hay.includes(t.toLowerCase()));
+  if (fromList) return fromList;
+  if (/letter of offer|offer of employment/i.test(hay)) return "Offer Letter";
+  return undefined;
 }
 
 export function fieldsFromHeader(header: PeopleDocHeader, conf: Partial<Record<PeopleDocFieldKey, number>> = {}): PeopleDocField[] {

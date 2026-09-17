@@ -81,7 +81,7 @@ export async function classifyExtractedPeopleDoc(
       validated.value.confidence,
       validated.value.warnings,
       validated.value.reviewReasons,
-      extracted.fullText,
+      `${extracted.fileName}\n${extracted.fullText}`,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "LLM classify failed";

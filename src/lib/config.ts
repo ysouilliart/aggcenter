@@ -166,11 +166,11 @@ export function resolveInvoiceClassifyConfig(
 
 /**
  * People-docs classify is independent of invoices.
- * Kill switch: PEOPLE_DOCS_LLM_CLASSIFY=false keeps people docs static even when
- * an invoice LLM key is present. Auto-enable (unset) only when a people-docs key
- * or lab fallback key exists — not merely because invoice classify is on.
- * Key order: PEOPLE_DOCS_LLM_API_KEY, then INVOICE_LLM_API_KEY / OPENAI_API_KEY /
- * XAI_API_KEY. Production HR should set a dedicated key.
+ * A dedicated PEOPLE_DOCS_LLM_API_KEY turns people LLM on (production HR).
+ * PEOPLE_DOCS_LLM_CLASSIFY=false only blocks lab fallback from invoice/OpenAI/xAI
+ * keys — it does not ignore a dedicated people-docs key.
+ * When the people key is unset, auto-enable uses INVOICE_LLM_API_KEY /
+ * OPENAI_API_KEY / XAI_API_KEY unless PEOPLE_DOCS_LLM_CLASSIFY=false.
  */
 export function resolvePeopleDocsClassifyConfig(
   env: Record<string, string | undefined> = process.env,
@@ -182,8 +182,13 @@ export function resolvePeopleDocsClassifyConfig(
     env.OPENAI_API_KEY,
     env.XAI_API_KEY,
   );
-  const apiKey = firstNonEmpty(dedicatedKey, labFallbackKey);
-  const llmEnabled = flag(env.PEOPLE_DOCS_LLM_CLASSIFY, bool(apiKey));
+  const classifyFlag = env.PEOPLE_DOCS_LLM_CLASSIFY;
+  const forcedOff =
+    classifyFlag != null && classifyFlag.trim() !== "" && !flag(classifyFlag, true);
+  // Dedicated HR key always enables people LLM. The kill switch only blocks
+  // using an invoice/OpenAI/xAI key as a lab fallback.
+  const apiKey = dedicatedKey ?? (forcedOff ? undefined : labFallbackKey);
+  const llmEnabled = bool(dedicatedKey) || (!forcedOff && bool(apiKey));
   const llmReady = llmEnabled && bool(apiKey);
   const explicitBase = env.PEOPLE_DOCS_LLM_API_BASE?.trim() || undefined;
   const looksXai =
@@ -202,17 +207,18 @@ export function resolvePeopleDocsClassifyConfig(
   ).replace(/\/+$/, "");
   const timeoutOverride = Number(env.PEOPLE_DOCS_LLM_TIMEOUT_MS);
   const timeoutMs =
-    Number.isFinite(timeoutOverride) && timeoutOverride > 0 ? timeoutOverride : invoice.timeoutMs;
-  const classifyFlag = env.PEOPLE_DOCS_LLM_CLASSIFY;
-  const forcedOff =
-    classifyFlag != null && classifyFlag.trim() !== "" && !flag(classifyFlag, true);
+    Number.isFinite(timeoutOverride) && timeoutOverride > 0
+      ? timeoutOverride
+      : Math.max(invoice.timeoutMs, 45_000);
   let warning: string | undefined;
-  if (forcedOff) {
-    warning =
-      "People docs LLM classify is off (PEOPLE_DOCS_LLM_CLASSIFY=false). Using the static parser. Invoice classify is unchanged.";
-  } else if (!bool(apiKey)) {
-    warning =
-      "People docs LLM classify is off. Add PEOPLE_DOCS_LLM_API_KEY for production HR, or a lab fallback INVOICE_LLM_API_KEY / OPENAI_API_KEY / XAI_API_KEY. Using the static parser.";
+  if (!bool(apiKey)) {
+    if (forcedOff) {
+      warning =
+        "People docs LLM classify is off (PEOPLE_DOCS_LLM_CLASSIFY=false) and no PEOPLE_DOCS_LLM_API_KEY is set. Using the static parser. Invoice classify is unchanged.";
+    } else {
+      warning =
+        "People docs LLM classify is off. Add PEOPLE_DOCS_LLM_API_KEY for production HR, or a lab fallback INVOICE_LLM_API_KEY / OPENAI_API_KEY / XAI_API_KEY. Using the static parser.";
+    }
   }
   return {
     llmEnabled,

@@ -137,58 +137,61 @@ export default function PeopleDocsPage() {
   }, [selected]);
 
   return (
-    <div>
-      <PageHeader
-        title="People docs"
-        subtitle="Parse HR agreements and policies from aggcenter/peopleDocs. Hybrid classify: static floor, then PEOPLE_DOCS_LLM_API_KEY (lab fallback to invoice keys). Set PEOPLE_DOCS_LLM_CLASSIFY=false for static-only. Reprocess when a file or model changes."
-        actions={
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            {syncing ? "Syncing…" : "Sync landing folder"}
-          </button>
-        }
-      />
-
-      {summary.data?.classify?.warning ? (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {summary.data.classify.warning}
-        </div>
-      ) : summary.data?.classify?.llmReady ? (
-        <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          LLM classify is on ({summary.data.classify.model}). People-docs key is independent of
-          invoices. Scripting stays the floor; extracted people-doc text is sent to the provider
-          only when classify runs.
-        </div>
-      ) : null}
-
-      {error ? <ErrorNote message={error} /> : null}
-      {message ? <p className="mb-4 text-sm text-slate-600">{message}</p> : null}
-
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Landing" value={String(counts?.landing ?? 0)} sub="Drop zone" />
-        <KpiCard
-          label="Processed"
-          value={String(counts?.processed ?? 0)}
-          sub="Parsed"
-          tone="positive"
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0">
+        <PageHeader
+          className="mb-3"
+          title="People docs"
+          subtitle="Hybrid classify for aggcenter/peopleDocs: static floor, then PEOPLE_DOCS_LLM_API_KEY. A dedicated people key stays on even if PEOPLE_DOCS_LLM_CLASSIFY=false. Reprocess after enabling LLM."
+          actions={
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncing}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {syncing ? "Syncing…" : "Sync landing folder"}
+            </button>
+          }
         />
-        <KpiCard
-          label="Needs review"
-          value={String(counts?.anomaly ?? 0)}
-          sub="Anomaly folder"
-          tone="amber"
-        />
-        <KpiCard label="Archived" value={String(counts?.archived ?? 0)} sub="Closed" />
+
+        {summary.data?.classify?.warning ? (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {summary.data.classify.warning}
+          </div>
+        ) : summary.data?.classify?.llmReady ? (
+          <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+            LLM classify is on ({summary.data.classify.model}). People-docs key is independent of
+            invoices. Scripting stays the floor; extracted people-doc text is sent to the provider
+            only when classify runs.
+          </div>
+        ) : null}
+
+        {error ? <ErrorNote message={error} /> : null}
+        {message ? <p className="mb-3 text-sm text-slate-600">{message}</p> : null}
+
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Landing" value={String(counts?.landing ?? 0)} sub="Drop zone" />
+          <KpiCard
+            label="Processed"
+            value={String(counts?.processed ?? 0)}
+            sub="Parsed"
+            tone="positive"
+          />
+          <KpiCard
+            label="Needs review"
+            value={String(counts?.anomaly ?? 0)}
+            sub="Anomaly folder"
+            tone="amber"
+          />
+          <KpiCard label="Archived" value={String(counts?.archived ?? 0)} sub="Closed" />
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
-        <Card className="min-h-[28rem]">
-          <h2 className="mb-3 font-semibold text-slate-900">Documents</h2>
-          <form onSubmit={handleUpload} className="mb-4 space-y-2">
+      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-lg:grid-rows-[minmax(10rem,38vh)_minmax(0,1fr)] lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
+        <Card className="flex min-h-0 flex-col overflow-hidden">
+          <h2 className="mb-3 shrink-0 font-semibold text-slate-900">Documents</h2>
+          <form onSubmit={handleUpload} className="mb-3 shrink-0 space-y-2">
             <input
               ref={fileRef}
               type="file"
@@ -203,50 +206,52 @@ export default function PeopleDocsPage() {
               {submitting ? "Parsing…" : "Parse document"}
             </button>
           </form>
-          {list.loading && !docs.length ? (
-            <Spinner />
-          ) : docs.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No people docs yet. Drop files into aggcenter/peopleDocs/landing/ and sync, or upload
-              here.
-            </p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {docs.map((doc) => {
-                const active = doc.id === activeId;
-                return (
-                  <li key={doc.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(doc.id)}
-                      className={`w-full rounded-lg px-2 py-3 text-left ${
-                        active ? "bg-indigo-50" : "hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-slate-900">
-                            {doc.agreementId || doc.fileName}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {list.loading && !docs.length ? (
+              <Spinner />
+            ) : docs.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No people docs yet. Drop files into aggcenter/peopleDocs/landing/ and sync, or upload
+                here.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {docs.map((doc) => {
+                  const active = doc.id === activeId;
+                  return (
+                    <li key={doc.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(doc.id)}
+                        className={`w-full rounded-lg px-2 py-3 text-left ${
+                          active ? "bg-indigo-50" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-slate-900">
+                              {doc.agreementId || doc.fileName}
+                            </div>
+                            <div className="truncate text-xs text-slate-500">{doc.fileName}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {doc.agreementType || "—"} · {doc.resmedEntity || "—"}
+                            </div>
                           </div>
-                          <div className="truncate text-xs text-slate-500">{doc.fileName}</div>
-                          <div className="mt-1 text-xs text-slate-500">
-                            {doc.agreementType || "—"} · {doc.resmedEntity || "—"}
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <StatusBadge status={doc.folder} />
+                            <ConfidencePill confidence={doc.confidence} />
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusBadge status={doc.folder} />
-                          <ConfidencePill confidence={doc.confidence} />
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </Card>
 
-        <Card className="min-h-[28rem]">
+        <Card className="flex min-h-0 flex-col overflow-hidden">
           {!activeId ? (
             <p className="text-sm text-slate-500">Select a document to see classified fields.</p>
           ) : detail.loading && !selected ? (
@@ -254,8 +259,8 @@ export default function PeopleDocsPage() {
           ) : !selected ? (
             <p className="text-sm text-slate-500">Document not found.</p>
           ) : (
-            <div>
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold text-slate-900">{selected.doc.fileName}</h2>
                   <p className="mt-1 text-xs text-slate-500">
@@ -288,49 +293,51 @@ export default function PeopleDocsPage() {
                 </div>
               </div>
 
-              {selected.doc.classifierWarning &&
-              selected.doc.classifierWarning !== summary.data?.classify?.warning &&
-              !/LLM classify is off/i.test(selected.doc.classifierWarning) ? (
-                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {selected.doc.classifierWarning}
-                </p>
-              ) : selected.doc.classifyMode === "llm" ? (
-                <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
-                  LLM overlay on the static parser. Scripted fields were kept; the model filled
-                  gaps.
-                </p>
-              ) : null}
-              {selected.doc.reviewReason ? (
-                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {selected.doc.reviewReason}
-                </p>
-              ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                {selected.doc.classifierWarning &&
+                selected.doc.classifierWarning !== summary.data?.classify?.warning &&
+                !/LLM classify is off/i.test(selected.doc.classifierWarning) ? (
+                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {selected.doc.classifierWarning}
+                  </p>
+                ) : selected.doc.classifyMode === "llm" ? (
+                  <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
+                    LLM overlay on the static parser. Scripted fields were kept; the model filled
+                    gaps.
+                  </p>
+                ) : null}
+                {selected.doc.reviewReason ? (
+                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {selected.doc.reviewReason}
+                  </p>
+                ) : null}
 
-              <dl className="grid gap-3 sm:grid-cols-2">
-                {PEOPLE_DOC_FIELD_DEFS.map((def) => {
-                  const field = fieldMap.get(def.key);
-                  const raw = headerValue(selected.doc, def.key);
-                  const value = field?.value || raw;
-                  const missing = value === "—";
-                  return (
-                    <div key={def.key} className="rounded-lg border border-slate-100 px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                          {def.label}
-                        </dt>
-                        <ConfidencePill confidence={field?.confidence ?? 0} missing={missing} />
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  {PEOPLE_DOC_FIELD_DEFS.map((def) => {
+                    const field = fieldMap.get(def.key);
+                    const raw = headerValue(selected.doc, def.key);
+                    const value = field?.value || raw;
+                    const missing = value === "—";
+                    return (
+                      <div key={def.key} className="rounded-lg border border-slate-100 px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                            {def.label}
+                          </dt>
+                          <ConfidencePill confidence={field?.confidence ?? 0} missing={missing} />
+                        </div>
+                        <dd className="mt-1 text-sm font-medium text-slate-900">{value}</dd>
                       </div>
-                      <dd className="mt-1 text-sm font-medium text-slate-900">{value}</dd>
-                    </div>
-                  );
-                })}
-              </dl>
+                    );
+                  })}
+                </dl>
 
-              {selected.doc.extractedText ? (
-                <pre className="mt-4 max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-600 whitespace-pre-wrap">
-                  {selected.doc.extractedText.slice(0, 4000)}
-                </pre>
-              ) : null}
+                {selected.doc.extractedText ? (
+                  <pre className="mt-4 max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-600 whitespace-pre-wrap">
+                    {selected.doc.extractedText.slice(0, 4000)}
+                  </pre>
+                ) : null}
+              </div>
             </div>
           )}
         </Card>

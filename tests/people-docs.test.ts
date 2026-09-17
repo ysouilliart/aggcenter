@@ -114,6 +114,17 @@ describe("people doc static classify", () => {
     expect(parsed.header.startDate).toBe("2026-07-01");
   });
 
+  it("classifies a letter of offer from unstructured wording", () => {
+    const parsed = classifyPeopleDoc({
+      fileName: "hire.txt",
+      lines: ["ResMed Inc", "This letter of offer is made to Alex Kim."],
+      fullText:
+        "ResMed Inc\nThis letter of offer is made to Alex Kim.\nEffective Date: 1 July 2026\n",
+      pageCount: 1,
+    });
+    expect(parsed.header.agreementType).toBe("Offer Letter");
+  });
+
   it("treats a perpetual agreement as complete without an end date", () => {
     const parsed = classifyPeopleDoc({
       fileName: "offer-letter.txt",
@@ -294,6 +305,25 @@ describe("people doc LLM schema and overlay", () => {
     expect(merged.header.perpetual).toBe(false);
     expect(merged.classifyMode).toBe("llm");
   });
+
+  it("fills agreement type aliases the static parser missed", () => {
+    const staticResult = classifyPeopleDoc({
+      fileName: "hire.txt",
+      lines: ["ResMed Inc", "Agreement ID: AGR-88"],
+      fullText: "ResMed Inc\nAgreement ID: AGR-88\nThis consulting engagement is made to the candidate.\n",
+      pageCount: 1,
+    });
+    expect(staticResult.header.agreementType).toBeUndefined();
+    const merged = mergeStaticAndLlmPeopleDoc(
+      staticResult,
+      { agreementType: "Consultancy" },
+      82,
+      [],
+      [],
+      `hire.txt\n${staticResult.extractedText}`,
+    );
+    expect(merged.header.agreementType).toBe("Consultancy");
+  });
 });
 
 describe("people doc ingest", () => {
@@ -367,6 +397,16 @@ describe("people doc ingest", () => {
     expect(peopleOff.llmEnabled).toBe(false);
     expect(peopleOff.warning).toMatch(/PEOPLE_DOCS_LLM_CLASSIFY=false/i);
 
+    const dedicatedWinsKillSwitch = resolvePeopleDocsClassifyConfig({
+      INVOICE_LLM_API_KEY: "sk-inv",
+      PEOPLE_DOCS_LLM_API_KEY: "sk-hr",
+      PEOPLE_DOCS_LLM_CLASSIFY: "false",
+    });
+    expect(dedicatedWinsKillSwitch.llmReady).toBe(true);
+    expect(dedicatedWinsKillSwitch.llmEnabled).toBe(true);
+    expect(dedicatedWinsKillSwitch.apiKey).toBe("sk-hr");
+    expect(dedicatedWinsKillSwitch.warning).toBeUndefined();
+
     const dedicated = resolvePeopleDocsClassifyConfig({
       INVOICE_LLM_API_KEY: "sk-inv",
       PEOPLE_DOCS_LLM_API_KEY: "sk-hr",
@@ -404,6 +444,7 @@ describe("people doc ingest", () => {
     expect(resolveInvoiceClassifyConfig(peopleOnly).llmReady).toBe(false);
     expect(resolvePeopleDocsClassifyConfig(peopleOnly).llmReady).toBe(true);
     expect(resolvePeopleDocsClassifyConfig(peopleOnly).apiKey).toBe("sk-hr-only");
+    expect(resolvePeopleDocsClassifyConfig(peopleOnly).timeoutMs).toBe(45_000);
   });
 });
 
@@ -418,9 +459,8 @@ describe("parsePeopleDocument", () => {
       } as Response;
     });
     vi.stubGlobal("fetch", fetchMock);
-    const { createOpenAiPeopleDocLlmClient, truncatePeopleDocText } = await import(
-      "@/lib/parse/peopleDocs/llm"
-    );
+    const { createOpenAiPeopleDocLlmClient, truncatePeopleDocText, PEOPLE_DOC_LLM_MAX_TEXT_CHARS } =
+      await import("@/lib/parse/peopleDocs/llm");
     const client = createOpenAiPeopleDocLlmClient(llmConfig());
     const out = await client.complete({ fileName: "hr.txt", text: "CONFIDENTIAL HR", model: "m" });
     expect(out).toMatchObject({ confidence: 80 });
@@ -430,7 +470,12 @@ describe("parsePeopleDocument", () => {
       messages: { content: string }[];
     };
     expect(body.messages[1].content).toContain("CONFIDENTIAL HR");
-    expect(truncatePeopleDocText("x".repeat(30_000)).length).toBeLessThan(30_000);
+    expect(body.messages[0].content).toMatch(/letter of offer/i);
+    expect(truncatePeopleDocText("x".repeat(30_000))).toHaveLength(30_000);
+    const truncated = truncatePeopleDocText("x".repeat(60_000));
+    expect(truncated.length).toBeGreaterThan(PEOPLE_DOC_LLM_MAX_TEXT_CHARS);
+    expect(truncated.length).toBeLessThan(60_000);
+    expect(truncated).toContain("truncated");
   });
 
   it("parses fenced JSON, rejects a missing key, and throws metadata-only HTTP errors", async () => {

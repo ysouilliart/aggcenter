@@ -8,13 +8,15 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  className = "",
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className={`flex flex-wrap items-end justify-between gap-3 ${className || "mb-6"}`}>
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
         {subtitle ? (

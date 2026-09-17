@@ -91,10 +91,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const workspace = workspaceFromPath(pathname);
   const items = NAV[workspace];
   const hint = WORKSPACES.find((w) => w.id === workspace)?.hint ?? "";
+  const fillViewport = workspace === "people";
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden">
-      <aside className="hidden w-64 shrink-0 flex-col bg-slate-900 text-slate-200 md:flex">
+    <div className={`flex overflow-x-hidden ${fillViewport ? "h-dvh" : "min-h-screen"}`}>
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-slate-900 text-slate-200 md:flex">
         <div className="flex items-center gap-3 px-6 py-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-sky-400 font-bold text-slate-900">
             a
@@ -162,8 +163,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2 border-b border-slate-200 bg-white px-6 py-3 md:hidden">
+      <div className={`flex min-w-0 flex-1 flex-col ${fillViewport ? "min-h-0" : ""}`}>
+        <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-6 py-3 md:hidden">
           <span className="text-base font-semibold">aggcenter</span>
           <div className="ml-auto flex rounded-lg border border-slate-200 p-0.5 text-xs">
             {WORKSPACES.map((ws) => (
@@ -179,7 +180,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </div>
         </header>
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
+        <main
+          className={`min-w-0 flex-1 px-4 sm:px-6 lg:px-8 ${
+            fillViewport
+              ? "flex min-h-0 flex-col overflow-hidden py-4"
+              : "overflow-x-hidden py-6"
+          }`}
+        >
           {children}
         </main>
       </div>

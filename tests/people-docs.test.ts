@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InvoiceClassifyConfig } from "@/lib/config";
 import { getConfig, resolveInvoiceClassifyConfig, resolvePeopleDocsClassifyConfig } from "@/lib/config";
 import { folderForPeopleDocStatus } from "@/lib/peopleDocs/fromParse";
+import { peopleDocDisplayTitle } from "@/lib/peopleDocs/folders";
 import {
   ingestPeopleDocs,
   reprocessPeopleDoc,
@@ -512,5 +513,22 @@ describe("parsePeopleDocument", () => {
     });
     expect(parsed.header.agreementId).toBe("AGR-2026-0441");
     expect(parsed.classifyMode).toBe("static");
+  });
+});
+
+describe("peopleDocDisplayTitle", () => {
+  it("uses the file name as the document title, not an agreement ID", () => {
+    expect(peopleDocDisplayTitle("Buy - Master Supply - Term Sheet.docx")).toBe(
+      "Buy - Master Supply - Term Sheet",
+    );
+    expect(peopleDocDisplayTitle("Amendment - General - Common for APAC.doc")).toBe(
+      "Amendment - General - Common for APAC",
+    );
+    expect(peopleDocDisplayTitle("Privacy_Security intake approval auto.docx")).toBe(
+      "Privacy_Security intake approval auto",
+    );
+    expect(peopleDocDisplayTitle("aggcenter/peopleDocs/landing/resmed-hr-policy-partial.txt")).toBe(
+      "resmed-hr-policy-partial",
+    );
   });
 });

@@ -390,6 +390,7 @@ export interface IntegrationStatus {
     llmEnabled: boolean;
     llmReady: boolean;
     model: string;
+    provider: "openai" | "xai";
     staticFastPath: boolean;
     warning?: string;
     seedSamples: boolean;
@@ -440,6 +441,7 @@ export function getIntegrationStatus(): IntegrationStatus {
       llmEnabled: config.invoiceClassify.llmEnabled,
       llmReady: config.invoiceClassify.llmReady,
       model: config.invoiceClassify.model,
+      provider: config.invoiceClassify.provider,
       staticFastPath: config.invoiceClassify.staticFastPath,
       warning: config.invoiceClassify.warning,
       seedSamples: config.invoiceSeedSamples,

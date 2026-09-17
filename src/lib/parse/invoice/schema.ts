@@ -2,9 +2,12 @@
  * Schema-constrained LLM classify output.
  *
  * The model must return this JSON object (no free-form dump). Amounts are
- * integer minor units (cents), matching `InvoiceParseResult`.
+ * stored as integer minor units (cents). Decimal major units (189.00) are
+ * coerced rather than rejecting the payload.
  */
 
+import { toCents } from "../../money";
+import { parseMoney } from "./amounts";
 import type {
   ClassifiedField,
   InvoiceBankDetails,
@@ -64,10 +67,13 @@ export const INVOICE_LLM_OUTPUT_SCHEMA = {
         accountNumber: { type: "string" },
         referenceNumber: { type: "string" },
         customerNumber: { type: "string" },
-        subtotal: { type: "integer", description: "Minor units (cents)" },
-        taxTotal: { type: "integer" },
-        total: { type: "integer" },
-        amountDue: { type: "integer" },
+        subtotal: {
+          type: "number",
+          description: "Integer cents preferred (189.00 USD → 18900). Decimal major units are accepted.",
+        },
+        taxTotal: { type: "number" },
+        total: { type: "number" },
+        amountDue: { type: "number" },
         supplierName: { type: "string" },
         supplierLegalName: { type: "string" },
         supplierTaxId: { type: "string" },
@@ -94,10 +100,10 @@ export const INVOICE_LLM_OUTPUT_SCHEMA = {
           description: { type: "string" },
           quantity: { type: "number" },
           unit: { type: "string" },
-          unitPrice: { type: "integer" },
+          unitPrice: { type: "number" },
           taxRate: { type: "number" },
-          taxAmount: { type: "integer" },
-          lineTotal: { type: "integer" },
+          taxAmount: { type: "number" },
+          lineTotal: { type: "number" },
           periodStart: { type: "string" },
           periodEnd: { type: "string" },
           extra: { type: "object", additionalProperties: { type: "string" } },
@@ -113,8 +119,8 @@ export const INVOICE_LLM_OUTPUT_SCHEMA = {
         properties: {
           label: { type: "string" },
           rate: { type: "number" },
-          taxableAmount: { type: "integer" },
-          taxAmount: { type: "integer" },
+          taxableAmount: { type: "number" },
+          taxAmount: { type: "number" },
         },
       },
     },
@@ -192,6 +198,28 @@ function asInteger(value: unknown, field: string, errors: string[]): number | un
   return value;
 }
 
+/**
+ * Accept integer cents, decimal major units, or money strings (`$1,234.56`).
+ * Integers stay as cents (the prompt's preferred form); non-integers convert.
+ */
+export function asMoneyCents(value: unknown, field: string, errors: string[]): number | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "string") {
+    const parsed = parseMoney(value);
+    if (parsed == null) {
+      errors.push(`${field} must be a number`);
+      return undefined;
+    }
+    return parsed;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    errors.push(`${field} must be a number`);
+    return undefined;
+  }
+  if (Number.isInteger(value)) return value;
+  return toCents(value);
+}
+
 function asNumber(value: unknown, field: string, errors: string[]): number | undefined {
   if (value == null || value === "") return undefined;
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -251,10 +279,10 @@ function parseHeader(raw: unknown, errors: string[]): InvoiceHeader {
     accountNumber: asString(raw.accountNumber),
     referenceNumber: asString(raw.referenceNumber),
     customerNumber: asString(raw.customerNumber),
-    subtotal: asInteger(raw.subtotal, "header.subtotal", errors),
-    taxTotal: asInteger(raw.taxTotal, "header.taxTotal", errors),
-    total: asInteger(raw.total, "header.total", errors),
-    amountDue: asInteger(raw.amountDue, "header.amountDue", errors),
+    subtotal: asMoneyCents(raw.subtotal, "header.subtotal", errors),
+    taxTotal: asMoneyCents(raw.taxTotal, "header.taxTotal", errors),
+    total: asMoneyCents(raw.total, "header.total", errors),
+    amountDue: asMoneyCents(raw.amountDue, "header.amountDue", errors),
     supplierName: asString(raw.supplierName),
     supplierLegalName: asString(raw.supplierLegalName),
     supplierTaxId: asString(raw.supplierTaxId),
@@ -294,10 +322,10 @@ function parseLineItems(raw: unknown, errors: string[]): InvoiceLineItem[] {
         description,
         quantity: asNumber(item.quantity, `lineItems[${i}].quantity`, errors),
         unit: asString(item.unit),
-        unitPrice: asInteger(item.unitPrice, `lineItems[${i}].unitPrice`, errors),
+        unitPrice: asMoneyCents(item.unitPrice, `lineItems[${i}].unitPrice`, errors),
         taxRate: asNumber(item.taxRate, `lineItems[${i}].taxRate`, errors),
-        taxAmount: asInteger(item.taxAmount, `lineItems[${i}].taxAmount`, errors),
-        lineTotal: asInteger(item.lineTotal, `lineItems[${i}].lineTotal`, errors),
+        taxAmount: asMoneyCents(item.taxAmount, `lineItems[${i}].taxAmount`, errors),
+        lineTotal: asMoneyCents(item.lineTotal, `lineItems[${i}].lineTotal`, errors),
         periodStart: asString(item.periodStart),
         periodEnd: asString(item.periodEnd),
         extra: asStringMap(item.extra, `lineItems[${i}].extra`, errors),
@@ -326,8 +354,8 @@ function parseTaxLines(raw: unknown, errors: string[]): InvoiceTaxLine[] {
       {
         label,
         rate: asNumber(item.rate, `taxLines[${i}].rate`, errors),
-        taxableAmount: asInteger(item.taxableAmount, `taxLines[${i}].taxableAmount`, errors),
-        taxAmount: asInteger(item.taxAmount, `taxLines[${i}].taxAmount`, errors),
+        taxableAmount: asMoneyCents(item.taxableAmount, `taxLines[${i}].taxableAmount`, errors),
+        taxAmount: asMoneyCents(item.taxAmount, `taxLines[${i}].taxAmount`, errors),
       },
     ];
   });

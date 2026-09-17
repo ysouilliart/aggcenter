@@ -41,6 +41,7 @@ interface IntegrationStatus {
     llmEnabled: boolean;
     llmReady: boolean;
     model: string;
+    provider?: "openai" | "xai";
     staticFastPath: boolean;
     warning?: string;
     seedSamples: boolean;
@@ -294,12 +295,13 @@ export default function IntegrationsPage() {
               />
             </div>
             <p className="text-sm text-slate-600">
-              Deterministic extract plus optional schema-constrained LLM mapping. When the LLM is
-              off or the key is missing, Hotjar / Tesla / Origin overlays and generic regex run.
-              Extracted text is sent to the model provider only when LLM classify runs.
+              Static vendor/regex is always the floor. When an API key is present the LLM only
+              fills missing fields. Hotjar / Tesla / Origin high-confidence overlays skip the
+              model. Extracted text is sent to the provider only when LLM classify runs.
             </p>
             <dl className="mt-4 space-y-1 text-sm">
               <Row label="Mode" value={data.invoiceClassify?.mode ?? "static"} />
+              <Row label="Provider" value={data.invoiceClassify?.provider ?? "—"} />
               <Row label="Model" value={data.invoiceClassify?.model ?? "—"} />
               <Row
                 label="Static fast path"
@@ -314,8 +316,8 @@ export default function IntegrationsPage() {
               <p className="mt-3 text-xs text-amber-700">{data.invoiceClassify.warning}</p>
             ) : (
               <p className="mt-3 text-xs text-slate-400">
-                Set INVOICE_LLM_CLASSIFY=true, INVOICE_LLM_API_KEY, and optional
-                INVOICE_LLM_MODEL / INVOICE_LLM_API_BASE.
+                Add INVOICE_LLM_API_KEY (or OPENAI_API_KEY / XAI_API_KEY) as a Cursor Secret or in
+                .env.local. Set INVOICE_LLM_CLASSIFY=false to force the static parser.
               </p>
             )}
           </Card>

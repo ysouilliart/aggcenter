@@ -205,7 +205,8 @@ export default function InvoiceDetailPage() {
                 </p>
               ) : invoice.classifyMode === "llm" ? (
                 <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
-                  Classified by LLM. Extracted text was sent to the configured model provider.
+                  LLM overlay on the static parser. Scripted fields were kept; the model filled
+                  gaps. Extracted text was sent to the configured provider.
                 </p>
               ) : null}
               {invoice.reviewReason ? (

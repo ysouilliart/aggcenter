@@ -7,7 +7,7 @@
 export const INVOICE_PARSER_ID = "invoice-generic";
 export const INVOICE_PARSER_VERSION = "1.0.0";
 export const INVOICE_LLM_PARSER_ID = "invoice-llm";
-export const INVOICE_LLM_PARSER_VERSION = "1.0.0";
+export const INVOICE_LLM_PARSER_VERSION = "1.1.0";
 
 export type InvoiceParseStatus = "parsed" | "partial" | "anomaly" | "failed";
 export type InvoiceFolder = "landing" | "received" | "processed" | "archived" | "anomaly";

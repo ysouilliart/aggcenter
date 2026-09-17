@@ -1,8 +1,9 @@
 /**
  * Classify strategy: deterministic extract is unchanged; classification is
- *   1. high-confidence static vendor overlay (optional fast path), else
- *   2. schema-constrained LLM, else
- *   3. static regex fallback when LLM is off / missing a key / fails.
+ *   1. always run static vendor/regex (scripting is the floor),
+ *   2. skip the model for high-confidence Hotjar/Tesla/Origin (optional fast path),
+ *   3. schema-constrained LLM overlay that only fills empty fields, else
+ *   4. static regex fallback when LLM is off / missing a key / fails.
  */
 
 import type { InvoiceClassifyConfig } from "../../config";
@@ -16,6 +17,7 @@ import {
   type ClassifyInput,
 } from "./classify";
 import { createOpenAiInvoiceLlmClient, type InvoiceLlmClient } from "./llm";
+import { mergeStaticAndLlm } from "./merge";
 import { validateLlmClassify, type InvoiceLlmClassifyPayload } from "./schema";
 import type {
   ClassifiedField,
@@ -177,19 +179,18 @@ export async function classifyExtractedInvoice(
   const config = resolveConfig(options);
   const empty = extracted.lines.length === 0 || !extracted.fullText.trim();
 
+  const staticResult = classifyInvoice(input);
+
   if (empty) {
-    return withMode(classifyInvoice(input), "static");
+    return withMode(staticResult, "static");
   }
 
   if (!config.llmReady) {
-    return withMode(classifyInvoice(input), "static", config.warning);
+    return withMode(staticResult, "static", config.warning);
   }
 
-  if (config.staticFastPath) {
-    const staticResult = classifyInvoice(input);
-    if (isStaticFastPathHit(staticResult)) {
-      return withMode(staticResult, "static");
-    }
+  if (config.staticFastPath && isStaticFastPathHit(staticResult)) {
+    return withMode(staticResult, "static");
   }
 
   try {
@@ -201,16 +202,17 @@ export async function classifyExtractedInvoice(
     const validated = validateLlmClassify(raw);
     if (!validated.ok) {
       return withMode(
-        classifyInvoice(input),
+        staticResult,
         "static-fallback",
         `LLM output failed schema validation (${validated.error}). Using static parser.`,
       );
     }
-    return resultFromLlmPayload(input, validated.value);
+    const llmResult = resultFromLlmPayload(input, validated.value);
+    return mergeStaticAndLlm(staticResult, llmResult, extracted.fullText);
   } catch (err) {
     const message = err instanceof Error ? err.message : "LLM classify failed";
     return withMode(
-      classifyInvoice(input),
+      staticResult,
       "static-fallback",
       `LLM classify failed (${message}). Using static parser.`,
     );
@@ -223,6 +225,7 @@ export function getInvoiceClassifyStatus(config = getConfig().invoiceClassify) {
     llmEnabled: config.llmEnabled,
     llmReady: config.llmReady,
     model: config.model,
+    provider: config.provider,
     staticFastPath: config.staticFastPath,
     warning: config.warning,
     /** Extracted text is sent to this host only when llmReady and classify runs. */

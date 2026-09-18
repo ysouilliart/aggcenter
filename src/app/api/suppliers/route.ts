@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { formatDbError } from "@/lib/db/client";
 import { listSupplierRecords } from "@/lib/suppliers/service";
 import type { SupplierIssueType } from "@/lib/suppliers/types";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to list suppliers" },
+      { error: formatDbError(err, "Failed to list suppliers") },
       { status: 500 },
     );
   }

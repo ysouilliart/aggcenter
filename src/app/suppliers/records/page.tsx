@@ -81,58 +81,61 @@ export default function SupplierRecordsPage() {
   const sorted = useSort(records, supplierSortValue);
 
   return (
-    <div>
-      <PageHeader
-        title="Supplier records"
-        subtitle="Inspect a site, apply a correction, and keep a versioned audit trail. Final review of updates is under Review."
-      />
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search name, number, VAT, city…"
-          className="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0">
+        <PageHeader
+          className="mb-3"
+          title="Supplier records"
+          subtitle="Inspect a site, apply a correction, and keep a versioned audit trail. Final review of updates is under Review."
         />
-        <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-          {SOURCE_FILTERS.map((f) => (
-            <button
-              key={f.id || "all-sources"}
-              type="button"
-              onClick={() => setSource(f.id)}
-              className={`rounded-md px-3 py-1 font-medium ${
-                source === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search name, number, VAT, city…"
+            className="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+          />
+          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
+            {SOURCE_FILTERS.map((f) => (
+              <button
+                key={f.id || "all-sources"}
+                type="button"
+                onClick={() => setSource(f.id)}
+                className={`rounded-md px-3 py-1 font-medium ${
+                  source === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
+            {ISSUE_FILTERS.map((f) => (
+              <button
+                key={f.id || "all"}
+                type="button"
+                onClick={() => setIssue(f.id)}
+                className={`rounded-md px-3 py-1 font-medium ${
+                  issue === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <span className="ml-auto text-xs text-slate-500">
+            {list.data ? `${list.data.total} records` : ""}
+          </span>
         </div>
-        <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-          {ISSUE_FILTERS.map((f) => (
-            <button
-              key={f.id || "all"}
-              type="button"
-              onClick={() => setIssue(f.id)}
-              className={`rounded-md px-3 py-1 font-medium ${
-                issue === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <span className="ml-auto text-xs text-slate-500">
-          {list.data ? `${list.data.total} records` : ""}
-        </span>
+
+        {list.loading && !list.data ? <Spinner /> : null}
+        {list.error ? <ErrorNote message={list.error} /> : null}
       </div>
 
-      {list.loading && !list.data ? <Spinner /> : null}
-      {list.error ? <ErrorNote message={list.error} /> : null}
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
-        <Card className="p-0">
-          <div className="max-h-[42rem] overflow-auto">
+      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-xl:grid-rows-[minmax(12rem,40vh)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
+        <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+          <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white">
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
@@ -281,7 +284,7 @@ function RecordEditor({
 
   if (!record) {
     return (
-      <Card>
+      <Card className="flex min-h-0 flex-col overflow-hidden">
         <p className="text-sm text-slate-400">
           Select a record to review issues and apply a correction. Each save writes a
           new version and an audit event.
@@ -371,15 +374,15 @@ function RecordEditor({
   }
 
   return (
-    <Card className="p-0">
-      <div className="border-b border-slate-100 px-5 py-3">
+    <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+      <div className="shrink-0 border-b border-slate-100 px-5 py-3">
         <h2 className="font-semibold text-slate-900">{record.supplier.name}</h2>
         <p className="text-xs text-slate-500">
           {record.supplier.supplierNumber} · site {dash(record.site.siteCode)} · v
           {record.site.version}
         </p>
       </div>
-      <div className="max-h-[42rem] space-y-4 overflow-auto p-5">
+      <div className="min-h-0 flex-1 space-y-4 overflow-auto p-5">
         {record.issues.length ? (
           <ul className="space-y-2">
             {record.issues.map((issue) => (

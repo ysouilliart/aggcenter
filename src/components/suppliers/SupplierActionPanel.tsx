@@ -11,7 +11,7 @@ import {
 } from "@/components/ui";
 import type { GraphFocus } from "@/components/suppliers/SupplierSiteGraph";
 import type { SupplierGroup } from "@/lib/suppliers/group";
-import { siteIssuesFor, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
+import { siteChipLabel, siteIssuesFor, supplierIssuesFor } from "@/lib/suppliers/group";
 import { isStandardPaymentTerms, STANDARD_PAYMENT_TERMS } from "@/lib/suppliers/rationalise";
 import type {
   SupplierIssue,
@@ -263,7 +263,7 @@ function ActionEditor({
   const subtitle =
     scope === "supplier"
       ? `${record.supplier.supplierNumber} · ${dash(record.supplier.type)} · v${record.supplier.version}`
-      : `${dash(record.site.city)} ${dash(record.site.country)} · v${record.site.version}`;
+      : `id ${record.site.id} · ${dash(record.site.city)} ${dash(record.site.country)} · v${record.site.version}`;
 
   return (
     <Card className="flex min-h-0 flex-col overflow-hidden p-0">
@@ -278,7 +278,7 @@ function ActionEditor({
           {sites.map((r) => (
             <ScopeChip
               key={r.site.id}
-              label={siteLabel(r, sites)}
+              label={siteChipLabel(r, sites)}
               active={scope === "site" && focus.kind === "site" && focus.siteId === r.site.id}
               issueCount={siteIssuesFor(r).length}
               onClick={() => onFocus({ kind: "site", siteId: r.site.id })}
@@ -399,7 +399,7 @@ function ScopeChip({
     <button
       type="button"
       onClick={onClick}
-      className={`max-w-[10rem] truncate rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+      className={`max-w-[14rem] truncate rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
         active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
       }`}
     >

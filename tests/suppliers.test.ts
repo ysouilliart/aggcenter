@@ -6,7 +6,7 @@ import { getConfig } from "@/lib/config";
 import { assessAddress } from "@/lib/suppliers/address";
 import { analyseSuppliers } from "@/lib/suppliers/analyse";
 import { mapSupplierExtracts } from "@/lib/suppliers/fromExtracts";
-import { groupSupplierRecords, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
+import { groupSupplierRecords, siteChipLabel, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
 import { ingestSuppliers } from "@/lib/suppliers/ingest";
 import { assessRationalisation, canonicalPaymentTerms, isStandardPaymentTerms } from "@/lib/suppliers/rationalise";
 import {
@@ -449,6 +449,8 @@ describe("groupSupplierRecords", () => {
     });
     expect(siteLabel(records[0], records)).toContain("30 TN");
     expect(siteLabel(records[1], records)).toContain("30 jours FM");
+    expect(siteChipLabel(records[0], records)).toContain("s1");
+    expect(siteChipLabel(records[1], records)).toContain("s2");
   });
 });
 

@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 
 import { IssueBadge } from "@/components/ui";
 import type { SupplierGroup } from "@/lib/suppliers/group";
-import { siteIssuesFor, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
+import { siteIssuesFor, supplierIssuesFor } from "@/lib/suppliers/group";
 import type { SupplierIssue, SupplierRecord } from "@/lib/suppliers/types";
 
 export type GraphFocus = { kind: "supplier" } | { kind: "site"; siteId: string };
@@ -32,6 +32,7 @@ type SupplierNodeData = {
 };
 
 type SiteNodeData = {
+  siteId: string;
   siteCode: string;
   city: string;
   country: string;
@@ -85,6 +86,9 @@ function SiteFlowNode({ data }: NodeProps<Node<SiteNodeData, "site">>) {
         Site{data.inactive ? " · inactive" : ""}
       </div>
       <div className="truncate text-sm font-semibold text-slate-900">{data.siteCode || "—"}</div>
+      <div className="truncate font-mono text-[11px] text-slate-500" title={data.siteId}>
+        id {data.siteId}
+      </div>
       <div className="truncate text-[11px] text-slate-500">
         {data.terms || `${data.city || "—"} ${data.country || ""}`.trim()}
       </div>
@@ -110,7 +114,7 @@ function buildGraph(
   focus: GraphFocus,
 ): { nodes: GraphNode[]; edges: Edge[] } {
   const supplierIssues = supplierIssuesFor(sites.length ? sites : group.records);
-  const supplierY = Math.max(0, ((sites.length - 1) * 108) / 2);
+  const supplierY = Math.max(0, ((sites.length - 1) * 120) / 2);
   const nodes: GraphNode[] = [
     {
       id: `supplier:${group.supplier.id}`,
@@ -132,9 +136,10 @@ function buildGraph(
     nodes.push({
       id,
       type: "site",
-      position: { x: 280, y: index * 108 },
+      position: { x: 280, y: index * 120 },
       data: {
-        siteCode: siteLabel(record, sites),
+        siteId: record.site.id,
+        siteCode: record.site.siteCode.trim() || record.site.city.trim() || "Site",
         city: record.site.city,
         country: record.site.country,
         terms: record.site.paymentTerms || `${record.site.city} ${record.site.country}`.trim(),

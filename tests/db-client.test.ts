@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { formatDbError, poolOptionsFromDatabaseUrl, stripSslMode } from "@/lib/db/client";
+import {
+  CONNECT_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS,
+  STATEMENT_TIMEOUT_MS,
+  formatDbError,
+  poolOptionsFromDatabaseUrl,
+  stripSslMode,
+  withDbTimeout,
+} from "@/lib/db/client";
 
 describe("poolOptionsFromDatabaseUrl", () => {
   const prevNoVerify = process.env.DATABASE_SSL_NO_VERIFY;
@@ -17,8 +25,10 @@ describe("poolOptionsFromDatabaseUrl", () => {
     const opts = poolOptionsFromDatabaseUrl("postgresql://app:secret@localhost:5432/aggcenter");
     expect(opts.ssl).toBeUndefined();
     expect(opts.connectionString).toBe("postgresql://app:secret@localhost:5432/aggcenter");
-    expect(opts.connectionTimeoutMillis).toBe(8000);
-    expect(opts.statement_timeout).toBe(15000);
+    expect(opts.connectionTimeoutMillis).toBe(CONNECT_TIMEOUT_MS);
+    expect(opts.statement_timeout).toBe(STATEMENT_TIMEOUT_MS);
+    expect(CONNECT_TIMEOUT_MS).toBeLessThan(15_000);
+    expect(REQUEST_TIMEOUT_MS).toBeLessThan(22_000);
     expect(opts.max).toBe(5);
   });
 
@@ -63,5 +73,29 @@ describe("formatDbError", () => {
     const err = new Error("Failed query: select 1\nparams: ");
     err.cause = new Error("column does not exist");
     expect(formatDbError(err)).toBe("Database query failed: column does not exist");
+  });
+
+  it("maps the raw pg Client message from a dead Neon (`timeout expired`)", () => {
+    expect(formatDbError(new Error("timeout expired"))).toBe("Database unreachable: timeout expired");
+  });
+
+  it("prefers the connection-timeout text over a generic terminated cause", () => {
+    const err = new Error("Connection terminated due to connection timeout");
+    err.cause = new Error("Connection terminated unexpectedly");
+    expect(formatDbError(err)).toBe(
+      "Database unreachable: Connection terminated due to connection timeout",
+    );
+  });
+});
+
+describe("withDbTimeout", () => {
+  it("rejects a hung promise with timeout expired instead of waiting", async () => {
+    await expect(withDbTimeout(new Promise(() => undefined), 20)).rejects.toThrow(
+      /timeout expired \(20ms\)/,
+    );
+  });
+
+  it("returns the value when work finishes in time", async () => {
+    await expect(withDbTimeout(Promise.resolve(7), 200)).resolves.toBe(7);
   });
 });

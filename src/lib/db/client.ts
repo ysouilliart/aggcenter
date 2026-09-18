@@ -13,8 +13,10 @@ const globalForDb = globalThis as unknown as {
 let pool: Pool | undefined;
 let db: AppDb | undefined;
 
-const CONNECT_TIMEOUT_MS = 8_000;
-const STATEMENT_TIMEOUT_MS = 15_000;
+/** Fail connect before a ~15s Neon/pg `timeout expired` and well under a ~22s hung Next request. */
+export const CONNECT_TIMEOUT_MS = 5_000;
+export const STATEMENT_TIMEOUT_MS = 8_000;
+export const REQUEST_TIMEOUT_MS = 8_000;
 const IDLE_TIMEOUT_MS = 10_000;
 const DEFAULT_POOL_MAX = 5;
 
@@ -68,7 +70,8 @@ export function formatDbError(err: unknown, fallback = "Database query failed"):
   const unreachable =
     /timeout|ECONN|ENOTFOUND|EAI_AGAIN|SSL|connect|unreachable|Connection terminated|remaining connection slots|too many clients|Connection ended|query_timeout|statement timeout/i;
   if (unreachable.test(combined)) {
-    const detail = cause || firstLine(err.message);
+    const timeoutish = [err.message, cause].find((m) => /timeout expired|connection timeout|query_timeout|statement timeout/i.test(m));
+    const detail = timeoutish ? firstLine(timeoutish) : cause || firstLine(err.message);
     return `Database unreachable: ${detail}`;
   }
   if (err.message.startsWith("Failed query:")) {
@@ -79,6 +82,29 @@ export function formatDbError(err: unknown, fallback = "Database query failed"):
 
 function firstLine(message: string): string {
   return message.split("\n")[0] ?? message;
+}
+
+/**
+ * Hard cap for a single API call so a dead Neon/pg handshake cannot sit on the
+ * Next request until the ~22s proxy cutoff. pg `connectionTimeoutMillis` is
+ * still the first line of defence (A7_MAX: `select 1` died at 15017ms with
+ * `timeout expired` when that was set to 15000).
+ */
+export async function withDbTimeout<T>(
+  work: Promise<T>,
+  ms: number = REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`timeout expired (${ms}ms)`));
+    }, ms);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /**

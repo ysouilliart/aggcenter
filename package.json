@@ -21,6 +21,7 @@
     "parse:invoice": "vite-node --config vitest.config.ts scripts/dump-invoice-parse.ts"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.6",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.4",
     "pdfjs-dist": "^4.10.38",

@@ -16,6 +16,7 @@ export async function GET(request: Request) {
       country: url.searchParams.get("country") ?? undefined,
       paymentTerms: url.searchParams.get("paymentTerms") ?? undefined,
       source: url.searchParams.get("source") ?? undefined,
+      supplierId: url.searchParams.get("supplierId") ?? undefined,
       limit: url.searchParams.get("limit") ? Number(url.searchParams.get("limit")) : undefined,
       offset: url.searchParams.get("offset") ? Number(url.searchParams.get("offset")) : undefined,
     });

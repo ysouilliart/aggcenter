@@ -660,8 +660,32 @@ export function applyUpdate(
         });
         supplierChanged = true;
       }
-      if (field === "status") nextSupplier.status = asStatus(value);
-      else (nextSupplier as unknown as Record<string, string>)[field] = value;
+      if (field === "status") {
+        nextSupplier.status = asStatus(value);
+        const nextDate =
+          nextSupplier.status === "inactive"
+            ? nextSupplier.inactiveDate || createdAt.slice(0, 10)
+            : "";
+        const prevDate = supplier.inactiveDate ?? "";
+        nextSupplier.inactiveDate = nextDate || undefined;
+        if (prevDate !== nextDate) {
+          audit.push(
+            event(
+              "supplier",
+              supplier.id,
+              "inactiveDate",
+              prevDate,
+              nextDate,
+              actor,
+              reason,
+              createdAt,
+              supplier.version + 1,
+            ),
+          );
+        }
+      } else {
+        (nextSupplier as unknown as Record<string, string>)[field] = value;
+      }
       audit.push(event("supplier", supplier.id, field, current, value, actor, reason, createdAt, supplier.version + 1));
     } else if (SITE_FIELDS.has(field)) {
       const current = String(nextSite[field as keyof SupplierSite] ?? "");

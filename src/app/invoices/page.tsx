@@ -1,9 +1,10 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
-import { Card, ErrorNote, KpiCard, PageHeader, SortTh, Spinner, StatusBadge } from "@/components/ui";
+import { Card, ErrorNote, InfoNote, KpiCard, PageHeader, SegmentedToggle, SortTh, Spinner, StatusBadge, SuccessNote, WarningNote } from "@/components/ui";
 import type { InvoiceRecord, InvoiceSummary } from "@/lib/invoices/types";
 
 type ClassifyStatus = {
@@ -114,28 +115,16 @@ export default function InvoicesPage() {
         title="Invoice parser"
         subtitle="Extract text deterministically, classify with static vendor/regex as the floor (LLM fills gaps), then confirm uncertain results before they are treated as processed"
         actions={
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
+          <Button type="button" variant="outlined" size="small" onClick={handleSync} disabled={syncing}>
             {syncing ? "Syncing…" : "Sync landing folder"}
-          </button>
+          </Button>
         }
       />
 
       {summary.data?.classify?.warning ? (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {summary.data.classify.warning}
-        </div>
+        <WarningNote message={summary.data.classify.warning} />
       ) : summary.data?.classify?.llmReady ? (
-        <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          LLM classify is on ({summary.data.classify.model}). Static scripting stays the floor; the
-          model only fills missing fields. Extracted invoice text is sent to the configured
-          provider. Low-confidence or partial results stay in Needs review until an operator
-          confirms.
-        </div>
+        <InfoNote message={`LLM classify is on (${summary.data.classify.model}). Static scripting stays the floor; the model only fills missing fields. Extracted invoice text is sent to the configured provider. Low-confidence or partial results stay in Needs review until an operator confirms.`} />
       ) : null}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -160,28 +149,23 @@ export default function InvoicesPage() {
         <Card className="lg:col-span-1">
           <h2 className="mb-4 font-semibold text-slate-900">Upload invoice</h2>
           <form onSubmit={handleUpload} className="space-y-4">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.docx,.xlsx,.xlsm,.csv,.txt,.doc,.xls,application/pdf"
-              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
-            />
+            <Button variant="outlined" component="label" fullWidth>
+              Choose invoice
+              <input
+                ref={fileRef}
+                type="file"
+                hidden
+                accept=".pdf,.docx,.xlsx,.xlsm,.csv,.txt,.doc,.xls,application/pdf"
+              />
+            </Button>
             <p className="text-xs text-slate-400">
               PDF, DOCX, XLSX or CSV. Files land in{" "}
               <code>aggcenter/invoices/landing/</code> then move to processed or anomaly.
             </p>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-            >
+            <Button type="submit" variant="contained" disabled={submitting} fullWidth>
               {submitting ? "Parsing…" : "Parse invoice"}
-            </button>
-            {message ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                {message}
-              </div>
-            ) : null}
+            </Button>
+            {message ? <SuccessNote message={message} /> : null}
             {error ? <ErrorNote message={error} /> : null}
           </form>
         </Card>
@@ -189,22 +173,11 @@ export default function InvoicesPage() {
         <Card className="p-0 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
             <h2 className="font-semibold text-slate-900">Pipeline</h2>
-            <div className="flex flex-wrap gap-1">
-              {FOLDERS.map((f) => (
-                <button
-                  key={f || "all"}
-                  type="button"
-                  onClick={() => setFolder(f)}
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    folder === f
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {f || "all"}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              value={folder || "all"}
+              onChange={(next) => setFolder(next === "all" ? "" : next)}
+              options={FOLDERS.map((f) => ({ value: f || "all", label: f || "all" }))}
+            />
           </div>
           {list.loading && !list.data ? (
             <div className="px-5">

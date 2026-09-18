@@ -1,8 +1,11 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import TextField from "@mui/material/TextField";
 import { useState } from "react";
 
-import { Card, ErrorNote, PageHeader, SortTh, Spinner } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, SortTh, Spinner, WarningNote } from "@/components/ui";
 import type { StoredObject } from "@/lib/storage/types";
 import { formatDate } from "@/lib/format";
 import { useFetch } from "@/lib/useFetch";
@@ -91,24 +94,16 @@ export default function FilesPage() {
         title="Files"
         subtitle="Browse the object-storage bucket and view a selected file on request"
         actions={
-          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                provider === "oci" ? "bg-emerald-500" : "bg-slate-400"
-              }`}
-            />
-            provider: {provider}
-            {oci?.bucket ? ` · ${oci.bucket}` : ""}
-          </span>
+          <Chip
+            label={`provider: ${provider}${oci?.bucket ? ` · ${oci.bucket}` : ""}`}
+            color={provider === "oci" ? "success" : "default"}
+            variant="outlined"
+          />
         }
       />
 
       {oci && !oci.active ? (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          Showing the local storage provider. Set the OCI secrets and{" "}
-          <code>STORAGE_PROVIDER=oci</code> to browse the OCI bucket here (auth
-          mode detected: <strong>{oci.authMode}</strong>).
-        </div>
+        <WarningNote message={`Showing the local storage provider. Set the OCI secrets and STORAGE_PROVIDER=oci to browse the OCI bucket here (auth mode detected: ${oci.authMode}).`} />
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -116,18 +111,15 @@ export default function FilesPage() {
           <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
             <h2 className="font-semibold text-slate-900">Objects</h2>
             <div className="flex items-center gap-2">
-              <input
+              <TextField
+                size="small"
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
                 placeholder="aggCenter/ORG_112 - UK"
-                className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
               />
-              <button
-                onClick={objectsState.reload}
-                className="rounded-lg border border-slate-300 px-2 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
+              <Button variant="outlined" size="small" onClick={objectsState.reload}>
                 Refresh
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -171,12 +163,14 @@ export default function FilesPage() {
                         {formatDate(o.lastModified)}
                       </td>
                       <td className="px-5 py-2 text-right">
-                        <button
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="secondary"
                           onClick={() => viewFile(o.key)}
-                          className="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-700"
                         >
                           View
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}

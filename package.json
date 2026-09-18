@@ -21,6 +21,12 @@
     "parse:invoice": "vite-node --config vitest.config.ts scripts/dump-invoice-parse.ts"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.4.0",
+    "@mui/material": "^9.4.0",
+    "@mui/material-nextjs": "^9.4.0",
     "@xyflow/react": "^12.11.6",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.4",

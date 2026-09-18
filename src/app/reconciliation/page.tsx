@@ -9,6 +9,7 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   SortTh,
   Spinner,
   StatusBadge,
@@ -167,47 +168,23 @@ export default function ReconciliationPage() {
               <h2 className="font-semibold text-slate-900">Transactions</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {currencies.length > 1 ? (
-                  <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
-                    <button
-                      onClick={() => setCurrency("all")}
-                      className={`rounded-md px-3 py-1 font-medium ${
-                        currency === "all"
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      All
-                    </button>
-                    {currencies.map((ccy) => (
-                      <button
-                        key={ccy}
-                        onClick={() => setCurrency(ccy)}
-                        className={`rounded-md px-3 py-1 font-medium ${
-                          currency === ccy
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        {ccy}
-                      </button>
-                    ))}
-                  </div>
+                  <SegmentedToggle
+                    value={currency}
+                    onChange={setCurrency}
+                    options={[
+                      { value: "all", label: "All" },
+                      ...currencies.map((ccy) => ({ value: ccy, label: ccy })),
+                    ]}
+                  />
                 ) : null}
-                <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
-                {FILTERS.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`rounded-md px-3 py-1 font-medium capitalize transition-colors ${
-                      filter === f
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-                </div>
+                <SegmentedToggle
+                  value={filter}
+                  onChange={setFilter}
+                  options={FILTERS.map((f) => ({
+                    value: f,
+                    label: f === "all" ? "All" : f,
+                  }))}
+                />
               </div>
             </div>
             <div className="overflow-x-auto">

@@ -6,6 +6,7 @@ import { getConfig } from "@/lib/config";
 import { assessAddress } from "@/lib/suppliers/address";
 import { analyseSuppliers } from "@/lib/suppliers/analyse";
 import { mapSupplierExtracts } from "@/lib/suppliers/fromExtracts";
+import { groupSupplierRecords, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
 import { ingestSuppliers } from "@/lib/suppliers/ingest";
 import { assessRationalisation, canonicalPaymentTerms, isStandardPaymentTerms } from "@/lib/suppliers/rationalise";
 import {
@@ -405,6 +406,47 @@ describe("applyUpdate + local repository", () => {
     expect(result.audit.some((e) => e.field === "inactiveDate" && e.newValue === "2026-09-11")).toBe(
       true,
     );
+  });
+
+  it("marks the supplier inactive via status and stamps inactiveDate", () => {
+    const result = applyUpdate(supplier({ id: "1" }), site({ id: "s1", supplierId: "1" }), {
+      fields: { status: "inactive" },
+      reason: "Make supplier inactive",
+    });
+    expect(result.supplier.status).toBe("inactive");
+    expect(result.supplier.inactiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.site.inactiveDate).toBeUndefined();
+    expect(result.audit.some((e) => e.recordType === "supplier" && e.field === "status")).toBe(true);
+  });
+});
+
+describe("groupSupplierRecords", () => {
+  it("collapses site rows into unique suppliers and keeps site count", () => {
+    const { records } = analyseSuppliers({
+      suppliers: [supplier({ id: "aura", name: "AURA IMPRIMEURS", supplierNumber: "39918" })],
+      sites: [
+        site({ id: "s1", supplierId: "aura", siteCode: "SITE-A" }),
+        site({ id: "s2", supplierId: "aura", siteCode: "SITE-B", paymentTerms: "" }),
+        site({ id: "s3", supplierId: "aura", siteCode: "SITE-C" }),
+      ],
+    });
+    const groups = groupSupplierRecords(records);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].siteCount).toBe(3);
+    expect(groups[0].issues.length).toBeGreaterThan(0);
+    expect(supplierIssuesFor(records).every((i) => i.field !== "paymentTerms")).toBe(true);
+  });
+
+  it("disambiguates site labels when site codes collide", () => {
+    const { records } = analyseSuppliers({
+      suppliers: [supplier({ id: "aura" })],
+      sites: [
+        site({ id: "s1", supplierId: "aura", siteCode: "24-26 Rue Des H", paymentTerms: "30 TN" }),
+        site({ id: "s2", supplierId: "aura", siteCode: "24-26 Rue Des H", paymentTerms: "30 jours FM" }),
+      ],
+    });
+    expect(siteLabel(records[0], records)).toContain("30 TN");
+    expect(siteLabel(records[1], records)).toContain("30 jours FM");
   });
 });
 

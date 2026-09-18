@@ -21,6 +21,7 @@ export interface SupplierListQuery {
   country?: string;
   paymentTerms?: string;
   source?: string;
+  supplierId?: string;
   limit?: number;
   offset?: number;
 }
@@ -69,6 +70,7 @@ export async function listSupplierRecords(
     if (query.source && r.site.source !== query.source && r.supplier.source !== query.source) {
       return false;
     }
+    if (query.supplierId && r.supplier.id !== query.supplierId) return false;
     if (!q) return true;
     const hay = [
       r.supplier.name,

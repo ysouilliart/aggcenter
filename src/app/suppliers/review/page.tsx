@@ -61,26 +61,29 @@ export default function SupplierReviewPage() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Final review"
-        subtitle="Records updated and streamlined — confirm what changed, then validate VAT IDs against the EU VIES registry"
-        actions={
-          <button
-            type="button"
-            onClick={() => validateIds(items.map((i) => i.id))}
-            disabled={Boolean(checking) || items.length === 0}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {checking === "batch" ? "Checking VIES…" : "Validate VAT on listed records"}
-          </button>
-        }
-      />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0">
+        <PageHeader
+          className="mb-3"
+          title="Final review"
+          subtitle="Records updated and streamlined — confirm what changed, then validate VAT IDs against the EU VIES registry"
+          actions={
+            <button
+              type="button"
+              onClick={() => validateIds(items.map((i) => i.id))}
+              disabled={Boolean(checking) || items.length === 0}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+            >
+              {checking === "batch" ? "Checking VIES…" : "Validate VAT on listed records"}
+            </button>
+          }
+        />
 
-      {state.loading ? <Spinner /> : null}
-      {state.error ? <ErrorNote message={state.error} /> : null}
-      {batchError ? <ErrorNote message={batchError} /> : null}
-      {batchMessage ? <p className="mb-4 text-sm text-emerald-700">{batchMessage}</p> : null}
+        {state.loading ? <Spinner /> : null}
+        {state.error ? <ErrorNote message={state.error} /> : null}
+        {batchError ? <ErrorNote message={batchError} /> : null}
+        {batchMessage ? <p className="mb-3 text-sm text-emerald-700">{batchMessage}</p> : null}
+      </div>
 
       {items.length === 0 && !state.loading ? (
         <Card>
@@ -90,9 +93,9 @@ export default function SupplierReviewPage() {
           </p>
         </Card>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
-          <Card className="p-0">
-            <div className="max-h-[42rem] overflow-auto">
+        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-xl:grid-rows-[minmax(12rem,40vh)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
+          <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+            <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
@@ -175,15 +178,15 @@ function ReviewDetail({
   const siteVat = item.site.siteVat.trim();
 
   return (
-    <Card className="p-0">
-      <div className="border-b border-slate-100 px-5 py-3">
+    <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+      <div className="shrink-0 border-b border-slate-100 px-5 py-3">
         <h2 className="font-semibold text-slate-900">{item.supplier.name}</h2>
         <p className="text-xs text-slate-500">
           {item.supplier.supplierNumber} · site {dash(item.site.siteCode)} · v
           {item.site.version}
         </p>
       </div>
-      <div className="max-h-[42rem] space-y-4 overflow-auto p-5">
+      <div className="min-h-0 flex-1 space-y-4 overflow-auto p-5">
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             What changed

@@ -31,19 +31,55 @@ export interface SupplierListResult {
   records: SupplierRecord[];
 }
 
+function siteListFilter(query: SupplierListQuery) {
+  return {
+    source: query.source,
+    supplierId: query.supplierId,
+    country: query.country,
+    paymentTerms: query.paymentTerms,
+    q: query.q,
+  };
+}
+
+export function matchesSupplierListQuery(record: SupplierRecord, query: SupplierListQuery): boolean {
+  if (query.issue === "any" && record.issues.length === 0) return false;
+  if (query.issue && query.issue !== "any" && !record.issues.some((i) => i.type === query.issue)) {
+    return false;
+  }
+  if (query.country && record.site.country !== query.country) return false;
+  if (query.paymentTerms && record.site.paymentTerms !== query.paymentTerms) return false;
+  if (query.source && record.site.source !== query.source && record.supplier.source !== query.source) {
+    return false;
+  }
+  if (query.supplierId && record.supplier.id !== query.supplierId) return false;
+  const q = query.q?.trim().toLowerCase();
+  if (!q) return true;
+  const hay = [
+    record.supplier.name,
+    record.supplier.supplierNumber,
+    record.supplier.supplierVat,
+    record.site.siteCode,
+    record.site.siteVat,
+    record.site.city,
+    record.site.paymentTerms,
+    record.site.payGroup,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
+}
+
 export async function getSupplierWorkspace(source?: string): Promise<{
   records: SupplierRecord[];
   summary: SupplierSummary;
 }> {
   const repo = getSupplierRepository();
-  const [allSuppliers, allSites, meta] = await Promise.all([
-    repo.listSuppliers(),
-    repo.listSites(),
+  const sites = await repo.listSites(source ? { source } : undefined);
+  const supplierIds = [...new Set(sites.map((s) => s.supplierId))];
+  const [suppliers, meta] = await Promise.all([
+    repo.listSuppliers({ ids: supplierIds }),
     repo.meta(),
   ]);
-  const sites = source ? allSites.filter((s) => s.source === source) : allSites;
-  const supplierIds = new Set(sites.map((s) => s.supplierId));
-  const suppliers = allSuppliers.filter((s) => supplierIds.has(s.id));
   const analysed = analyseSuppliers({ suppliers, sites });
   return {
     records: analysed.records,
@@ -58,36 +94,24 @@ export async function getSupplierWorkspace(source?: string): Promise<{
 export async function listSupplierRecords(
   query: SupplierListQuery = {},
 ): Promise<SupplierListResult> {
-  const { records } = await getSupplierWorkspace(query.source);
-  const q = query.q?.trim().toLowerCase();
-  const filtered = records.filter((r) => {
-    if (query.issue === "any" && r.issues.length === 0) return false;
-    if (query.issue && query.issue !== "any" && !r.issues.some((i) => i.type === query.issue)) {
-      return false;
-    }
-    if (query.country && r.site.country !== query.country) return false;
-    if (query.paymentTerms && r.site.paymentTerms !== query.paymentTerms) return false;
-    if (query.source && r.site.source !== query.source && r.supplier.source !== query.source) {
-      return false;
-    }
-    if (query.supplierId && r.supplier.id !== query.supplierId) return false;
-    if (!q) return true;
-    const hay = [
-      r.supplier.name,
-      r.supplier.supplierNumber,
-      r.supplier.supplierVat,
-      r.site.siteCode,
-      r.site.siteVat,
-      r.site.city,
-      r.site.paymentTerms,
-      r.site.payGroup,
-    ]
-      .join(" ")
-      .toLowerCase();
-    return hay.includes(q);
-  });
+  const repo = getSupplierRepository();
   const offset = Math.max(0, query.offset ?? 0);
   const limit = Math.min(500, Math.max(1, query.limit ?? 100));
+  const filter = siteListFilter(query);
+
+  // Issue flags are computed in memory, so they cannot be pushed into SQL.
+  // When the caller only wants a page of raw records, limit/offset run in the DB.
+  const pageInDb = !query.issue;
+  const sites = await repo.listSites(pageInDb ? { ...filter, limit, offset } : filter);
+  const supplierIds = [...new Set(sites.map((s) => s.supplierId))];
+  const suppliers = await repo.listSuppliers({ ids: supplierIds });
+  const analysed = analyseSuppliers({ suppliers, sites });
+  const filtered = analysed.records.filter((r) => matchesSupplierListQuery(r, query));
+
+  if (pageInDb) {
+    const total = await repo.countSites(filter);
+    return { total, records: filtered };
+  }
   return { total: filtered.length, records: filtered.slice(offset, offset + limit) };
 }
 

@@ -13,7 +13,9 @@ import {
   LocalJsonSupplierRepository,
   applyUpdate,
   resetSupplierRepositoryCache,
+  setSupplierRepositoryForTest,
 } from "@/lib/suppliers/repository";
+import { listSupplierRecords } from "@/lib/suppliers/service";
 import { LocalStorageProvider } from "@/lib/storage/local";
 import { translateToEnglish, hasNonLatinScript, transliterateToLatin } from "@/lib/suppliers/translate";
 import { assessVat, normalizeVat, splitVatNumber } from "@/lib/suppliers/vat";
@@ -745,5 +747,71 @@ describe("config", () => {
 
   it("defaults VIES to the official EU REST API", () => {
     expect(getConfig().viesApiUrl).toBe("https://ec.europa.eu/taxation_customs/vies/rest-api");
+  });
+});
+
+describe("listSupplierRecords", () => {
+  const file = path.join(os.tmpdir(), `suppliers-list-${Date.now()}.json`);
+  const repo = new LocalJsonSupplierRepository(file);
+
+  afterEach(() => {
+    setSupplierRepositoryForTest(null);
+    resetSupplierRepositoryCache();
+  });
+
+  async function seed() {
+    await repo.replaceWorkingCopy({
+      suppliers: [
+        supplier({ id: "aura", name: "AURA IMPRIMEURS", supplierNumber: "39918" }),
+        supplier({ id: "cms", name: "CMS", supplierNumber: "101774" }),
+      ],
+      sites: [
+        site({ id: "a1", supplierId: "aura", siteCode: "SITE-A", city: "Paris", country: "FR" }),
+        site({ id: "a2", supplierId: "aura", siteCode: "SITE-B", city: "Lyon", country: "FR" }),
+        site({ id: "c1", supplierId: "cms", siteCode: "UTRECHT", city: "Utrecht", country: "NL" }),
+        site({
+          id: "c2",
+          supplierId: "cms",
+          siteCode: "EMPTY",
+          city: "",
+          postalCode: "",
+          addressLine1: "",
+          country: "NL",
+        }),
+      ],
+      files: [],
+    });
+    setSupplierRepositoryForTest(repo);
+  }
+
+  it("paginates at the repository layer when no issue filter is set", async () => {
+    await seed();
+    const page = await listSupplierRecords({ limit: 2, offset: 0 });
+    expect(page.total).toBe(4);
+    expect(page.records).toHaveLength(2);
+    const next = await listSupplierRecords({ limit: 2, offset: 2 });
+    expect(next.records).toHaveLength(2);
+    expect(new Set([...page.records, ...next.records].map((r) => r.id)).size).toBe(4);
+  });
+
+  it("loads only the selected supplier's sites for the site-graph query", async () => {
+    await seed();
+    const result = await listSupplierRecords({ supplierId: "aura", limit: 50 });
+    expect(result.total).toBe(2);
+    expect(result.records).toHaveLength(2);
+    expect(result.records.every((r) => r.supplier.id === "aura")).toBe(true);
+  });
+
+  it("still honours issue filters after the narrower site load", async () => {
+    await seed();
+    const missing = await listSupplierRecords({
+      issue: "missing_attribute",
+      supplierId: "cms",
+      limit: 50,
+    });
+    expect(missing.total).toBe(1);
+    expect(missing.records).toHaveLength(1);
+    expect(missing.records[0].id).toBe("c2");
+    expect(missing.records[0].issues.some((i) => i.type === "missing_attribute")).toBe(true);
   });
 });

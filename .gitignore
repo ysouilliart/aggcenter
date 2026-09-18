@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+.vitest
 
 # aggcenter local runtime data (uploads, local object storage)
 /.data

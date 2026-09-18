@@ -114,10 +114,29 @@ describe("invoice ingest pipeline", () => {
   });
 
   it("defaults the invoice prefix and classify/seed flags", () => {
-    expect(getConfig().invoicePrefix).toBe("aggcenter/invoices/");
-    expect(getConfig().invoiceSeedSamples).toBe(false);
-    expect(getConfig().invoiceClassify.llmEnabled).toBe(false);
-    expect(getConfig().invoiceClassify.llmReady).toBe(false);
-    expect(getConfig().invoiceClassify.warning).toMatch(/LLM classify is off/i);
+    const keys = [
+      "INVOICE_PREFIX",
+      "INVOICE_SEED_SAMPLES",
+      "INVOICE_LLM_CLASSIFY",
+      "INVOICE_LLM_API_KEY",
+      "INVOICE_LLM_API_BASE",
+      "INVOICE_LLM_MODEL",
+      "OPENAI_API_KEY",
+      "XAI_API_KEY",
+    ];
+    const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    try {
+      for (const k of keys) delete process.env[k];
+      expect(getConfig().invoicePrefix).toBe("aggcenter/invoices/");
+      expect(getConfig().invoiceSeedSamples).toBe(false);
+      expect(getConfig().invoiceClassify.llmEnabled).toBe(false);
+      expect(getConfig().invoiceClassify.llmReady).toBe(false);
+      expect(getConfig().invoiceClassify.warning).toMatch(/LLM classify is off/i);
+    } finally {
+      for (const k of keys) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    }
   });
 });

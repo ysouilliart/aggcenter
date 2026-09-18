@@ -82,7 +82,7 @@ and local file storage; set the documented `OCI_*` / `SNOWFLAKE_*` variables
 
 ## Getting started
 
-Requires Node.js 20+.
+Requires Node.js 22+.
 
 ```bash
 npm ci          # install dependencies

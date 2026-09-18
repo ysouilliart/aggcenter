@@ -22,6 +22,20 @@ import {
 
 export type { SupplierUpdateInput };
 
+export interface SupplierSiteListFilter {
+  source?: string;
+  supplierId?: string;
+  country?: string;
+  paymentTerms?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SupplierListFilter {
+  ids?: string[];
+}
+
 export interface SupplierSnapshot {
   suppliers: Supplier[];
   sites: SupplierSite[];
@@ -38,8 +52,9 @@ export interface SupplierRepository {
     snapshot: { suppliers: Supplier[]; sites: SupplierSite[]; files: { key: string; rows: number }[] },
     actor?: string,
   ): Promise<void>;
-  listSuppliers(): Promise<Supplier[]>;
-  listSites(): Promise<SupplierSite[]>;
+  listSuppliers(filter?: SupplierListFilter): Promise<Supplier[]>;
+  listSites(filter?: SupplierSiteListFilter): Promise<SupplierSite[]>;
+  countSites(filter?: SupplierSiteListFilter): Promise<number>;
   getSite(id: string): Promise<SupplierSite | undefined>;
   getSupplier(id: string): Promise<Supplier | undefined>;
   listVersions(recordType?: SupplierRecordType, recordId?: string): Promise<SupplierVersion[]>;
@@ -120,11 +135,20 @@ export class LocalJsonSupplierRepository implements SupplierRepository {
     await this.write(snap);
   }
 
-  async listSuppliers() {
-    return (await this.read()).suppliers;
+  async listSuppliers(filter?: SupplierListFilter) {
+    const rows = (await this.read()).suppliers;
+    if (!filter?.ids) return rows;
+    const ids = new Set(filter.ids);
+    return rows.filter((s) => ids.has(s.id));
   }
-  async listSites() {
-    return (await this.read()).sites;
+  async listSites(filter?: SupplierSiteListFilter) {
+    const snap = await this.read();
+    return applySiteListFilter(snap.sites, snap.suppliers, filter);
+  }
+  async countSites(filter?: SupplierSiteListFilter) {
+    const snap = await this.read();
+    return applySiteListFilter(snap.sites, snap.suppliers, { ...filter, limit: undefined, offset: undefined })
+      .length;
   }
   async getSite(id: string) {
     return (await this.read()).sites.find((s) => s.id === id);
@@ -221,18 +245,86 @@ export class PostgresSupplierRepository implements SupplierRepository {
     });
   }
 
-  async listSuppliers(): Promise<Supplier[]> {
+  async listSuppliers(filter?: SupplierListFilter): Promise<Supplier[]> {
     const { getDb } = await import("../db/client");
     const { suppliers } = await import("../db/schema");
-    const rows = await getDb().select().from(suppliers);
+    const { inArray } = await import("drizzle-orm");
+    const db = getDb();
+    if (filter?.ids) {
+      if (filter.ids.length === 0) return [];
+      const rows = await db.select().from(suppliers).where(inArray(suppliers.id, filter.ids));
+      return rows.map(supplierFromRow);
+    }
+    const rows = await db.select().from(suppliers);
     return rows.map(supplierFromRow);
   }
 
-  async listSites(): Promise<SupplierSite[]> {
+  async listSites(filter?: SupplierSiteListFilter): Promise<SupplierSite[]> {
     const { getDb } = await import("../db/client");
     const { supplierSites } = await import("../db/schema");
-    const rows = await getDb().select().from(supplierSites);
+    const { and, asc } = await import("drizzle-orm");
+    const db = getDb();
+    const conditions = await this.siteFilterConditions(filter);
+    const where = conditions.length ? and(...conditions) : undefined;
+    const offset = Math.max(0, filter?.offset ?? 0);
+    const ordered = db
+      .select()
+      .from(supplierSites)
+      .where(where)
+      .orderBy(asc(supplierSites.id));
+    const rows =
+      filter?.limit == null
+        ? offset
+          ? await ordered.offset(offset)
+          : await ordered
+        : await ordered.offset(offset).limit(Math.max(0, filter.limit));
     return rows.map(siteFromRow);
+  }
+
+  async countSites(filter?: SupplierSiteListFilter): Promise<number> {
+    const { getDb } = await import("../db/client");
+    const { supplierSites } = await import("../db/schema");
+    const { and, count } = await import("drizzle-orm");
+    const db = getDb();
+    const conditions = await this.siteFilterConditions(filter);
+    const query = conditions.length
+      ? db.select({ n: count() }).from(supplierSites).where(and(...conditions))
+      : db.select({ n: count() }).from(supplierSites);
+    const rows = await query;
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  private async siteFilterConditions(filter?: SupplierSiteListFilter) {
+    const { getDb } = await import("../db/client");
+    const { suppliers, supplierSites } = await import("../db/schema");
+    const { eq, ilike, inArray, or } = await import("drizzle-orm");
+    const conditions = [];
+    if (filter?.source) conditions.push(eq(supplierSites.source, filter.source));
+    if (filter?.supplierId) conditions.push(eq(supplierSites.supplierId, filter.supplierId));
+    if (filter?.country) conditions.push(eq(supplierSites.country, filter.country));
+    if (filter?.paymentTerms) conditions.push(eq(supplierSites.paymentTerms, filter.paymentTerms));
+    const q = filter?.q?.trim();
+    if (q) {
+      const like = `%${q}%`;
+      const db = getDb();
+      const matched = await db
+        .select({ id: suppliers.id })
+        .from(suppliers)
+        .where(
+          or(ilike(suppliers.name, like), ilike(suppliers.supplierNumber, like), ilike(suppliers.supplierVat, like)),
+        );
+      const qConds = [
+        ilike(supplierSites.siteCode, like),
+        ilike(supplierSites.siteVat, like),
+        ilike(supplierSites.city, like),
+        ilike(supplierSites.paymentTerms, like),
+        ilike(supplierSites.payGroup, like),
+      ];
+      if (matched.length) qConds.push(inArray(supplierSites.supplierId, matched.map((r) => r.id)));
+      const qOr = or(...qConds);
+      if (qOr) conditions.push(qOr);
+    }
+    return conditions;
   }
 
   async getSite(id: string) {
@@ -748,6 +840,42 @@ function event(
   };
 }
 
+export function applySiteListFilter(
+  sites: SupplierSite[],
+  suppliers: Supplier[],
+  filter?: SupplierSiteListFilter,
+): SupplierSite[] {
+  if (!filter) return sites;
+  const q = filter.q?.trim().toLowerCase();
+  const supplierIdsFromQ = new Set<string>();
+  if (q) {
+    for (const supplier of suppliers) {
+      const hay = [supplier.name, supplier.supplierNumber, supplier.supplierVat].join(" ").toLowerCase();
+      if (hay.includes(q)) supplierIdsFromQ.add(supplier.id);
+    }
+  }
+  let rows = sites.filter((site) => {
+    if (filter.source && site.source !== filter.source) return false;
+    if (filter.supplierId && site.supplierId !== filter.supplierId) return false;
+    if (filter.country && site.country !== filter.country) return false;
+    if (filter.paymentTerms && site.paymentTerms !== filter.paymentTerms) return false;
+    if (q) {
+      const hay = [site.siteCode, site.siteVat, site.city, site.paymentTerms, site.payGroup]
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(q) && !supplierIdsFromQ.has(site.supplierId)) return false;
+    }
+    return true;
+  });
+  if (filter.limit != null || filter.offset) {
+    rows = [...rows].sort((a, b) => a.id.localeCompare(b.id));
+    const offset = Math.max(0, filter.offset ?? 0);
+    if (filter.limit != null) return rows.slice(offset, offset + Math.max(0, filter.limit));
+    return rows.slice(offset);
+  }
+  return rows;
+}
+
 let cached: SupplierRepository | null = null;
 
 export function getSupplierRepository(): SupplierRepository {
@@ -761,4 +889,9 @@ export function getSupplierRepository(): SupplierRepository {
 /** Test helper. */
 export function resetSupplierRepositoryCache(): void {
   cached = null;
+}
+
+/** Test helper. */
+export function setSupplierRepositoryForTest(repo: SupplierRepository | null): void {
+  cached = repo;
 }

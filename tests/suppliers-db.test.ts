@@ -132,6 +132,11 @@ run("PostgresSupplierRepository (aggc-supplier schema)", () => {
       sites: [updated.site],
     });
     expect(analysed.records[0].issues.some((i) => i.field === "paymentTerms")).toBe(false);
+
+    const filtered = await repo.listSites({ supplierId: "SUP-test-1", limit: 5 });
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].id).toBe("SITE-test-1");
+    expect(await repo.countSites({ supplierId: "SUP-test-1" })).toBe(1);
   });
 
   it("persists a VAT registry check without wiping other rows", async () => {

@@ -66,6 +66,10 @@ export function siteLabel(record: SupplierRecord, siblings: SupplierRecord[] = [
   return extra ? `${code} · ${extra}` : code;
 }
 
+export function siteChipLabel(record: SupplierRecord, siblings: SupplierRecord[] = []): string {
+  return `${siteLabel(record, siblings)} · ${record.site.id}`;
+}
+
 export function groupSupplierRecords(records: SupplierRecord[]): SupplierGroup[] {
   const byId = new Map<string, SupplierRecord[]>();
   for (const record of records) {

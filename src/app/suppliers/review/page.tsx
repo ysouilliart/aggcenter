@@ -1,8 +1,9 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import { useState } from "react";
 
-import { Card, ErrorNote, PageHeader, Spinner, VatCheckBadge } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, Spinner, SuccessNote, VatCheckBadge } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { parseViesAddress } from "@/lib/suppliers/viesCompare";
 import type { SupplierReviewItem, SupplierVatCheck } from "@/lib/suppliers/types";
@@ -68,21 +69,23 @@ export default function SupplierReviewPage() {
           title="Final review"
           subtitle="Records updated and streamlined — confirm what changed, then validate VAT IDs against the EU VIES registry"
           actions={
-            <button
+            <Button
               type="button"
+              variant="contained"
+              color="secondary"
+              size="small"
               onClick={() => validateIds(items.map((i) => i.id))}
               disabled={Boolean(checking) || items.length === 0}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
             >
               {checking === "batch" ? "Checking VIES…" : "Validate VAT on listed records"}
-            </button>
+            </Button>
           }
         />
 
         {state.loading ? <Spinner /> : null}
         {state.error ? <ErrorNote message={state.error} /> : null}
         {batchError ? <ErrorNote message={batchError} /> : null}
-        {batchMessage ? <p className="mb-3 text-sm text-emerald-700">{batchMessage}</p> : null}
+        {batchMessage ? <SuccessNote message={batchMessage} /> : null}
       </div>
 
       {items.length === 0 && !state.loading ? (
@@ -255,22 +258,24 @@ function ReviewDetail({
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
+              variant="outlined"
+              size="small"
               onClick={() => onValidate("supplier")}
               disabled={Boolean(checking) || !supplierVat}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
             >
               {checking === "supplier" ? "Checking…" : "Validate supplier VAT"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outlined"
+              size="small"
               onClick={() => onValidate("site")}
               disabled={Boolean(checking) || !siteVat}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
             >
               {checking === "site" ? "Checking…" : "Validate site VAT"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

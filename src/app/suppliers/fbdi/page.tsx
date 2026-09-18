@@ -1,8 +1,9 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import { useMemo, useState } from "react";
 
-import { Card, ErrorNote, KpiCard, PageHeader, Spinner } from "@/components/ui";
+import { Card, ErrorNote, KpiCard, PageHeader, SegmentedToggle, Spinner, SuccessNote, WarningNote } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import type { FbdiImportAction, FbdiSavedPackage, FbdiScope } from "@/lib/suppliers/fbdi";
 import { useFetch } from "@/lib/useFetch";
@@ -125,60 +126,40 @@ export default function SupplierFbdiPage() {
         title="Supplier FBDI"
         subtitle="Build Oracle Fusion Import Suppliers templates from the EBS extracts plus rationalised corrections, then save them under aggcenter/FBDI/supplier/ for upload"
         actions={
-          <button
+          <Button
             type="button"
+            variant="contained"
+            color="secondary"
+            size="small"
             onClick={handleSave}
             disabled={saving || !preview}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Build and save to bucket"}
-          </button>
+          </Button>
         }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-          {SCOPES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => {
-                setScope(s.id);
-                setImportAction(suggestedImportAction(s.id));
-              }}
-              className={`rounded-md px-3 py-1 font-medium ${
-                scope === s.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-          {ACTIONS.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => setImportAction(a.id)}
-              className={`rounded-md px-3 py-1 font-medium ${
-                importAction === a.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedToggle
+          value={scope}
+          onChange={(next) => {
+            setScope(next);
+            setImportAction(suggestedImportAction(next));
+          }}
+          options={SCOPES.map((s) => ({ value: s.id, label: s.label }))}
+        />
+        <SegmentedToggle
+          value={importAction}
+          onChange={setImportAction}
+          options={ACTIONS.map((a) => ({ value: a.id, label: a.label }))}
+        />
         <span className="ml-auto text-xs text-slate-500">
           {state.data ? `provider: ${state.data.provider}` : ""}
         </span>
       </div>
 
       {importAction === "CREATE" ? (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-          CREATE is only for suppliers that do not already exist in Fusion. Import
-          Suppliers will reject the row if the supplier number is already loaded.
-          UPDATE is the normal path for cutover and cleanup.
-        </div>
+        <WarningNote message="CREATE is only for suppliers that do not already exist in Fusion. Import Suppliers will reject the row if the supplier number is already loaded. UPDATE is the normal path for cutover and cleanup." />
       ) : (
         <p className="mb-4 text-sm text-slate-600">
           UPDATE is the normal import action for suppliers already in Fusion. Rows
@@ -189,7 +170,7 @@ export default function SupplierFbdiPage() {
       {state.loading ? <Spinner /> : null}
       {state.error ? <ErrorNote message={state.error} /> : null}
       {error ? <ErrorNote message={error} /> : null}
-      {message ? <p className="mb-4 text-sm text-emerald-700">{message}</p> : null}
+      {message ? <SuccessNote message={message} /> : null}
 
       {preview ? (
         <div className="space-y-6">

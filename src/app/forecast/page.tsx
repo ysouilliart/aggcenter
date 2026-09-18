@@ -7,6 +7,7 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   SortTh,
   Spinner,
 } from "@/components/ui";
@@ -69,22 +70,11 @@ export default function ForecastPage() {
         subtitle="Remittances that have not yet identified a bank-statement payment — predicted in (customer) and predicted out (vendor). Not anomalies."
         actions={
           forecasts.length > 1 ? (
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
-              {forecasts.map((f) => (
-                <button
-                  key={f.currency}
-                  type="button"
-                  onClick={() => setCurrency(f.currency)}
-                  className={`rounded-md px-3 py-1 font-medium transition-colors ${
-                    active?.currency === f.currency
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {f.currency}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              value={active?.currency ?? forecasts[0].currency}
+              onChange={setCurrency}
+              options={forecasts.map((f) => ({ value: f.currency, label: f.currency }))}
+            />
           ) : null
         }
       />
@@ -124,21 +114,14 @@ export default function ForecastPage() {
               <h2 className="font-semibold text-slate-900">
                 Remittances not on the statement
               </h2>
-              <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
-                {DIRECTIONS.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDirection(d)}
-                    className={`rounded-md px-3 py-1 font-medium capitalize transition-colors ${
-                      direction === d
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    {d === "all" ? "All" : d === "in" ? "In" : "Out"}
-                  </button>
-                ))}
-              </div>
+              <SegmentedToggle
+                value={direction}
+                onChange={setDirection}
+                options={DIRECTIONS.map((d) => ({
+                  value: d,
+                  label: d === "all" ? "All" : d === "in" ? "In" : "Out",
+                }))}
+              />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

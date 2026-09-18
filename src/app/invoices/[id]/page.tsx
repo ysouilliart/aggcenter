@@ -1,10 +1,12 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
 import Link from "next/link";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 
-import { Card, ErrorNote, PageHeader, Spinner, StatusBadge } from "@/components/ui";
+import { Card, ErrorNote, InfoNote, PageHeader, Spinner, StatusBadge, SuccessNote, WarningNote } from "@/components/ui";
 import type { InvoiceDetail } from "@/lib/invoices/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { fromCents } from "@/lib/money";
@@ -137,18 +139,19 @@ export default function InvoiceDetailPage() {
         }
         actions={
           <div className="flex items-center gap-2">
-            <Link href="/invoices" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+            <Button component={Link} href="/invoices" variant="text" size="small">
               ← Inbox
-            </Link>
+            </Button>
             {invoice && invoice.folder !== "archived" ? (
-              <button
+              <Button
                 type="button"
+                variant="outlined"
+                size="small"
                 onClick={handleArchive}
                 disabled={archiving}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 {archiving ? "Archiving…" : "Archive"}
-              </button>
+              </Button>
             ) : null}
           </div>
         }
@@ -158,11 +161,7 @@ export default function InvoiceDetailPage() {
       {state.error ? <ErrorNote message={state.error} /> : null}
       {archiveError ? <ErrorNote message={archiveError} /> : null}
       {confirmError ? <ErrorNote message={confirmError} /> : null}
-      {confirmMessage ? (
-        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {confirmMessage}
-        </div>
-      ) : null}
+      {confirmMessage ? <SuccessNote message={confirmMessage} /> : null}
 
       {invoice ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -200,19 +199,12 @@ export default function InvoiceDetailPage() {
                 <span className="text-xs text-slate-500">confidence {invoice.confidence}%</span>
               </div>
               {invoice.classifierWarning ? (
-                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {invoice.classifierWarning}
-                </p>
+                <WarningNote message={invoice.classifierWarning} />
               ) : invoice.classifyMode === "llm" ? (
-                <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
-                  LLM overlay on the static parser. Scripted fields were kept; the model filled
-                  gaps. Extracted text was sent to the configured provider.
-                </p>
+                <InfoNote message="LLM overlay on the static parser. Scripted fields were kept; the model filled gaps. Extracted text was sent to the configured provider." />
               ) : null}
               {invoice.reviewReason ? (
-                <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {invoice.reviewReason}
-                </p>
+                <WarningNote message={invoice.reviewReason} />
               ) : null}
               {invoice.confirmedAt ? (
                 <p className="mb-4 text-sm text-slate-600">
@@ -279,65 +271,56 @@ export default function InvoiceDetailPage() {
                       ["poNumber", "PO number"],
                     ] as const
                   ).map(([key, label]) => (
-                    <label key={key} className="block text-sm">
-                      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                        {label}
-                      </span>
-                      <input
-                        value={form[key] ?? ""}
-                        onChange={(e) => setField(key, e.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
-                      />
-                    </label>
+                    <TextField
+                      key={key}
+                      size="small"
+                      fullWidth
+                      label={label}
+                      value={form[key] ?? ""}
+                      onChange={(e) => setField(key, e.target.value)}
+                    />
                   ))}
-                  <label className="block text-sm sm:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Notes
-                    </span>
-                    <input
-                      value={form.notes ?? ""}
-                      onChange={(e) => setField("notes", e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Operator
-                    </span>
-                    <input
-                      value={actor}
-                      onChange={(e) => setActor(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Reject reason
-                    </span>
-                    <input
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
-                    />
-                  </label>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Notes"
+                    value={form.notes ?? ""}
+                    onChange={(e) => setField("notes", e.target.value)}
+                    sx={{ gridColumn: { sm: "span 2" } }}
+                  />
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Operator"
+                    value={actor}
+                    onChange={(e) => setActor(e.target.value)}
+                  />
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Reject reason"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                  />
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="contained"
                     onClick={() => handleConfirm("confirm")}
                     disabled={confirming}
-                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                   >
                     {confirming ? "Saving…" : "Accept & process"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outlined"
+                    color="error"
                     onClick={() => handleConfirm("reject")}
                     disabled={confirming}
-                    className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                   >
                     Reject
-                  </button>
+                  </Button>
                 </div>
               </Card>
             ) : null}

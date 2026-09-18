@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -9,6 +10,7 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   SortTh,
   Spinner,
 } from "@/components/ui";
@@ -67,21 +69,11 @@ export default function DashboardPage() {
         subtitle="Actual cash from the bank-statement baseline. Remittances not yet on the statement are a forecast (predicted in / out)."
         actions={
           positions.length > 1 ? (
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
-              {positions.map((p) => (
-                <button
-                  key={p.currency}
-                  onClick={() => setCurrency(p.currency)}
-                  className={`rounded-md px-3 py-1 font-medium transition-colors ${
-                    active?.currency === p.currency
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {p.currency}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              value={active?.currency ?? positions[0].currency}
+              onChange={setCurrency}
+              options={positions.map((p) => ({ value: p.currency, label: p.currency }))}
+            />
           ) : null
         }
       />
@@ -142,12 +134,9 @@ export default function DashboardPage() {
                     Supporting remittances still to land — not anomalies.
                   </p>
                 </div>
-                <Link
-                  href="/forecast"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
+                <Button component={Link} href="/forecast" variant="outlined" size="small">
                   View forecast
-                </Link>
+                </Button>
               </Card>
             </div>
           ) : null}

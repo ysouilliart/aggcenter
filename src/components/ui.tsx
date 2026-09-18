@@ -1,5 +1,18 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import LinearProgress from "@mui/material/LinearProgress";
+import MuiCard from "@mui/material/Card";
+import Stack from "@mui/material/Stack";
+import TableCell from "@mui/material/TableCell";
+import TableSortLabel from "@mui/material/TableSortLabel";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 
 import type { SortDir } from "@/lib/sort";
@@ -16,15 +29,30 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-wrap items-end justify-between gap-3 ${className || "mb-6"}`}>
-      <div className="min-w-0 flex-1">
-        <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
+    <Stack
+      direction="row"
+      spacing={1.5}
+      useFlexGap
+      className={className || undefined}
+      sx={{
+        mb: className ? undefined : 3,
+        flexWrap: "wrap",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+      }}
+    >
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography variant="h1">{title}</Typography>
         {subtitle ? (
-          <p className="mt-1 max-w-3xl text-sm text-slate-500">{subtitle}</p>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
+            {subtitle}
+          </Typography>
         ) : null}
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-    </div>
+      </Box>
+      {actions ? (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>{actions}</Box>
+      ) : null}
+    </Stack>
   );
 }
 
@@ -35,12 +63,18 @@ export function Card({
   children: ReactNode;
   className?: string;
 }) {
+  const flush = /(^|\s)p-0(\s|$)/.test(className);
   return (
-    <div
-      className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}
+    <MuiCard
+      variant="outlined"
+      className={className}
+      sx={{
+        display: className.includes("flex") ? "flex" : undefined,
+        flexDirection: className.includes("flex-col") ? "column" : undefined,
+      }}
     >
-      {children}
-    </div>
+      {flush ? children : <CardContent sx={{ "&:last-child": { pb: 2.5 } }}>{children}</CardContent>}
+    </MuiCard>
   );
 }
 
@@ -55,115 +89,143 @@ export function KpiCard({
   sub?: string;
   tone?: "default" | "positive" | "negative" | "indigo" | "amber";
 }) {
-  const toneClass = {
-    default: "text-slate-900",
-    positive: "text-emerald-600",
-    negative: "text-rose-600",
-    indigo: "text-indigo-600",
-    amber: "text-amber-600",
+  const color = {
+    default: "text.primary",
+    positive: "success.main",
+    negative: "error.main",
+    indigo: "primary.main",
+    amber: "warning.main",
   }[tone];
   return (
     <Card>
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <Typography variant="overline" color="text.secondary">
         {label}
-      </div>
-      <div className={`mt-2 text-2xl font-semibold tabular-nums ${toneClass}`}>
+      </Typography>
+      <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color }}>
         {value}
-      </div>
-      {sub ? <div className="mt-1 text-xs text-slate-500">{sub}</div> : null}
+      </Typography>
+      {sub ? (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+          {sub}
+        </Typography>
+      ) : null}
     </Card>
   );
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  matched: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  parsed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  processed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  partial: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  unmatched: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  anomaly: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  archived: "bg-slate-100 text-slate-700 ring-slate-600/20",
-  received: "bg-sky-50 text-sky-700 ring-sky-600/20",
-  landing: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
-  llm: "bg-sky-50 text-sky-700 ring-sky-600/20",
-  static: "bg-slate-100 text-slate-700 ring-slate-600/20",
-  "static-fallback": "bg-amber-50 text-amber-700 ring-amber-600/20",
+type ChipColor = "default" | "primary" | "success" | "warning" | "error" | "info";
+
+const STATUS_COLORS: Record<string, ChipColor> = {
+  matched: "success",
+  parsed: "success",
+  processed: "success",
+  partial: "warning",
+  unmatched: "error",
+  failed: "error",
+  anomaly: "error",
+  archived: "default",
+  received: "info",
+  landing: "primary",
+  llm: "info",
+  static: "default",
+  "static-fallback": "warning",
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_STYLES[status] ?? "bg-slate-100 text-slate-700 ring-slate-600/20";
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${cls}`}
-    >
-      {status}
-    </span>
+    <Chip
+      label={status}
+      color={STATUS_COLORS[status] ?? "default"}
+      variant="outlined"
+      sx={{ textTransform: "capitalize" }}
+    />
   );
 }
 
 export function ConfidencePill({ confidence, missing }: { confidence: number; missing?: boolean }) {
-  const tone = missing
-    ? "bg-slate-100 text-slate-600 ring-slate-600/20"
+  const color: ChipColor = missing
+    ? "default"
     : confidence >= 80
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
+      ? "success"
       : confidence >= 50
-        ? "bg-amber-50 text-amber-700 ring-amber-600/20"
-        : "bg-rose-50 text-rose-700 ring-rose-600/20";
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${tone}`}>
-      {missing ? "missing" : `${confidence}%`}
-    </span>
-  );
+        ? "warning"
+        : "error";
+  return <Chip label={missing ? "missing" : `${confidence}%`} color={color} variant="outlined" />;
 }
 
-const SEVERITY_STYLES: Record<string, string> = {
-  high: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  medium: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  low: "bg-sky-50 text-sky-700 ring-sky-600/20",
+const SEVERITY_COLORS: Record<string, ChipColor> = {
+  high: "error",
+  medium: "warning",
+  low: "info",
 };
 
 export function SeverityBadge({ severity }: { severity: string }) {
-  const cls = SEVERITY_STYLES[severity] ?? "bg-slate-100 text-slate-700 ring-slate-600/20";
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${cls}`}
-    >
-      {severity}
-    </span>
+    <Chip
+      label={severity}
+      color={SEVERITY_COLORS[severity] ?? "default"}
+      variant="outlined"
+      sx={{ textTransform: "capitalize" }}
+    />
   );
 }
 
 export function Spinner({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 py-10 text-sm text-slate-500">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-      {label}
-    </div>
+    <Stack direction="row" spacing={1} sx={{ py: 5, alignItems: "center" }}>
+      <CircularProgress size={18} />
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+    </Stack>
   );
 }
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <Alert severity="error" sx={{ mb: 1 }}>
       {message}
-    </div>
+    </Alert>
   );
 }
 
-const ISSUE_STYLES: Record<string, string> = {
-  missing_attribute: "bg-amber-50 text-amber-800 ring-amber-600/20",
-  invalid_vat: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  invalid_address: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  rationalise: "bg-sky-50 text-sky-700 ring-sky-600/20",
+export function SuccessNote({ message }: { message: string }) {
+  return (
+    <Alert severity="success" sx={{ mb: 1 }}>
+      {message}
+    </Alert>
+  );
+}
+
+export function InfoNote({ message }: { message: string }) {
+  return (
+    <Alert severity="info" sx={{ mb: 1 }}>
+      {message}
+    </Alert>
+  );
+}
+
+export function WarningNote({ message }: { message: string }) {
+  return (
+    <Alert severity="warning" sx={{ mb: 1 }}>
+      {message}
+    </Alert>
+  );
+}
+
+const ISSUE_COLORS: Record<string, ChipColor> = {
+  missing_attribute: "warning",
+  invalid_vat: "error",
+  invalid_address: "error",
+  rationalise: "info",
 };
 
-const VAT_CHECK_STYLES: Record<string, string> = {
-  valid: "bg-emerald-50 text-emerald-800 ring-emerald-600/20",
-  invalid: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  inconclusive: "bg-amber-50 text-amber-800 ring-amber-600/20",
-  unsupported: "bg-slate-100 text-slate-700 ring-slate-600/20",
-  pending: "bg-slate-100 text-slate-600 ring-slate-600/15",
+const VAT_CHECK_COLORS: Record<string, ChipColor> = {
+  valid: "success",
+  invalid: "error",
+  inconclusive: "warning",
+  unsupported: "default",
+  pending: "default",
 };
 
 export function VatCheckBadge({
@@ -171,7 +233,7 @@ export function VatCheckBadge({
 }: {
   validity?: string | null;
 }) {
-  const key = validity && VAT_CHECK_STYLES[validity] ? validity : "pending";
+  const key = validity && VAT_CHECK_COLORS[validity] ? validity : "pending";
   const label =
     key === "valid"
       ? "VIES valid"
@@ -182,17 +244,10 @@ export function VatCheckBadge({
           : key === "unsupported"
             ? "Not in VIES"
             : "VAT not checked";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${VAT_CHECK_STYLES[key]}`}
-    >
-      {label}
-    </span>
-  );
+  return <Chip label={label} color={VAT_CHECK_COLORS[key]} variant="outlined" />;
 }
 
 export function IssueBadge({ type }: { type: string }) {
-  const cls = ISSUE_STYLES[type] ?? "bg-slate-100 text-slate-700 ring-slate-600/20";
   const label =
     type === "missing_attribute"
       ? "Missing"
@@ -203,13 +258,7 @@ export function IssueBadge({ type }: { type: string }) {
           : type === "rationalise"
             ? "Rationalise"
             : type;
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${cls}`}
-    >
-      {label}
-    </span>
-  );
+  return <Chip label={label} color={ISSUE_COLORS[type] ?? "default"} variant="outlined" />;
 }
 
 export function DistributionList({
@@ -221,25 +270,59 @@ export function DistributionList({
 }) {
   const max = Math.max(...items.map((i) => i.count), 1);
   if (items.length === 0) {
-    return <p className="text-sm text-slate-400">No data</p>;
+    return (
+      <Typography variant="body2" color="text.secondary">
+        No data
+      </Typography>
+    );
   }
   return (
-    <ul className="space-y-2">
+    <Stack spacing={1.5}>
       {items.map((item) => (
-        <li key={item.value || emptyLabel}>
-          <div className="mb-1 flex justify-between gap-3 text-sm">
-            <span className="truncate text-slate-700">{item.value || emptyLabel}</span>
-            <span className="tabular-nums text-slate-500">{item.count}</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-1.5 rounded-full bg-indigo-500"
-              style={{ width: `${Math.max(4, (item.count / max) * 100)}%` }}
-            />
-          </div>
-        </li>
+        <Box key={item.value || emptyLabel}>
+          <Stack direction="row" spacing={1.5} sx={{ justifyContent: "space-between" }}>
+            <Typography variant="body2" noWrap>
+              {item.value || emptyLabel}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
+              {item.count}
+            </Typography>
+          </Stack>
+          <LinearProgress
+            variant="determinate"
+            value={Math.max(4, (item.count / max) * 100)}
+            sx={{ mt: 0.5, height: 6, borderRadius: 999 }}
+          />
+        </Box>
       ))}
-    </ul>
+    </Stack>
+  );
+}
+
+export function SegmentedToggle<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: readonly { value: T; label: string }[];
+}) {
+  return (
+    <ToggleButtonGroup
+      exclusive
+      size="small"
+      value={value}
+      onChange={(_, next: T | null) => {
+        if (next != null) onChange(next);
+      }}
+    >
+      {options.map((opt) => (
+        <ToggleButton key={opt.value} value={opt.value}>
+          {opt.label}
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
   );
 }
 
@@ -250,7 +333,7 @@ export function SortTh({
   sortDir,
   onSort,
   align = "left",
-  className = "px-5 py-3 font-medium",
+  className = "px-5 py-3",
 }: {
   label: string;
   column: string;
@@ -262,24 +345,21 @@ export function SortTh({
 }) {
   const active = sortKey === column;
   return (
-    <th
+    <TableCell
+      component="th"
+      align={align}
+      sortDirection={active ? sortDir : false}
       className={className}
-      aria-sort={
-        active ? (sortDir === "asc" ? "ascending" : "descending") : "none"
-      }
+      sx={{ whiteSpace: "nowrap" }}
     >
-      <button
-        type="button"
+      <TableSortLabel
+        active={active}
+        direction={active ? sortDir : "asc"}
         onClick={() => onSort(column)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-800 ${
-          active ? "text-slate-800" : ""
-        } ${align === "right" ? "w-full justify-end" : ""}`}
+        sx={align === "right" ? { flexDirection: "row-reverse" } : undefined}
       >
         {label}
-        <span className="text-[10px] font-normal text-slate-400" aria-hidden>
-          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
-    </th>
+      </TableSortLabel>
+    </TableCell>
   );
 }

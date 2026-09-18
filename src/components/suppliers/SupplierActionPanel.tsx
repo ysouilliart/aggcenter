@@ -1,5 +1,11 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import { useEffect, useState } from "react";
 
 import {
@@ -7,6 +13,7 @@ import {
   ErrorNote,
   IssueBadge,
   SeverityBadge,
+  SuccessNote,
   VatCheckBadge,
 } from "@/components/ui";
 import type { GraphFocus } from "@/components/suppliers/SupplierSiteGraph";
@@ -347,37 +354,42 @@ function ActionEditor({
 
       <div className="shrink-0 space-y-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
         {error ? <ErrorNote message={error} /> : null}
-        {message ? <p className="text-xs text-emerald-700">{message}</p> : null}
+        {message ? <SuccessNote message={message} /> : null}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Actor" value={actor} onChange={setActor} />
           <Field label="Reason" value={reason} onChange={setReason} placeholder="Why this change?" />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-800">
-            <input
-              type="checkbox"
-              checked={makeInactive}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setMakeInactive(checked);
-                if (scope === "site") {
-                  field("inactiveDate", checked ? draft.inactiveDate || todayIsoDate() : "");
-                }
-                if (checked && !reason) {
-                  setReason(scope === "supplier" ? "Make supplier inactive" : "Make site inactive");
-                }
-              }}
-            />
-            Make {scope} inactive
-          </label>
-          <button
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={makeInactive}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setMakeInactive(checked);
+                  if (scope === "site") {
+                    field("inactiveDate", checked ? draft.inactiveDate || todayIsoDate() : "");
+                  }
+                  if (checked && !reason) {
+                    setReason(scope === "supplier" ? "Make supplier inactive" : "Make site inactive");
+                  }
+                }}
+              />
+            }
+            label={`Make ${scope} inactive`}
+          />
+          <Button
             type="button"
+            variant="contained"
+            color="secondary"
+            size="small"
             onClick={save}
             disabled={saving}
-            className="ml-auto rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+            sx={{ ml: "auto" }}
           >
             {saving ? "Saving…" : `Save ${scope}`}
-          </button>
+          </Button>
         </div>
       </div>
     </Card>
@@ -396,16 +408,14 @@ function ScopeChip({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Chip
+      size="small"
+      label={issueCount ? `${label} ${issueCount}` : label}
       onClick={onClick}
-      className={`max-w-[14rem] truncate rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-        active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-      }`}
-    >
-      {label}
-      {issueCount ? <span className="ml-1 opacity-80">{issueCount}</span> : null}
-    </button>
+      color={active ? "secondary" : "default"}
+      variant={active ? "filled" : "outlined"}
+      sx={{ maxWidth: "14rem" }}
+    />
   );
 }
 
@@ -432,13 +442,14 @@ function IssueStrip({
           <span className="font-medium text-slate-800">{issue.title}</span>
           <span className="text-slate-600">{issue.description}</span>
           {issue.suggestion ? (
-            <button
+            <Button
               type="button"
-              className="font-medium text-indigo-700 hover:underline"
+              size="small"
+              variant="text"
               onClick={() => onApply(issue.field, issue.suggestion!)}
             >
               Apply “{issue.suggestion}”
-            </button>
+            </Button>
           ) : null}
         </div>
       ))}
@@ -475,19 +486,23 @@ function VatRow({
           {scope === "supplier" ? "Supplier VAT" : "Site VAT"}
         </span>
         {hasVat ? <VatCheckBadge validity={check?.validity} /> : null}
-        <button
+        <Button
           type="button"
+          variant="outlined"
+          size="small"
           onClick={onValidate}
           disabled={checking || !hasVat}
-          className="ml-auto rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+          sx={{ ml: "auto" }}
         >
           {checking ? "Checking…" : "Validate VIES"}
-        </button>
+        </Button>
       </div>
-      <input
+      <TextField
+        size="small"
+        fullWidth
         value={vatValue}
         onChange={(e) => onVatChange(e.target.value)}
-        className="mt-1.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-xs text-slate-900"
+        sx={{ mt: 1.5, "& input": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 } }}
       />
       {check && hasVat ? (
         <div className="mt-1 space-y-0.5 text-[11px] text-slate-600">
@@ -495,21 +510,17 @@ function VatRow({
           {check.registeredName && onApplyName ? (
             <p>
               {check.registeredName}{" "}
-              <button type="button" className="font-medium text-indigo-700 hover:underline" onClick={onApplyName}>
+              <Button type="button" size="small" variant="text" onClick={onApplyName}>
                 Apply name
-              </button>
+              </Button>
             </p>
           ) : null}
           {check.registeredAddress && onApplyAddress ? (
             <p>
               {check.registeredAddress}{" "}
-              <button
-                type="button"
-                className="font-medium text-indigo-700 hover:underline"
-                onClick={onApplyAddress}
-              >
+              <Button type="button" size="small" variant="text" onClick={onApplyAddress}>
                 Apply address
-              </button>
+              </Button>
             </p>
           ) : null}
         </div>
@@ -531,28 +542,22 @@ function PaymentTermsField({
 }) {
   const standard = isStandardPaymentTerms(value);
   return (
-    <label className="block text-[11px]">
-      <span className="flex items-center gap-1.5 font-medium text-slate-500">
-        Payment terms
-        {!standard && value.trim() ? (
-          <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">
-            Non-standard
-          </span>
-        ) : null}
-      </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900"
-      >
-        {!standard ? <option value={value}>{value.trim() ? value : "Select…"}</option> : null}
-        {STANDARD_PAYMENT_TERMS.map((term) => (
-          <option key={term} value={term}>
-            {term}
-          </option>
-        ))}
-      </select>
-    </label>
+    <TextField
+      select
+      size="small"
+      fullWidth
+      label="Payment terms"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      helperText={!standard && value.trim() ? "Non-standard" : undefined}
+    >
+      {!standard ? <MenuItem value={value}>{value.trim() ? value : "Select…"}</MenuItem> : null}
+      {STANDARD_PAYMENT_TERMS.map((term) => (
+        <MenuItem key={term} value={term}>
+          {term}
+        </MenuItem>
+      ))}
+    </TextField>
   );
 }
 
@@ -570,14 +575,14 @@ function Field({
   placeholder?: string;
 }) {
   return (
-    <label className={`block text-[11px] ${className}`}>
-      <span className="font-medium text-slate-500">{label}</span>
-      <input
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900"
-      />
-    </label>
+    <TextField
+      size="small"
+      fullWidth
+      label={label}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+    />
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
+import TextField from "@mui/material/TextField";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 
 import { SupplierActionPanel } from "@/components/suppliers/SupplierActionPanel";
 import type { GraphFocus } from "@/components/suppliers/SupplierSiteGraph";
-import { Card, ErrorNote, IssueBadge, PageHeader, SortTh, Spinner } from "@/components/ui";
+import { Card, ErrorNote, IssueBadge, PageHeader, SegmentedToggle, SortTh, Spinner } from "@/components/ui";
 import { groupSupplierRecords } from "@/lib/suppliers/group";
 import type { SupplierIssueType, SupplierRecord } from "@/lib/suppliers/types";
 import { useFetch } from "@/lib/useFetch";
@@ -105,40 +106,28 @@ export default function SupplierRecordsPage() {
         />
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <input
+          <TextField
+            size="small"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search name, number, VAT, city…"
-            className="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+            sx={{ width: 256 }}
           />
-          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-            {SOURCE_FILTERS.map((f) => (
-              <button
-                key={f.id || "all-sources"}
-                type="button"
-                onClick={() => setSource(f.id)}
-                className={`rounded-md px-3 py-1 font-medium ${
-                  source === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-            {ISSUE_FILTERS.map((f) => (
-              <button
-                key={f.id || "all"}
-                type="button"
-                onClick={() => setIssue(f.id)}
-                className={`rounded-md px-3 py-1 font-medium ${
-                  issue === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedToggle
+            value={source || "all"}
+            onChange={(next) => setSource(next === "all" ? "" : next)}
+            options={SOURCE_FILTERS.map((f) => ({ value: f.id || "all", label: f.label }))}
+          />
+          <SegmentedToggle
+            value={issue || "all-issues"}
+            onChange={(next) =>
+              setIssue((next === "all-issues" ? "" : next) as "" | "any" | SupplierIssueType)
+            }
+            options={ISSUE_FILTERS.map((f) => ({
+              value: f.id || "all-issues",
+              label: f.label,
+            }))}
+          />
           <span className="ml-auto text-xs text-slate-500">
             {list.data
               ? `${groups.length} suppliers · ${list.data.records.length} listed sites`

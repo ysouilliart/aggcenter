@@ -8,7 +8,7 @@ whether supporting sales orders, purchase orders and remittances are in the
 system to identify each payment. Remittances that have not landed on the
 statement are a cash forecast (predicted in / out), not anomalies.
 
-Built with **Next.js (App Router) + React + TypeScript** and **Tailwind CSS**.
+Built with **Next.js (App Router) + React + TypeScript**, **Material UI**, and **Tailwind CSS**. Vite powers unit tests (`vitest`) and parse scripts (`vite-node`).
 
 ## Features
 

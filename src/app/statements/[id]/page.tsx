@@ -1,5 +1,8 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import TextField from "@mui/material/TextField";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -131,13 +134,14 @@ function TraceEvent({ event }: { event: ParseTraceEvent }) {
         </div>
         {hasDetail ? (
           <div className="mt-1">
-            <button
+            <Button
               type="button"
+              variant="text"
+              size="small"
               onClick={() => setOpen((v) => !v)}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
             >
               {open ? "Hide detail" : "Show detail"}
-            </button>
+            </Button>
             {open ? (
               <pre className="mt-1 overflow-auto rounded-lg bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-100">
                 {JSON.stringify(event.detail, null, 2)}
@@ -185,12 +189,9 @@ export default function StatementDetailPage() {
             : "Parsed header, transactions, and parse trace"
         }
         actions={
-          <Link
-            href="/statements"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
+          <Button component={Link} href="/statements" variant="outlined" size="small">
             ← Statements
-          </Link>
+          </Button>
         }
       />
 
@@ -203,9 +204,7 @@ export default function StatementDetailPage() {
             {statement.parseStatus ? <StatusBadge status={statement.parseStatus} /> : null}
             <StatusBadge status={statement.source} />
             {statement.bankCode ? (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                {statement.bankCode}
-              </span>
+              <Chip size="small" label={statement.bankCode} variant="outlined" />
             ) : null}
             {statement.parserId ? (
               <span className="text-xs text-slate-500">
@@ -300,11 +299,12 @@ export default function StatementDetailPage() {
                   {query ? ` of ${state.data?.transactions.length ?? 0}` : ""}
                 </span>
               </h2>
-              <input
+              <TextField
+                size="small"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Filter narrative, refs, type…"
-                className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-1.5 text-sm sm:w-72"
+                sx={{ width: { xs: "100%", sm: 288 } }}
               />
             </div>
             {filtered.length === 0 ? (

@@ -1,11 +1,42 @@
 "use client";
 
+import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
+import BadgeOutlined from "@mui/icons-material/BadgeOutlined";
+import CompareArrowsOutlined from "@mui/icons-material/CompareArrowsOutlined";
+import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
+import FactCheckOutlined from "@mui/icons-material/FactCheckOutlined";
+import FolderOutlined from "@mui/icons-material/FolderOutlined";
+import FormatListBulletedOutlined from "@mui/icons-material/FormatListBulletedOutlined";
+import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
+import HubOutlined from "@mui/icons-material/HubOutlined";
+import InboxOutlined from "@mui/icons-material/InboxOutlined";
+import InsightsOutlined from "@mui/icons-material/InsightsOutlined";
+import IosShareOutlined from "@mui/icons-material/IosShareOutlined";
+import ReportProblemOutlined from "@mui/icons-material/ReportProblemOutlined";
+import ShowChartOutlined from "@mui/icons-material/ShowChartOutlined";
+import WarningAmberOutlined from "@mui/icons-material/WarningAmberOutlined";
+import AppBar from "@mui/material/AppBar";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Drawer from "@mui/material/Drawer";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import ListSubheader from "@mui/material/ListSubheader";
+import Toolbar from "@mui/material/Toolbar";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { prefetchFetch } from "@/lib/useFetch";
 
 type WorkspaceId = "cash" | "suppliers" | "invoices" | "people";
+
+const DRAWER_WIDTH = 256;
 
 const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }[] = [
   { id: "cash", label: "Cash", home: "/", hint: "O2C & P2P" },
@@ -14,53 +45,36 @@ const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }
   { id: "people", label: "People", home: "/people-docs", hint: "HR agreements" },
 ];
 
-const NAV: Record<WorkspaceId, { href: string; label: string; icon: string }[]> = {
+const NAV: Record<
+  WorkspaceId,
+  { href: string; label: string; icon: ReactNode }[]
+> = {
   cash: [
-    { href: "/", label: "Cash Position", icon: "M3 12h4l2 5 4-13 2 8h6" },
-    { href: "/forecast", label: "Forecast", icon: "M4 19V5m4 14V9m4 10V8m4 11V3" },
-    { href: "/reconciliation", label: "Reconciliation", icon: "M4 7h16M4 12h16M4 17h10" },
-    { href: "/anomalies", label: "Anomalies", icon: "M12 3l9 16H3l9-16zm0 6v4m0 3h.01" },
-    { href: "/statements", label: "Statements", icon: "M6 3h9l4 4v14H6zM14 3v5h5" },
+    { href: "/", label: "Cash Position", icon: <AccountBalanceWalletOutlined fontSize="small" /> },
+    { href: "/forecast", label: "Forecast", icon: <ShowChartOutlined fontSize="small" /> },
+    { href: "/reconciliation", label: "Reconciliation", icon: <CompareArrowsOutlined fontSize="small" /> },
+    { href: "/anomalies", label: "Anomalies", icon: <WarningAmberOutlined fontSize="small" /> },
+    { href: "/statements", label: "Statements", icon: <DescriptionOutlined fontSize="small" /> },
   ],
   suppliers: [
-    { href: "/suppliers", label: "Overview", icon: "M4 19V5m0 14h16M8 15l3-4 3 3 4-6" },
-    {
-      href: "/suppliers/records",
-      label: "Records",
-      icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
-    },
-    {
-      href: "/suppliers/review",
-      label: "Review",
-      icon: "M9 5H7a2 2 0 00-2 2v12l3-1.5L11 19l3-1.5L17 19V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
-    },
-    {
-      href: "/suppliers/audit",
-      label: "Audit",
-      icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-    },
-    {
-      href: "/suppliers/fbdi",
-      label: "FBDI",
-      icon: "M14 3h7v7M14 10l7-7M5 12v7a2 2 0 002 2h10M5 8V5a2 2 0 012-2h5",
-    },
+    { href: "/suppliers", label: "Overview", icon: <InsightsOutlined fontSize="small" /> },
+    { href: "/suppliers/records", label: "Records", icon: <FormatListBulletedOutlined fontSize="small" /> },
+    { href: "/suppliers/review", label: "Review", icon: <FactCheckOutlined fontSize="small" /> },
+    { href: "/suppliers/audit", label: "Audit", icon: <HistoryOutlined fontSize="small" /> },
+    { href: "/suppliers/fbdi", label: "FBDI", icon: <IosShareOutlined fontSize="small" /> },
   ],
   invoices: [
-    { href: "/invoices", label: "Inbox", icon: "M4 4h16v4H4zm0 6h16v10H4zM8 8V4" },
-    {
-      href: "/invoices/anomalies",
-      label: "Needs review",
-      icon: "M12 3l9 16H3l9-16zm0 6v4m0 3h.01",
-    },
+    { href: "/invoices", label: "Inbox", icon: <InboxOutlined fontSize="small" /> },
+    { href: "/invoices/anomalies", label: "Needs review", icon: <ReportProblemOutlined fontSize="small" /> },
   ],
   people: [
-    { href: "/people-docs", label: "People docs", icon: "M8 7h8M8 12h8M8 17h5M5 4h14v16H5z" },
+    { href: "/people-docs", label: "People docs", icon: <BadgeOutlined fontSize="small" /> },
   ],
 };
 
 const SHARED = [
-  { href: "/files", label: "Files", icon: "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" },
-  { href: "/integrations", label: "Integrations", icon: "M12 3v6m0 6v6M3 12h6m6 0h6" },
+  { href: "/files", label: "Files", icon: <FolderOutlined fontSize="small" /> },
+  { href: "/integrations", label: "Integrations", icon: <HubOutlined fontSize="small" /> },
 ];
 
 const PREFETCH_APIS: Record<string, string[]> = {
@@ -85,6 +99,18 @@ function navActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+const navItemSx = {
+  mx: 1,
+  borderRadius: 1,
+  color: "grey.300",
+  "&.Mui-selected": {
+    bgcolor: "rgba(255,255,255,0.1)",
+    color: "#fff",
+    "&:hover": { bgcolor: "rgba(255,255,255,0.14)" },
+  },
+  "&:hover": { bgcolor: "rgba(255,255,255,0.08)", color: "#fff" },
+};
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -97,40 +123,89 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/suppliers/review";
 
   return (
-    <div className={`flex overflow-x-hidden ${fillViewport ? "h-dvh" : "min-h-screen"}`}>
-      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto bg-slate-900 text-slate-200 md:flex">
-        <div className="flex items-center gap-3 px-6 py-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-sky-400 font-bold text-slate-900">
+    <Box
+      sx={{
+        display: "flex",
+        overflowX: "hidden",
+        height: fillViewport ? "100dvh" : undefined,
+        minHeight: fillViewport ? undefined : "100vh",
+      }}
+    >
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: "none", md: "block" },
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: DRAWER_WIDTH,
+            boxSizing: "border-box",
+            bgcolor: "secondary.main",
+            color: "grey.200",
+            borderRight: 0,
+          },
+        }}
+      >
+        <Toolbar sx={{ gap: 1.5, px: 2.5, minHeight: 88 }}>
+          <Avatar
+            sx={{
+              width: 36,
+              height: 36,
+              bgcolor: "primary.light",
+              color: "secondary.main",
+              fontWeight: 700,
+              fontSize: 18,
+            }}
+          >
             a
-          </div>
-          <div>
-            <div className="text-lg font-semibold leading-tight">aggcenter</div>
-            <div className="text-xs text-slate-400">Aggregation Center</div>
-          </div>
-        </div>
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2, color: "#fff" }}>
+              aggcenter
+            </Typography>
+            <Typography variant="caption" sx={{ color: "grey.500" }}>
+              Aggregation Center
+            </Typography>
+          </Box>
+        </Toolbar>
 
-        <div className="px-3 pb-3">
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-800 p-1">
+        <Box sx={{ px: 1.5, pb: 1.5 }}>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={workspace}
+            onChange={(_, next: WorkspaceId | null) => {
+              if (!next || next === workspace) return;
+              const home = WORKSPACES.find((w) => w.id === next)?.home;
+              if (home) router.push(home);
+            }}
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              bgcolor: "rgba(255,255,255,0.06)",
+              p: 0.5,
+              "& .MuiToggleButton-root": {
+                color: "grey.400",
+                border: 0,
+                borderRadius: "8px !important",
+                py: 0.75,
+              },
+              "& .Mui-selected": {
+                bgcolor: "rgba(255,255,255,0.14) !important",
+                color: "#fff !important",
+              },
+            }}
+          >
             {WORKSPACES.map((ws) => (
-              <button
-                key={ws.id}
-                type="button"
-                onClick={() => {
-                  if (ws.id !== workspace) router.push(ws.home);
-                }}
-                className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
-                  workspace === ws.id
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
+              <ToggleButton key={ws.id} value={ws.id}>
                 {ws.label}
-              </button>
+              </ToggleButton>
             ))}
-          </div>
-        </div>
+          </ToggleButtonGroup>
+        </Box>
 
-        <nav className="flex-1 space-y-1 px-3">
+        <List disablePadding sx={{ flex: 1 }}>
           {items.map((item) => (
             <NavLink
               key={item.href}
@@ -140,60 +215,101 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               active={navActive(pathname, item.href)}
             />
           ))}
-          <div className="pt-3">
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Platform
-            </div>
-            {SHARED.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={navActive(pathname, item.href)}
-              />
-            ))}
-          </div>
-        </nav>
-        <div className="px-6 py-4 text-xs text-slate-500">
-          {workspace === "cash"
-            ? `Cash Position · ${hint}`
-            : workspace === "suppliers"
-              ? `Suppliers · ${hint}`
-              : workspace === "people"
-                ? `People · ${hint}`
-                : `Invoices · ${hint}`}
-        </div>
-      </aside>
+          <ListSubheader
+            disableSticky
+            sx={{
+              bgcolor: "transparent",
+              color: "grey.500",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              mt: 1.5,
+            }}
+          >
+            Platform
+          </ListSubheader>
+          {SHARED.map((item) => (
+            <NavLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              icon={item.icon}
+              active={navActive(pathname, item.href)}
+            />
+          ))}
+        </List>
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography variant="caption" sx={{ color: "grey.500" }}>
+            {workspace === "cash"
+              ? `Cash Position · ${hint}`
+              : workspace === "suppliers"
+                ? `Suppliers · ${hint}`
+                : workspace === "people"
+                  ? `People · ${hint}`
+                  : `Invoices · ${hint}`}
+          </Typography>
+        </Box>
+      </Drawer>
 
-      <div className={`flex min-w-0 flex-1 flex-col ${fillViewport ? "min-h-0" : ""}`}>
-        <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-6 py-3 md:hidden">
-          <span className="text-base font-semibold">aggcenter</span>
-          <div className="ml-auto flex rounded-lg border border-slate-200 p-0.5 text-xs">
-            {WORKSPACES.map((ws) => (
-              <Link
-                key={ws.id}
-                href={ws.home}
-                className={`rounded-md px-2 py-1 font-medium ${
-                  workspace === ws.id ? "bg-slate-900 text-white" : "text-slate-600"
-                }`}
-              >
-                {ws.label}
-              </Link>
-            ))}
-          </div>
-        </header>
-        <main
-          className={`min-w-0 flex-1 px-4 sm:px-6 lg:px-8 ${
-            fillViewport
-              ? "flex min-h-0 flex-col overflow-hidden py-4"
-              : "overflow-x-hidden py-6"
-          }`}
+      <Box
+        sx={{
+          display: "flex",
+          minWidth: 0,
+          flex: 1,
+          flexDirection: "column",
+          minHeight: fillViewport ? 0 : undefined,
+        }}
+      >
+        <AppBar
+          position="static"
+          color="inherit"
+          elevation={0}
+          sx={{
+            display: { md: "none" },
+            borderBottom: 1,
+            borderColor: "divider",
+          }}
+        >
+          <Toolbar sx={{ gap: 1, minHeight: 56 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              aggcenter
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={workspace}
+              onChange={(_, next: WorkspaceId | null) => {
+                if (!next) return;
+                const home = WORKSPACES.find((w) => w.id === next)?.home;
+                if (home) router.push(home);
+              }}
+              sx={{ ml: "auto" }}
+            >
+              {WORKSPACES.map((ws) => (
+                <ToggleButton key={ws.id} value={ws.id} component={Link} href={ws.home}>
+                  {ws.label}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Toolbar>
+        </AppBar>
+        <Box
+          component="main"
+          sx={{
+            minWidth: 0,
+            flex: 1,
+            px: { xs: 2, sm: 3, lg: 4 },
+            py: fillViewport ? 2 : 3,
+            display: fillViewport ? "flex" : undefined,
+            flexDirection: fillViewport ? "column" : undefined,
+            minHeight: fillViewport ? 0 : undefined,
+            overflow: fillViewport ? "hidden" : "hidden auto",
+          }}
         >
           {children}
-        </main>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -205,36 +321,27 @@ function NavLink({
 }: {
   href: string;
   label: string;
-  icon: string;
+  icon: ReactNode;
   active: boolean;
 }) {
   return (
-    <Link
+    <ListItemButton
+      component={Link}
       href={href}
+      selected={active}
       onMouseEnter={() => {
         for (const url of PREFETCH_APIS[href] ?? []) prefetchFetch(url);
       }}
       onFocus={() => {
         for (const url of PREFETCH_APIS[href] ?? []) prefetchFetch(url);
       }}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-        active
-          ? "bg-slate-800 text-white"
-          : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
-      }`}
+      sx={navItemSx}
     >
-      <svg
-        className="h-5 w-5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d={icon} />
-      </svg>
-      {label}
-    </Link>
+      <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>{icon}</ListItemIcon>
+      <ListItemText
+        primary={label}
+        slotProps={{ primary: { sx: { fontSize: 14, fontWeight: 600 } } }}
+      />
+    </ListItemButton>
   );
 }

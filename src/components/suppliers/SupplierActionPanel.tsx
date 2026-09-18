@@ -11,7 +11,7 @@ import {
 } from "@/components/ui";
 import type { GraphFocus } from "@/components/suppliers/SupplierSiteGraph";
 import type { SupplierGroup } from "@/lib/suppliers/group";
-import { siteIssuesFor, supplierIssuesFor } from "@/lib/suppliers/group";
+import { siteIssuesFor, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
 import { isStandardPaymentTerms, STANDARD_PAYMENT_TERMS } from "@/lib/suppliers/rationalise";
 import type {
   SupplierIssue,
@@ -278,7 +278,7 @@ function ActionEditor({
           {sites.map((r) => (
             <ScopeChip
               key={r.site.id}
-              label={r.site.siteCode || r.site.city || "Site"}
+              label={siteLabel(r, sites)}
               active={scope === "site" && focus.kind === "site" && focus.siteId === r.site.id}
               issueCount={siteIssuesFor(r).length}
               onClick={() => onFocus({ kind: "site", siteId: r.site.id })}

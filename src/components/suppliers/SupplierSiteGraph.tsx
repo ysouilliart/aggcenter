@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 
 import { IssueBadge } from "@/components/ui";
 import type { SupplierGroup } from "@/lib/suppliers/group";
-import { siteIssuesFor, supplierIssuesFor } from "@/lib/suppliers/group";
+import { siteIssuesFor, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
 import type { SupplierIssue, SupplierRecord } from "@/lib/suppliers/types";
 
 export type GraphFocus = { kind: "supplier" } | { kind: "site"; siteId: string };
@@ -35,6 +35,7 @@ type SiteNodeData = {
   siteCode: string;
   city: string;
   country: string;
+  terms: string;
   issues: SupplierIssue[];
   selected: boolean;
   inactive: boolean;
@@ -85,7 +86,7 @@ function SiteFlowNode({ data }: NodeProps<Node<SiteNodeData, "site">>) {
       </div>
       <div className="truncate text-sm font-semibold text-slate-900">{data.siteCode || "—"}</div>
       <div className="truncate text-[11px] text-slate-500">
-        {data.city || "—"} {data.country || ""}
+        {data.terms || `${data.city || "—"} ${data.country || ""}`.trim()}
       </div>
       <div className="mt-1 flex flex-wrap gap-1">
         {data.issues.length === 0 ? (
@@ -133,9 +134,10 @@ function buildGraph(
       type: "site",
       position: { x: 280, y: index * 108 },
       data: {
-        siteCode: record.site.siteCode,
+        siteCode: siteLabel(record, sites),
         city: record.site.city,
         country: record.site.country,
+        terms: record.site.paymentTerms || `${record.site.city} ${record.site.country}`.trim(),
         issues: siteIssuesFor(record),
         selected: focus.kind === "site" && focus.siteId === record.site.id,
         inactive: Boolean(record.site.inactiveDate),

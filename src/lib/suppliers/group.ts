@@ -56,6 +56,16 @@ export function siteIssuesFor(record: SupplierRecord): SupplierIssue[] {
   return record.issues.filter(isSiteIssue);
 }
 
+export function siteLabel(record: SupplierRecord, siblings: SupplierRecord[] = []): string {
+  const code = record.site.siteCode.trim() || record.site.city.trim() || "Site";
+  const collisions = siblings.filter(
+    (r) => (r.site.siteCode.trim() || r.site.city.trim() || "Site") === code,
+  ).length;
+  if (collisions <= 1) return code;
+  const extra = record.site.paymentTerms.trim() || record.site.payGroup.trim();
+  return extra ? `${code} · ${extra}` : code;
+}
+
 export function groupSupplierRecords(records: SupplierRecord[]): SupplierGroup[] {
   const byId = new Map<string, SupplierRecord[]>();
   for (const record of records) {

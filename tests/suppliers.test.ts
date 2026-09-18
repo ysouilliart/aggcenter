@@ -6,7 +6,7 @@ import { getConfig } from "@/lib/config";
 import { assessAddress } from "@/lib/suppliers/address";
 import { analyseSuppliers } from "@/lib/suppliers/analyse";
 import { mapSupplierExtracts } from "@/lib/suppliers/fromExtracts";
-import { groupSupplierRecords, supplierIssuesFor } from "@/lib/suppliers/group";
+import { groupSupplierRecords, siteLabel, supplierIssuesFor } from "@/lib/suppliers/group";
 import { ingestSuppliers } from "@/lib/suppliers/ingest";
 import { assessRationalisation, canonicalPaymentTerms, isStandardPaymentTerms } from "@/lib/suppliers/rationalise";
 import {
@@ -435,6 +435,18 @@ describe("groupSupplierRecords", () => {
     expect(groups[0].siteCount).toBe(3);
     expect(groups[0].issues.length).toBeGreaterThan(0);
     expect(supplierIssuesFor(records).every((i) => i.field !== "paymentTerms")).toBe(true);
+  });
+
+  it("disambiguates site labels when site codes collide", () => {
+    const { records } = analyseSuppliers({
+      suppliers: [supplier({ id: "aura" })],
+      sites: [
+        site({ id: "s1", supplierId: "aura", siteCode: "24-26 Rue Des H", paymentTerms: "30 TN" }),
+        site({ id: "s2", supplierId: "aura", siteCode: "24-26 Rue Des H", paymentTerms: "30 jours FM" }),
+      ],
+    });
+    expect(siteLabel(records[0], records)).toContain("30 TN");
+    expect(siteLabel(records[1], records)).toContain("30 jours FM");
   });
 });
 

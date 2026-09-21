@@ -36,7 +36,7 @@ import { prefetchFetch } from "@/lib/useFetch";
 
 type WorkspaceId = "cash" | "suppliers" | "invoices" | "people";
 
-const DRAWER_WIDTH = 220;
+const DRAWER_WIDTH = 248;
 
 const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }[] = [
   { id: "cash", label: "Cash", home: "/", hint: "O2C & P2P" },
@@ -171,9 +171,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           variant="scrollable"
           scrollButtons={false}
           sx={{
-            px: 1,
+            px: 0.5,
             minHeight: 36,
             "& .MuiTabs-indicator": { height: 2 },
+            "& .MuiTab-root": { minWidth: 0, px: 1, fontSize: 12.5 },
           }}
         >
           {WORKSPACES.map((ws) => (
@@ -258,7 +259,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onChange={(_, next: WorkspaceId) => goWorkspace(next)}
             variant="scrollable"
             scrollButtons={false}
-            sx={{ px: 1, minHeight: 36 }}
+            sx={{ px: 0.5, minHeight: 36, "& .MuiTab-root": { minWidth: 0, px: 1, fontSize: 12.5 } }}
           >
             {WORKSPACES.map((ws) => (
               <Tab key={ws.id} value={ws.id} label={ws.label} />

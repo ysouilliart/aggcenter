@@ -83,7 +83,7 @@ export default function DashboardPage() {
 
       {active ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 items-start gap-3 lg:grid-cols-4">
             <KpiCard
               label="Opening balance"
               value={formatCurrency(active.openingBalance, active.currency)}
@@ -107,7 +107,7 @@ export default function DashboardPage() {
           </div>
 
           {forecast ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 items-start gap-3 lg:grid-cols-4">
               <KpiCard
                 label="Predicted in"
                 value={formatCurrency(forecast.predictedInflows, forecast.currency)}
@@ -125,12 +125,12 @@ export default function DashboardPage() {
                 value={formatCurrency(forecast.projectedClosing, forecast.currency)}
                 sub={`Statement close ${formatCurrency(forecast.statementClosing, forecast.currency)}`}
               />
-              <Card className="flex items-center justify-between px-4 py-3">
+              <Card className="flex items-center justify-between px-3 py-2.5">
                 <div>
                   <div className="text-[13px] font-medium text-slate-700">
                     Remittance forecast
                   </div>
-                  <p className="mt-0.5 text-[11.5px] text-slate-500">
+                  <p className="mt-0.5 text-[11px] text-slate-500">
                     Supporting remittances still to land — not anomalies.
                   </p>
                 </div>

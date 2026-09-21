@@ -85,7 +85,7 @@ export default function AnomaliesPage() {
 
       {data ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 items-start gap-3 lg:grid-cols-4">
             <KpiCard label="Total findings" value={String(visible.length)} />
             <KpiCard label="High" value={String(counts.high)} tone="negative" />
             <KpiCard label="Medium" value={String(counts.medium)} />

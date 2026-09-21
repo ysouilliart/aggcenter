@@ -86,7 +86,7 @@ export default function SupplierOverviewPage() {
 
       {data ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 items-start gap-3 lg:grid-cols-4">
             <KpiCard label="Suppliers" value={String(data.supplierCount)} />
             <KpiCard label="Sites" value={String(data.siteCount)} />
             <KpiCard

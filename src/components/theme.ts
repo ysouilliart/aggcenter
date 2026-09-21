@@ -66,10 +66,10 @@ export const theme = createTheme({
     htmlFontSize: 16,
     fontSize: 13,
     h1: {
-      fontSize: "1.25rem",
+      fontSize: "1.125rem",
       fontWeight: 600,
       lineHeight: 1.3,
-      letterSpacing: "-0.015em",
+      letterSpacing: "-0.01em",
     },
     h2: {
       fontSize: "0.8125rem",
@@ -152,8 +152,8 @@ export const theme = createTheme({
     MuiChip: {
       defaultProps: { size: "small" },
       styleOverrides: {
-        root: { fontWeight: 500, fontSize: 11, height: 20 },
-        label: { paddingInline: 8 },
+        root: { fontWeight: 500, fontSize: 10.5, height: 18 },
+        label: { paddingInline: 7 },
         filled: { borderRadius: 999 },
       },
     },

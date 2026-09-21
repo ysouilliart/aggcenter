@@ -84,7 +84,7 @@ export default function ForecastPage() {
 
       {active ? (
         <div className="min-w-0 space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 items-start gap-3 lg:grid-cols-4">
             <KpiCard
               label="Predicted in"
               value={formatCurrency(active.predictedInflows, active.currency)}

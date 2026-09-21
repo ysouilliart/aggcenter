@@ -46,7 +46,7 @@ export function PageHeader({
         {subtitle ? (
           <Typography
             color="text.secondary"
-            sx={{ mt: 0.25, maxWidth: 720, fontSize: 12.5, fontWeight: 400, lineHeight: 1.45 }}
+            sx={{ mt: 0.25, maxWidth: 720, fontSize: 12, fontWeight: 400, lineHeight: 1.45 }}
           >
             {subtitle}
           </Typography>
@@ -101,21 +101,21 @@ export function KpiCard({
     amber: "warning.main",
   }[tone];
   return (
-    <MuiCard variant="outlined">
-      <Box sx={{ px: 1.75, py: 1.5 }}>
+    <MuiCard variant="outlined" sx={{ alignSelf: "start", width: "100%" }}>
+      <Box sx={{ px: 1.5, py: 1.25 }}>
         <Typography
           color="text.secondary"
-          sx={{ fontSize: 11.5, fontWeight: 400, lineHeight: 1.3 }}
+          sx={{ fontSize: 11, fontWeight: 400, lineHeight: 1.25 }}
         >
           {label}
         </Typography>
         <Typography
           sx={{
-            mt: 0.5,
-            fontSize: "1.375rem",
+            mt: 0.35,
+            fontSize: "1.25rem",
             fontWeight: 500,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.2,
+            letterSpacing: "-0.025em",
+            lineHeight: 1.15,
             fontVariantNumeric: "tabular-nums",
             color,
           }}
@@ -125,7 +125,7 @@ export function KpiCard({
         {sub ? (
           <Typography
             color="text.secondary"
-            sx={{ mt: 0.35, display: "block", fontSize: 11.5, fontWeight: 400, lineHeight: 1.35 }}
+            sx={{ mt: 0.25, display: "block", fontSize: 11, fontWeight: 400, lineHeight: 1.3 }}
           >
             {sub}
           </Typography>

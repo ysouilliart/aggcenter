@@ -91,12 +91,12 @@ export default function DashboardPage() {
             <KpiCard
               label="Inflows (O2C)"
               value={formatCurrency(active.totalInflows, active.currency)}
-              tone="positive"
+              tone="primary"
             />
             <KpiCard
               label="Outflows (P2P)"
               value={formatCurrency(active.totalOutflows, active.currency)}
-              tone="negative"
+              tone="amber"
             />
             <KpiCard
               label="Closing balance"
@@ -111,13 +111,13 @@ export default function DashboardPage() {
               <KpiCard
                 label="Predicted in"
                 value={formatCurrency(forecast.predictedInflows, forecast.currency)}
-                tone="positive"
+                tone="primary"
                 sub={`${forecast.inflowCount} customer remittances`}
               />
               <KpiCard
                 label="Predicted out"
                 value={formatCurrency(forecast.predictedOutflows, forecast.currency)}
-                tone="negative"
+                tone="amber"
                 sub={`${forecast.outflowCount} vendor remittances`}
               />
               <KpiCard

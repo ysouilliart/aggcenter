@@ -88,13 +88,13 @@ export default function ForecastPage() {
             <KpiCard
               label="Predicted in"
               value={formatCurrency(active.predictedInflows, active.currency)}
-              tone="positive"
+              tone="primary"
               sub={`${active.inflowCount} customer remittances`}
             />
             <KpiCard
               label="Predicted out"
               value={formatCurrency(active.predictedOutflows, active.currency)}
-              tone="negative"
+              tone="amber"
               sub={`${active.outflowCount} vendor remittances`}
             />
             <KpiCard

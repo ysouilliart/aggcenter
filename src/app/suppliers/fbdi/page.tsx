@@ -172,8 +172,8 @@ export default function SupplierFbdiPage() {
       {message ? <SuccessNote message={message} /> : null}
 
       {preview ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard label="Suppliers" value={String(preview.counts.suppliers)} />
             <KpiCard label="Sites" value={String(preview.counts.sites)} />
             <KpiCard
@@ -192,7 +192,7 @@ export default function SupplierFbdiPage() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Package</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Package</h2>
               <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1 text-sm text-slate-700">
                 <dt className="text-slate-500">Output prefix</dt>
                 <dd className="font-mono text-xs">{preview.prefix}</dd>
@@ -215,7 +215,7 @@ export default function SupplierFbdiPage() {
               </ul>
             </Card>
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Source extracts</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Source extracts</h2>
               {preview.usedSampleFallback ? (
                 <p className="mb-2 text-xs text-amber-700">
                   Bucket prefix was empty — using bundled sample extracts.
@@ -248,17 +248,17 @@ export default function SupplierFbdiPage() {
           </div>
 
           <Card className="p-0">
-            <div className="border-b border-slate-100 px-5 py-3">
-              <h2 className="font-semibold text-slate-900">Preview — suppliers</h2>
+            <div className="border-b border-slate-100 px-4 py-2">
+              <h2 className="text-[13px] font-medium text-slate-800">Preview — suppliers</h2>
               <p className="text-xs text-slate-500">
                 Source columns plus corrections. Extra EBS fields (DUNS, payment instructions, …)
                 stay on the row when the extract has them.
               </p>
             </div>
             <div className="max-h-[22rem] overflow-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <th className="px-4 py-3 font-medium">Number</th>
                     <th className="px-4 py-3 font-medium">Name</th>
                     <th className="px-4 py-3 font-medium">Type</th>
@@ -286,8 +286,8 @@ export default function SupplierFbdiPage() {
           </Card>
 
           <Card className="p-0">
-            <div className="border-b border-slate-100 px-5 py-3">
-              <h2 className="font-semibold text-slate-900">Field overlays</h2>
+            <div className="border-b border-slate-100 px-4 py-2">
+              <h2 className="text-[13px] font-medium text-slate-800">Field overlays</h2>
               <p className="text-xs text-slate-500">
                 Working-copy corrections applied back onto the source extract before mapping to
                 Fusion.
@@ -299,9 +299,9 @@ export default function SupplierFbdiPage() {
               </p>
             ) : (
               <div className="max-h-[18rem] overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-[13px]">
                   <thead className="sticky top-0 bg-white">
-                    <tr className="text-left text-xs font-semibold text-slate-500">
+                    <tr className="text-left text-xs font-medium text-slate-500">
                       <th className="px-4 py-3 font-medium">Sheet</th>
                       <th className="px-4 py-3 font-medium">Key</th>
                       <th className="px-4 py-3 font-medium">Field</th>
@@ -326,8 +326,8 @@ export default function SupplierFbdiPage() {
           </Card>
 
           <Card className="p-0">
-            <div className="border-b border-slate-100 px-5 py-3">
-              <h2 className="font-semibold text-slate-900">Saved packages</h2>
+            <div className="border-b border-slate-100 px-4 py-2">
+              <h2 className="text-[13px] font-medium text-slate-800">Saved packages</h2>
               <p className="text-xs text-slate-500">
                 Written to <code>{state.data?.prefix}</code>. Upload the ZIP with Load Interface
                 File for Import, then run Import Suppliers.
@@ -342,7 +342,7 @@ export default function SupplierFbdiPage() {
                 {packages.map((pkg) => {
                   const zip = pkg.files.find((f) => f.name.endsWith(".zip"));
                   return (
-                    <li key={pkg.batchId} className="px-5 py-3">
+                    <li key={pkg.batchId} className="px-4 py-2">
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <div>
                           <div className="font-medium text-slate-900">{pkg.batchId}</div>

@@ -82,8 +82,8 @@ export default function DashboardPage() {
       {error ? <ErrorNote message={error} /> : null}
 
       {active ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard
               label="Opening balance"
               value={formatCurrency(active.openingBalance, active.currency)}
@@ -107,7 +107,7 @@ export default function DashboardPage() {
           </div>
 
           {forecast ? (
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <KpiCard
                 label="Predicted in"
                 value={formatCurrency(forecast.predictedInflows, forecast.currency)}
@@ -125,12 +125,12 @@ export default function DashboardPage() {
                 value={formatCurrency(forecast.projectedClosing, forecast.currency)}
                 sub={`Statement close ${formatCurrency(forecast.statementClosing, forecast.currency)}`}
               />
-              <Card className="flex items-center justify-between px-5 py-4">
+              <Card className="flex items-center justify-between px-4 py-3">
                 <div>
-                  <div className="text-sm font-medium text-slate-600">
+                  <div className="text-[13px] font-medium text-slate-700">
                     Remittance forecast
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-0.5 text-[11.5px] text-slate-500">
                     Supporting remittances still to land — not anomalies.
                   </p>
                 </div>
@@ -141,10 +141,10 @@ export default function DashboardPage() {
             </div>
           ) : null}
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-semibold text-slate-900">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-[13px] font-medium text-slate-800">
                   Running balance
                 </h2>
                 <span className="text-xs text-slate-500">{active.currency}</span>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">
                 Daily inflow vs outflow
               </h2>
               <GroupedBarChart
@@ -190,13 +190,13 @@ export default function DashboardPage() {
           </div>
 
           <Card className="p-0">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="font-semibold text-slate-900">Accounts</h2>
+            <div className="border-b border-slate-100 px-4 py-2.5">
+              <h2 className="text-[13px] font-medium text-slate-800">Accounts</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <SortTh label="Account" column="name" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
                     <SortTh label="Bank" column="bank" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
                     <SortTh label="Opening" column="opening" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
@@ -209,24 +209,24 @@ export default function DashboardPage() {
                 <tbody className="divide-y divide-slate-100">
                   {accounts.rows.map((a) => (
                     <tr key={a.accountId} className="hover:bg-slate-50">
-                      <td className="px-5 py-3 font-medium text-slate-900">
+                      <td className="px-4 py-2 font-medium text-slate-900">
                         {a.accountName}
                       </td>
-                      <td className="px-5 py-3 text-slate-500">{a.bank}</td>
-                      <td className="px-5 py-3 text-right tabular-nums">
+                      <td className="px-4 py-2 text-slate-500">{a.bank}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
                         {formatCurrency(a.openingBalance, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-brand">
+                      <td className="px-4 py-2 text-right tabular-nums text-brand">
                         {formatCurrency(a.inflows, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-brand-orange">
+                      <td className="px-4 py-2 text-right tabular-nums text-brand-orange">
                         {formatCurrency(a.outflows, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right font-medium tabular-nums">
+                      <td className="px-4 py-2 text-right font-medium tabular-nums">
                         {formatCurrency(a.closingBalance, a.currency)}
                         <BankCloseNote account={a} />
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-slate-500">
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
                         {a.transactionCount}
                       </td>
                     </tr>

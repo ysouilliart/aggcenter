@@ -115,7 +115,7 @@ export default function IntegrationsPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">
+              <h2 className="text-[13px] font-medium text-slate-800">
                 OCI Object Storage
               </h2>
               <StatusPill
@@ -147,7 +147,7 @@ export default function IntegrationsPage() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Snowflake</h2>
+              <h2 className="text-[13px] font-medium text-slate-800">Snowflake</h2>
               <StatusPill
                 ok={data.snowflake.active}
                 label={data.snowflake.active ? "Active" : "Sample data"}
@@ -175,7 +175,7 @@ export default function IntegrationsPage() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">External API</h2>
+              <h2 className="text-[13px] font-medium text-slate-800">External API</h2>
               <StatusPill
                 ok={data.externalApi.configured}
                 label={data.externalApi.configured ? "Configured" : "Not set"}
@@ -194,7 +194,7 @@ export default function IntegrationsPage() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Database</h2>
+              <h2 className="text-[13px] font-medium text-slate-800">Database</h2>
               <StatusPill
                 ok={data.database.configured}
                 label={data.database.configured ? "Postgres" : "Local JSON"}
@@ -219,7 +219,7 @@ export default function IntegrationsPage() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">
+              <h2 className="text-[13px] font-medium text-slate-800">
                 Reference documents
               </h2>
               <Button
@@ -286,7 +286,7 @@ export default function IntegrationsPage() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Invoice classify</h2>
+              <h2 className="text-[13px] font-medium text-slate-800">Invoice classify</h2>
               <StatusPill
                 ok={Boolean(data.invoiceClassify?.llmReady)}
                 label={data.invoiceClassify?.llmReady ? "LLM ready" : "Static parser"}
@@ -322,7 +322,7 @@ export default function IntegrationsPage() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">People docs</h2>
+              <h2 className="text-[13px] font-medium text-slate-800">People docs</h2>
               <StatusPill
                 ok={Boolean(data.peopleDocsClassify?.llmReady)}
                 label={data.peopleDocsClassify?.llmReady ? "LLM ready" : "Static parser"}
@@ -359,7 +359,7 @@ export default function IntegrationsPage() {
           </Card>
 
           <Card>
-            <h2 className="mb-3 font-semibold text-slate-900">Settings</h2>
+            <h2 className="mb-2 text-[13px] font-medium text-slate-800">Settings</h2>
             <dl className="space-y-1 text-sm">
               <Row label="Reporting currency" value={data.reportingCurrency} />
               <Row label="Storage provider" value={data.storageProvider} />

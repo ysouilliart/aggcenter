@@ -143,9 +143,9 @@ export default function SupplierRecordsPage() {
         <div className="grid min-h-0 grid-rows-[minmax(10rem,1fr)_minmax(14rem,1fr)] gap-4 overflow-hidden">
           <Card className="flex min-h-0 flex-col overflow-hidden p-0">
             <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <SortTh
                       className="px-4 py-2 font-medium"
                       label="Supplier"

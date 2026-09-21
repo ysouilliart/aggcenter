@@ -60,7 +60,7 @@ function SupplierFlowNode({ data }: NodeProps<Node<SupplierNodeData, "supplier">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-brand">
         Supplier{data.inactive ? " · inactive" : ""}
       </div>
-      <div className="truncate text-sm font-semibold text-slate-900" title={data.name}>
+      <div className="truncate text-[13px] font-medium text-slate-900" title={data.name}>
         {data.name}
       </div>
       <div className="truncate text-[11px] text-slate-500">{data.number}</div>
@@ -86,7 +86,7 @@ function SiteFlowNode({ data }: NodeProps<Node<SiteNodeData, "site">>) {
       <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
         Site{data.inactive ? " · inactive" : ""}
       </div>
-      <div className="truncate text-sm font-semibold text-slate-900">{data.siteCode || "—"}</div>
+      <div className="truncate text-[13px] font-medium text-slate-900">{data.siteCode || "—"}</div>
       <div className="truncate font-mono text-[11px] text-slate-500" title={data.siteId}>
         id {data.siteId}
       </div>

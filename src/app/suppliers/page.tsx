@@ -85,8 +85,8 @@ export default function SupplierOverviewPage() {
       ) : null}
 
       {data ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard label="Suppliers" value={String(data.supplierCount)} />
             <KpiCard label="Sites" value={String(data.siteCount)} />
             <KpiCard
@@ -104,7 +104,7 @@ export default function SupplierOverviewPage() {
 
           <div className="grid gap-6 lg:grid-cols-4">
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Issue types</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Issue types</h2>
               <DistributionList
                 items={[
                   { value: "Missing attribute", count: data.byType.missing_attribute },
@@ -115,29 +115,29 @@ export default function SupplierOverviewPage() {
               />
             </Card>
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Payment terms</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Payment terms</h2>
               <DistributionList items={data.distributions.paymentTerms.slice(0, 8)} />
             </Card>
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Pay group</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Pay group</h2>
               <DistributionList items={data.distributions.payGroup.slice(0, 8)} />
             </Card>
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Supplier type</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Supplier type</h2>
               <DistributionList items={data.distributions.type.slice(0, 8)} />
             </Card>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Country</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Country</h2>
               <DistributionList items={data.distributions.country.slice(0, 12)} />
             </Card>
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Payment method</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Payment method</h2>
               <DistributionList items={data.distributions.paymentMethod.slice(0, 8)} />
               <div className="mt-5 border-t border-slate-100 pt-4">
-                <h3 className="mb-2 text-sm font-semibold text-slate-900">Source files</h3>
+                <h3 className="mb-2 text-[13px] font-medium text-slate-800">Source files</h3>
                 {data.files.length === 0 ? (
                   <p className="text-sm text-slate-400">
                     Nothing loaded yet. Click <strong>Load from bucket</strong> to

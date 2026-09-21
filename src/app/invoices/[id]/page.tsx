@@ -166,8 +166,8 @@ export default function InvoiceDetailPage() {
       {invoice ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="p-0">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-              <h2 className="font-semibold text-slate-900">Document</h2>
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+              <h2 className="text-[13px] font-medium text-slate-800">Document</h2>
               <a
                 href={`/api/invoices/${encodeURIComponent(invoice.id)}/file`}
                 target="_blank"
@@ -190,7 +190,7 @@ export default function InvoiceDetailPage() {
             )}
           </Card>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <Card>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <StatusBadge status={invoice.folder} />
@@ -251,7 +251,7 @@ export default function InvoiceDetailPage() {
 
             {needsReview && invoice.folder !== "archived" && invoice.confirmAction !== "accept" ? (
               <Card>
-                <h2 className="mb-1 font-semibold text-slate-900">Human confirm</h2>
+                <h2 className="mb-1 text-[13px] font-medium text-slate-800">Human confirm</h2>
                 <p className="mb-4 text-sm text-slate-500">
                   Review or edit key fields, then accept to move this invoice to processed, or
                   reject to keep it in Needs review. Confirm is recorded in the audit trail.
@@ -326,7 +326,7 @@ export default function InvoiceDetailPage() {
             ) : null}
 
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Supplier (origin)</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Supplier (origin)</h2>
               <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                 <Field label="Name" value={invoice.supplierName} />
                 <Field label="Legal name" value={invoice.supplierLegalName} />
@@ -340,7 +340,7 @@ export default function InvoiceDetailPage() {
             </Card>
 
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Customer</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Customer</h2>
               <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                 <Field label="Name" value={invoice.customerName} />
                 <Field label="Address" value={invoice.customerAddress} />
@@ -350,7 +350,7 @@ export default function InvoiceDetailPage() {
 
             {detail.bank ? (
               <Card>
-                <h2 className="mb-3 font-semibold text-slate-900">Bank / payment</h2>
+                <h2 className="mb-2 text-[13px] font-medium text-slate-800">Bank / payment</h2>
                 <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                   <Field label="Method" value={detail.bank.paymentMethod} />
                   <Field label="Account name" value={detail.bank.accountName} />
@@ -366,13 +366,13 @@ export default function InvoiceDetailPage() {
           </div>
 
           <Card className="p-0 lg:col-span-2">
-            <div className="border-b border-slate-100 px-5 py-3">
-              <h2 className="font-semibold text-slate-900">Line items</h2>
+            <div className="border-b border-slate-100 px-4 py-2">
+              <h2 className="text-[13px] font-medium text-slate-800">Line items</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <th className="px-5 py-2 font-medium">#</th>
                     <th className="px-5 py-2 font-medium">Description</th>
                     <th className="px-5 py-2 text-right font-medium">Qty</th>
@@ -409,11 +409,11 @@ export default function InvoiceDetailPage() {
 
           {detail.fields.length > 0 ? (
             <Card className="lg:col-span-2">
-              <h2 className="mb-3 font-semibold text-slate-900">Classified fields</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Classified fields</h2>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-[13px]">
                   <thead>
-                    <tr className="text-left text-xs font-semibold text-slate-500">
+                    <tr className="text-left text-xs font-medium text-slate-500">
                       <th className="py-2 pr-4 font-medium">Category</th>
                       <th className="py-2 pr-4 font-medium">Field</th>
                       <th className="py-2 font-medium">Value</th>
@@ -435,14 +435,14 @@ export default function InvoiceDetailPage() {
 
           {invoice.notes ? (
             <Card className="lg:col-span-2">
-              <h2 className="mb-2 font-semibold text-slate-900">Notes</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Notes</h2>
               <p className="text-sm text-slate-700">{invoice.notes}</p>
             </Card>
           ) : null}
 
           {detail.confirmEvents.length > 0 ? (
             <Card className="lg:col-span-2">
-              <h2 className="mb-3 font-semibold text-slate-900">Confirm audit</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Confirm audit</h2>
               <ul className="space-y-2 text-sm">
                 {detail.confirmEvents.map((ev) => (
                   <li key={ev.id} className="text-slate-700">
@@ -461,7 +461,7 @@ export default function InvoiceDetailPage() {
 
           {detail.job ? (
             <Card className="lg:col-span-2">
-              <h2 className="mb-3 font-semibold text-slate-900">Parse trace</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Parse trace</h2>
               <p className="mb-2 text-xs text-slate-500">
                 {detail.job.parserId} {detail.job.parserVersion} · {formatDate(detail.job.finishedAt)}
               </p>

@@ -98,9 +98,9 @@ export default function SupplierReviewPage() {
         <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-xl:grid-rows-[minmax(12rem,40vh)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,1fr)]">
           <Card className="flex min-h-0 flex-col overflow-hidden p-0">
             <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <th className="px-4 py-3 font-medium">Supplier</th>
                     <th className="px-4 py-3 font-medium">Changed</th>
                     <th className="px-4 py-3 font-medium">VAT IDs</th>
@@ -181,8 +181,8 @@ function ReviewDetail({
 
   return (
     <Card className="flex min-h-0 flex-col overflow-hidden p-0">
-      <div className="shrink-0 border-b border-slate-100 px-5 py-3">
-        <h2 className="font-semibold text-slate-900">{item.supplier.name}</h2>
+      <div className="shrink-0 border-b border-slate-100 px-4 py-2">
+        <h2 className="text-[13px] font-medium text-slate-800">{item.supplier.name}</h2>
         <p className="text-xs text-slate-500">
           {item.supplier.supplierNumber} · site {dash(item.site.siteCode)} · v
           {item.site.version}

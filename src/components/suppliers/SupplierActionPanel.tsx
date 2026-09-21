@@ -297,7 +297,7 @@ function ActionEditor({
             <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               {scope === "supplier" ? "Supplier" : "Site"}
             </div>
-            <h2 className="truncate font-semibold text-slate-900">{title}</h2>
+            <h2 className="truncate text-[13px] font-medium text-slate-800">{title}</h2>
             <p className="truncate text-xs text-slate-500">{subtitle}</p>
           </div>
         </div>

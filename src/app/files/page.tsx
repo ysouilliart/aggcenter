@@ -108,8 +108,8 @@ export default function FilesPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="p-0">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
-            <h2 className="font-semibold text-slate-900">Objects</h2>
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-2">
+            <h2 className="text-[13px] font-medium text-slate-800">Objects</h2>
             <div className="flex items-center gap-2">
               <TextField
                 size="small"
@@ -138,9 +138,9 @@ export default function FilesPage() {
             </p>
           ) : (
             <div className="max-h-[28rem] overflow-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <SortTh className="px-5 py-2 font-medium" label="Key" column="key" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh className="px-5 py-2 font-medium" label="Size" column="size" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
                     <SortTh className="px-5 py-2 font-medium" label="Modified" column="modified" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -180,8 +180,8 @@ export default function FilesPage() {
         </Card>
 
         <Card className="p-0">
-          <div className="border-b border-slate-100 px-5 py-3">
-            <h2 className="font-semibold text-slate-900">
+          <div className="border-b border-slate-100 px-4 py-2">
+            <h2 className="text-[13px] font-medium text-slate-800">
               Preview {selected ? <span className="font-mono text-xs text-slate-500">· {selected}</span> : null}
             </h2>
           </div>

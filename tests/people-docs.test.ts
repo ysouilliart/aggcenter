@@ -11,10 +11,17 @@ import {
   reprocessPeopleDoc,
   uploadPeopleDoc,
 } from "@/lib/peopleDocs/ingest";
+import type { PeopleDocRecord } from "@/lib/peopleDocs/types";
 import {
   LocalJsonPeopleDocRepository,
   resetPeopleDocRepositoryCache,
 } from "@/lib/peopleDocs/repository";
+import {
+  exportPeopleDocsKeywordSearch,
+  filterPeopleDocsByKeyword,
+  peopleDocSearchFileName,
+  searchPeopleDocs,
+} from "@/lib/peopleDocs/search";
 import { classifyPeopleDoc, parseYesNo } from "@/lib/parse/peopleDocs/classify";
 import { mergeStaticAndLlmPeopleDoc } from "@/lib/parse/peopleDocs/merge";
 import { classifyExtractedPeopleDoc } from "@/lib/parse/peopleDocs/strategy";
@@ -513,6 +520,89 @@ describe("parsePeopleDocument", () => {
     });
     expect(parsed.header.agreementId).toBe("AGR-2026-0441");
     expect(parsed.classifyMode).toBe("static");
+  });
+});
+
+describe("people docs keyword search and JSON export", () => {
+  const tmp = () => path.join(os.tmpdir(), `aggc-pd-q-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+
+  async function seededRepo() {
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
+    await ingestPeopleDocs({
+      storage,
+      repo,
+      prefix: "aggcenter/peopleDocs/",
+      sampleDir: path.join(process.cwd(), "data/sample/people-docs/landing"),
+      seedSamples: true,
+    });
+    return repo;
+  }
+
+  it("matches file name, header fields, and extracted text", async () => {
+    const repo = await seededRepo();
+    const byName = await searchPeopleDocs({ q: "employment" }, { repo });
+    expect(byName.some((d) => d.fileName.includes("employment"))).toBe(true);
+    expect(byName.every((d) => /employment/i.test(`${d.fileName}\n${d.extractedText ?? ""}`))).toBe(true);
+
+    const byRequestor = await searchPeopleDocs({ q: "Jamie Chen" }, { repo });
+    expect(byRequestor).toHaveLength(1);
+    expect(byRequestor[0]?.requestor).toMatch(/Jamie Chen/);
+
+    const byPolicy = await searchPeopleDocs({ q: "policy" }, { repo });
+    expect(byPolicy.some((d) => /policy/i.test(d.fileName) || d.agreementType === "Policy")).toBe(true);
+
+    const none = await searchPeopleDocs({ q: "zzz-no-such-keyword" }, { repo });
+    expect(none).toHaveLength(0);
+
+    const all = await searchPeopleDocs({ q: "  " }, { repo });
+    expect(all.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("is case-insensitive and ignores empty keywords", () => {
+    const docs = [
+      {
+        id: "PD-1",
+        fileName: "Offer Letter.docx",
+        mimeType: "application/pdf",
+        contentHash: "abc",
+        source: "upload",
+        folder: "processed",
+        parseStatus: "parsed",
+        confidence: 80,
+        uploadedAt: "2026-01-01T00:00:00.000Z",
+        requestor: "Pat Lee",
+        extractedText: "This letter of offer is confidential.",
+      } as PeopleDocRecord,
+    ];
+    expect(filterPeopleDocsByKeyword(docs, "OFFER")).toHaveLength(1);
+    expect(filterPeopleDocsByKeyword(docs, "pat lee")).toHaveLength(1);
+    expect(filterPeopleDocsByKeyword(docs, "")).toHaveLength(1);
+    expect(filterPeopleDocsByKeyword(docs, "contractor")).toHaveLength(0);
+  });
+
+  it("builds a structured JSON export without storage keys or hashes", async () => {
+    const repo = await seededRepo();
+    const now = new Date("2026-09-21T12:00:00.000Z");
+    const payload = await exportPeopleDocsKeywordSearch({ q: "AGR-2026-0441" }, { repo, now });
+    expect(payload.keyword).toBe("AGR-2026-0441");
+    expect(payload.exportedAt).toBe("2026-09-21T12:00:00.000Z");
+    expect(payload.matchCount).toBe(payload.docs.length);
+    expect(payload.docs.length).toBeGreaterThanOrEqual(1);
+    const hit = payload.docs[0];
+    expect(hit?.id).toMatch(/^PD-/);
+    expect(hit?.fileName).toBeTruthy();
+    expect(hit?.folder).toBeTruthy();
+    expect(hit?.parseStatus).toBeTruthy();
+    expect(hit?.header.agreementId).toBe("AGR-2026-0441");
+    expect(hit?.fields.some((f) => f.key === "agreementId" && f.value === "AGR-2026-0441")).toBe(true);
+    expect(hit?.textExcerpt).toMatch(/AGR-2026-0441/);
+    expect(JSON.stringify(payload)).not.toMatch(/contentHash|storageKey|originalKey/);
+    expect(peopleDocSearchFileName(payload.keyword, payload.exportedAt)).toBe(
+      "people-docs-agr-2026-0441-2026-09-21.json",
+    );
+    expect(peopleDocSearchFileName("", payload.exportedAt)).toBe("people-docs-search-2026-09-21.json");
   });
 });
 

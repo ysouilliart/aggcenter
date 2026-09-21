@@ -30,7 +30,17 @@ function headerValue(doc: PeopleDocRecord, key: PeopleDocFieldKey): string {
 }
 
 export default function PeopleDocsPage() {
-  const list = useFetch<{ docs: PeopleDocRecord[] }>("/api/people-docs");
+  const [keyword, setKeyword] = useState("");
+  const appliedKeyword = keyword.trim();
+  const listUrl = useMemo(() => {
+    if (!appliedKeyword) return "/api/people-docs";
+    return `/api/people-docs?q=${encodeURIComponent(appliedKeyword)}`;
+  }, [appliedKeyword]);
+  const downloadHref = useMemo(() => {
+    if (!appliedKeyword) return "/api/people-docs/download";
+    return `/api/people-docs/download?q=${encodeURIComponent(appliedKeyword)}`;
+  }, [appliedKeyword]);
+  const list = useFetch<{ docs: PeopleDocRecord[]; q?: string }>(listUrl);
   const summary = useFetch<PeopleDocSummary & { classify?: ClassifyStatus }>("/api/people-docs/summary");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const docs = list.data?.docs ?? EMPTY_DOCS;
@@ -191,7 +201,30 @@ export default function PeopleDocsPage() {
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-lg:grid-rows-[minmax(10rem,38vh)_minmax(0,1fr)] lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
         <Card className="flex min-h-0 flex-col overflow-hidden">
-          <h2 className="mb-3 shrink-0 font-semibold text-slate-900">Documents</h2>
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+            <h2 className="font-semibold text-slate-900">Documents</h2>
+            {appliedKeyword ? (
+              <span className="text-xs text-slate-500">
+                {docs.length} match{docs.length === 1 ? "" : "es"}
+              </span>
+            ) : null}
+          </div>
+          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="Keyword search…"
+              aria-label="Keyword search"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+            />
+            <a
+              href={downloadHref}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Download JSON
+            </a>
+          </div>
           <form onSubmit={handleUpload} className="mb-3 shrink-0 space-y-2">
             <input
               ref={fileRef}
@@ -212,8 +245,9 @@ export default function PeopleDocsPage() {
               <Spinner />
             ) : docs.length === 0 ? (
               <p className="text-sm text-slate-500">
-                No people docs yet. Drop files into aggcenter/peopleDocs/landing/ and sync, or upload
-                here.
+                {appliedKeyword
+                  ? `No people docs match “${appliedKeyword}”.`
+                  : "No people docs yet. Drop files into aggcenter/peopleDocs/landing/ and sync, or upload here."}
               </p>
             ) : (
               <ul className="divide-y divide-slate-100">

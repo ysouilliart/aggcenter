@@ -104,7 +104,7 @@ export default function ForecastPage() {
             <KpiCard
               label="Projected close"
               value={formatCurrency(active.projectedClosing, active.currency)}
-              tone="indigo"
+              tone="primary"
               sub={`Net ${formatCurrency(active.netPredicted, active.currency)} still to land`}
             />
           </div>
@@ -126,7 +126,7 @@ export default function ForecastPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Direction" column="direction" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Counterparty" column="name" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -145,8 +145,8 @@ export default function ForecastPage() {
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             line.direction === "in"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-rose-50 text-rose-700"
+                              ? "bg-brand-soft text-brand-dark"
+                              : "bg-brand-orange-soft text-brand-orange"
                           }`}
                         >
                           {line.direction === "in" ? "In" : "Out"}
@@ -161,7 +161,7 @@ export default function ForecastPage() {
                       </td>
                       <td
                         className={`px-5 py-3 text-right tabular-nums ${
-                          line.direction === "in" ? "text-emerald-600" : "text-rose-600"
+                          line.direction === "in" ? "text-brand" : "text-brand-orange"
                         }`}
                       >
                         {formatCurrency(

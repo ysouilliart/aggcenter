@@ -214,7 +214,7 @@ export default function PeopleDocsPage() {
                         type="button"
                         onClick={() => setSelectedId(doc.id)}
                         className={`w-full rounded-lg px-2 py-3 text-left ${
-                          active ? "bg-indigo-50" : "hover:bg-slate-50"
+                          active ? "bg-brand-soft" : "hover:bg-slate-50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -302,7 +302,7 @@ export default function PeopleDocsPage() {
                     return (
                       <div key={def.key} className="rounded-lg border border-slate-100 px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          <dt className="text-xs font-medium text-slate-500">
                             {def.label}
                           </dt>
                           <ConfidencePill confidence={field?.confidence ?? 0} missing={missing} />

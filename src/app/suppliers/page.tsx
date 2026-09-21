@@ -58,7 +58,6 @@ export default function SupplierOverviewPage() {
           <Button
             type="button"
             variant="contained"
-            color="secondary"
             size="small"
             onClick={handleSync}
             disabled={syncing}

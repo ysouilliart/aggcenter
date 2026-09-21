@@ -129,7 +129,6 @@ export default function SupplierFbdiPage() {
           <Button
             type="button"
             variant="contained"
-            color="secondary"
             size="small"
             onClick={handleSave}
             disabled={saving || !preview}
@@ -180,7 +179,7 @@ export default function SupplierFbdiPage() {
             <KpiCard
               label="Overlays"
               value={String(preview.counts.overlayed)}
-              tone="indigo"
+              tone="primary"
               sub={`${preview.overlayCount} field change(s) from source`}
             />
             <KpiCard
@@ -259,7 +258,7 @@ export default function SupplierFbdiPage() {
             <div className="max-h-[22rem] overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <th className="px-4 py-3 font-medium">Number</th>
                     <th className="px-4 py-3 font-medium">Name</th>
                     <th className="px-4 py-3 font-medium">Type</th>
@@ -302,7 +301,7 @@ export default function SupplierFbdiPage() {
               <div className="max-h-[18rem] overflow-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-white">
-                    <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr className="text-left text-xs font-semibold text-slate-500">
                       <th className="px-4 py-3 font-medium">Sheet</th>
                       <th className="px-4 py-3 font-medium">Key</th>
                       <th className="px-4 py-3 font-medium">Field</th>
@@ -359,7 +358,7 @@ export default function SupplierFbdiPage() {
                         {zip ? (
                           <a
                             href={`/api/suppliers/fbdi/download?key=${encodeURIComponent(zip.key)}`}
-                            className="text-sm font-medium text-indigo-700 hover:underline"
+                            className="text-sm font-medium text-brand-dark hover:underline"
                           >
                             Download ZIP ({formatBytes(zip.size)})
                           </a>

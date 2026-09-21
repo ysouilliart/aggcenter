@@ -16,7 +16,6 @@ import ReportProblemOutlined from "@mui/icons-material/ReportProblemOutlined";
 import ShowChartOutlined from "@mui/icons-material/ShowChartOutlined";
 import WarningAmberOutlined from "@mui/icons-material/WarningAmberOutlined";
 import AppBar from "@mui/material/AppBar";
-import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
@@ -24,19 +23,20 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Toolbar from "@mui/material/Toolbar";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { brand } from "@/components/theme";
 import { prefetchFetch } from "@/lib/useFetch";
 
 type WorkspaceId = "cash" | "suppliers" | "invoices" | "people";
 
-const DRAWER_WIDTH = 256;
+const DRAWER_WIDTH = 220;
 
 const WORKSPACES: { id: WorkspaceId; label: string; home: string; hint: string }[] = [
   { id: "cash", label: "Cash", home: "/", hint: "O2C & P2P" },
@@ -100,15 +100,16 @@ function navActive(pathname: string, href: string): boolean {
 }
 
 const navItemSx = {
-  mx: 1,
+  mx: 0.75,
   borderRadius: 1,
-  color: "grey.300",
+  color: brand.muted,
+  py: 0.75,
   "&.Mui-selected": {
-    bgcolor: "rgba(255,255,255,0.1)",
-    color: "#fff",
-    "&:hover": { bgcolor: "rgba(255,255,255,0.14)" },
+    bgcolor: brand.blueSoft,
+    color: brand.blueDark,
+    "&:hover": { bgcolor: brand.blueSoft },
   },
-  "&:hover": { bgcolor: "rgba(255,255,255,0.08)", color: "#fff" },
+  "&:hover": { bgcolor: "#F3F6F9", color: brand.ink },
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -122,6 +123,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/suppliers/records" ||
     pathname === "/suppliers/review";
 
+  function goWorkspace(next: WorkspaceId) {
+    if (next === workspace) return;
+    const home = WORKSPACES.find((w) => w.id === next)?.home;
+    if (home) router.push(home);
+  }
+
   return (
     <Box
       sx={{
@@ -129,6 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         overflowX: "hidden",
         height: fillViewport ? "100dvh" : undefined,
         minHeight: fillViewport ? undefined : "100vh",
+        bgcolor: "background.default",
       }}
     >
       <Drawer
@@ -140,72 +148,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           "& .MuiDrawer-paper": {
             width: DRAWER_WIDTH,
             boxSizing: "border-box",
-            bgcolor: "secondary.main",
-            color: "grey.200",
-            borderRight: 0,
+            bgcolor: "background.paper",
+            color: "text.primary",
+            borderRight: `1px solid ${brand.line}`,
           },
         }}
       >
-        <Toolbar sx={{ gap: 1.5, px: 2.5, minHeight: 88 }}>
-          <Avatar
-            sx={{
-              width: 36,
-              height: 36,
-              bgcolor: "primary.light",
-              color: "secondary.main",
-              fontWeight: 700,
-              fontSize: 18,
-            }}
-          >
-            a
-          </Avatar>
+        <Toolbar sx={{ px: 2, minHeight: 72, alignItems: "flex-end", pb: 1.5 }}>
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2, color: "#fff" }}>
+            <Typography variant="h2" sx={{ fontSize: "1.125rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
               aggcenter
             </Typography>
-            <Typography variant="caption" sx={{ color: "grey.500" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               Aggregation Center
             </Typography>
           </Box>
         </Toolbar>
 
-        <Box sx={{ px: 1.5, pb: 1.5 }}>
-          <ToggleButtonGroup
-            exclusive
-            fullWidth
-            size="small"
-            value={workspace}
-            onChange={(_, next: WorkspaceId | null) => {
-              if (!next || next === workspace) return;
-              const home = WORKSPACES.find((w) => w.id === next)?.home;
-              if (home) router.push(home);
-            }}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              bgcolor: "rgba(255,255,255,0.06)",
-              p: 0.5,
-              "& .MuiToggleButton-root": {
-                color: "grey.400",
-                border: 0,
-                borderRadius: "8px !important",
-                py: 0.75,
-              },
-              "& .Mui-selected": {
-                bgcolor: "rgba(255,255,255,0.14) !important",
-                color: "#fff !important",
-              },
-            }}
-          >
-            {WORKSPACES.map((ws) => (
-              <ToggleButton key={ws.id} value={ws.id}>
-                {ws.label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
+        <Tabs
+          value={workspace}
+          onChange={(_, next: WorkspaceId) => goWorkspace(next)}
+          variant="scrollable"
+          scrollButtons={false}
+          sx={{
+            px: 1,
+            minHeight: 36,
+            "& .MuiTabs-indicator": { height: 2 },
+          }}
+        >
+          {WORKSPACES.map((ws) => (
+            <Tab key={ws.id} value={ws.id} label={ws.label} />
+          ))}
+        </Tabs>
 
-        <List disablePadding sx={{ flex: 1 }}>
+        <List disablePadding sx={{ flex: 1, pt: 1 }}>
           {items.map((item) => (
             <NavLink
               key={item.href}
@@ -219,11 +195,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             disableSticky
             sx={{
               bgcolor: "transparent",
-              color: "grey.500",
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
+              color: "text.secondary",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.04em",
               mt: 1.5,
+              lineHeight: "32px",
             }}
           >
             Platform
@@ -238,8 +215,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           ))}
         </List>
-        <Box sx={{ px: 3, py: 2 }}>
-          <Typography variant="caption" sx={{ color: "grey.500" }}>
+        <Box sx={{ px: 2, py: 2 }}>
+          <Typography variant="caption">
             {workspace === "cash"
               ? `Cash Position · ${hint}`
               : workspace === "suppliers"
@@ -268,30 +245,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             display: { md: "none" },
             borderBottom: 1,
             borderColor: "divider",
+            bgcolor: "background.paper",
           }}
         >
           <Toolbar sx={{ gap: 1, minHeight: 56 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               aggcenter
             </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={workspace}
-              onChange={(_, next: WorkspaceId | null) => {
-                if (!next) return;
-                const home = WORKSPACES.find((w) => w.id === next)?.home;
-                if (home) router.push(home);
-              }}
-              sx={{ ml: "auto" }}
-            >
-              {WORKSPACES.map((ws) => (
-                <ToggleButton key={ws.id} value={ws.id} component={Link} href={ws.home}>
-                  {ws.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
           </Toolbar>
+          <Tabs
+            value={workspace}
+            onChange={(_, next: WorkspaceId) => goWorkspace(next)}
+            variant="scrollable"
+            scrollButtons={false}
+            sx={{ px: 1, minHeight: 36 }}
+          >
+            {WORKSPACES.map((ws) => (
+              <Tab key={ws.id} value={ws.id} label={ws.label} />
+            ))}
+          </Tabs>
         </AppBar>
         <Box
           component="main"
@@ -340,7 +312,7 @@ function NavLink({
       <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>{icon}</ListItemIcon>
       <ListItemText
         primary={label}
-        slotProps={{ primary: { sx: { fontSize: 14, fontWeight: 600 } } }}
+        slotProps={{ primary: { sx: { fontSize: 14, fontWeight: active ? 600 : 500 } } }}
       />
     </ListItemButton>
   );

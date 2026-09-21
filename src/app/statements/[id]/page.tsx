@@ -101,7 +101,7 @@ function HeaderGrid({ header }: { header: StatementHeader }) {
     <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((row) => (
         <div key={row.label}>
-          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          <dt className="text-xs font-medium text-slate-500">
             {row.label}
           </dt>
           <dd className="mt-0.5 break-all text-sm text-slate-900">{row.value}</dd>
@@ -218,13 +218,13 @@ export default function StatementDetailPage() {
             <h2 className="mb-3 font-semibold text-slate-900">Source</h2>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium text-slate-500">
                   File
                 </dt>
                 <dd className="mt-0.5 break-all text-sm text-slate-900">{statement.fileName}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium text-slate-500">
                   Storage key
                 </dt>
                 <dd className="mt-0.5 font-mono text-xs break-all text-slate-700">
@@ -232,7 +232,7 @@ export default function StatementDetailPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium text-slate-500">
                   Uploaded
                 </dt>
                 <dd className="mt-0.5 text-sm text-slate-900">
@@ -240,12 +240,12 @@ export default function StatementDetailPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-xs font-medium text-slate-500">
                   Raw file
                 </dt>
                 <dd className="mt-0.5 text-sm text-slate-700">
                   PDFs are not dumped here. Browse the object on the{" "}
-                  <Link href="/files" className="font-medium text-indigo-600 hover:text-indigo-500">
+                  <Link href="/files" className="font-medium text-brand hover:text-brand-dark">
                     Files
                   </Link>{" "}
                   page (binary preview only).
@@ -315,7 +315,7 @@ export default function StatementDetailPage() {
               <div className="max-h-[36rem] overflow-auto">
                 <table className="w-full min-w-[56rem] text-sm">
                   <thead className="sticky top-0 bg-white">
-                    <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr className="text-left text-xs font-semibold text-slate-500">
                       {showHsbcCols ? (
                         <th className="px-4 py-2 font-medium">Line</th>
                       ) : null}
@@ -362,12 +362,12 @@ export default function StatementDetailPage() {
                         </td>
                         {showHsbcCols ? (
                           <>
-                            <td className="px-4 py-2 text-right tabular-nums text-rose-700">
+                            <td className="px-4 py-2 text-right tabular-nums text-brand-orange">
                               {t.debitAmount
                                 ? formatCurrency(t.debitAmount, t.currency || currency)
                                 : ""}
                             </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-emerald-700">
+                            <td className="px-4 py-2 text-right tabular-nums text-brand">
                               {t.creditAmount
                                 ? formatCurrency(t.creditAmount, t.currency || currency)
                                 : ""}
@@ -376,7 +376,7 @@ export default function StatementDetailPage() {
                         ) : (
                           <td
                             className={`px-4 py-2 text-right tabular-nums ${
-                              t.amount < 0 ? "text-rose-700" : "text-emerald-700"
+                              t.amount < 0 ? "text-brand-orange" : "text-brand"
                             }`}
                           >
                             {formatCurrency(t.amount, t.currency || currency)}

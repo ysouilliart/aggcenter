@@ -87,13 +87,14 @@ export function KpiCard({
   label: string;
   value: string;
   sub?: string;
-  tone?: "default" | "positive" | "negative" | "indigo" | "amber";
+  tone?: "default" | "positive" | "negative" | "indigo" | "primary" | "amber";
 }) {
   const color = {
     default: "text.primary",
     positive: "success.main",
     negative: "error.main",
     indigo: "primary.main",
+    primary: "primary.main",
     amber: "warning.main",
   }[tone];
   return (
@@ -129,14 +130,16 @@ const STATUS_COLORS: Record<string, ChipColor> = {
   llm: "info",
   static: "default",
   "static-fallback": "warning",
+  pending: "warning",
 };
 
 export function StatusBadge({ status }: { status: string }) {
+  const color = STATUS_COLORS[status] ?? "default";
   return (
     <Chip
       label={status}
-      color={STATUS_COLORS[status] ?? "default"}
-      variant="outlined"
+      color={color}
+      variant={color === "default" ? "outlined" : "filled"}
       sx={{ textTransform: "capitalize" }}
     />
   );
@@ -150,7 +153,13 @@ export function ConfidencePill({ confidence, missing }: { confidence: number; mi
       : confidence >= 50
         ? "warning"
         : "error";
-  return <Chip label={missing ? "missing" : `${confidence}%`} color={color} variant="outlined" />;
+  return (
+    <Chip
+      label={missing ? "missing" : `${confidence}%`}
+      color={color}
+      variant={color === "default" ? "outlined" : "filled"}
+    />
+  );
 }
 
 const SEVERITY_COLORS: Record<string, ChipColor> = {
@@ -160,11 +169,12 @@ const SEVERITY_COLORS: Record<string, ChipColor> = {
 };
 
 export function SeverityBadge({ severity }: { severity: string }) {
+  const color = SEVERITY_COLORS[severity] ?? "default";
   return (
     <Chip
       label={severity}
-      color={SEVERITY_COLORS[severity] ?? "default"}
-      variant="outlined"
+      color={color}
+      variant={color === "default" ? "outlined" : "filled"}
       sx={{ textTransform: "capitalize" }}
     />
   );
@@ -244,7 +254,14 @@ export function VatCheckBadge({
           : key === "unsupported"
             ? "Not in VIES"
             : "VAT not checked";
-  return <Chip label={label} color={VAT_CHECK_COLORS[key]} variant="outlined" />;
+  const color = VAT_CHECK_COLORS[key];
+  return (
+    <Chip
+      label={label}
+      color={color}
+      variant={color === "default" || key === "pending" ? "outlined" : "filled"}
+    />
+  );
 }
 
 export function IssueBadge({ type }: { type: string }) {
@@ -258,7 +275,14 @@ export function IssueBadge({ type }: { type: string }) {
           : type === "rationalise"
             ? "Rationalise"
             : type;
-  return <Chip label={label} color={ISSUE_COLORS[type] ?? "default"} variant="outlined" />;
+  const color = ISSUE_COLORS[type] ?? "default";
+  return (
+    <Chip
+      label={label}
+      color={color}
+      variant={color === "default" ? "outlined" : "filled"}
+    />
+  );
 }
 
 export function DistributionList({
@@ -316,6 +340,7 @@ export function SegmentedToggle<T extends string>({
       onChange={(_, next: T | null) => {
         if (next != null) onChange(next);
       }}
+      sx={{ gap: 0.5 }}
     >
       {options.map((opt) => (
         <ToggleButton key={opt.value} value={opt.value}>

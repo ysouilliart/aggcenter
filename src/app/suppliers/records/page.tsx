@@ -145,7 +145,7 @@ export default function SupplierRecordsPage() {
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh
                       className="px-4 py-2 font-medium"
                       label="Supplier"
@@ -187,7 +187,7 @@ export default function SupplierRecordsPage() {
                       <tr
                         key={g.id}
                         className={`cursor-pointer ${
-                          selectedSupplierId === g.id ? "bg-indigo-50" : "hover:bg-slate-50"
+                          selectedSupplierId === g.id ? "bg-brand-soft" : "hover:bg-slate-50"
                         }`}
                         onClick={() => selectSupplier(g.id)}
                       >
@@ -224,7 +224,7 @@ export default function SupplierRecordsPage() {
           </Card>
 
           <Card className="flex min-h-0 flex-col overflow-hidden p-0">
-            <div className="shrink-0 border-b border-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="shrink-0 border-b border-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
               Supplier · sites
             </div>
             <div className="min-h-0 flex-1">

@@ -382,7 +382,6 @@ function ActionEditor({
           <Button
             type="button"
             variant="contained"
-            color="secondary"
             size="small"
             onClick={save}
             disabled={saving}
@@ -412,7 +411,7 @@ function ScopeChip({
       size="small"
       label={issueCount ? `${label} ${issueCount}` : label}
       onClick={onClick}
-      color={active ? "secondary" : "default"}
+      color={active ? "primary" : "default"}
       variant={active ? "filled" : "outlined"}
       sx={{ maxWidth: "14rem" }}
     />

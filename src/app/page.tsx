@@ -101,7 +101,7 @@ export default function DashboardPage() {
             <KpiCard
               label="Closing balance"
               value={formatCurrency(active.closingBalance, active.currency)}
-              tone="indigo"
+              tone="primary"
               sub={closingKpiSub(active)}
             />
           </div>
@@ -180,10 +180,10 @@ export default function DashboardPage() {
               />
               <div className="mt-3 flex gap-4 text-xs text-slate-500">
                 <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Inflow
+                  <span className="h-2.5 w-2.5 rounded-sm bg-brand" /> Inflow
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" /> Outflow
+                  <span className="h-2.5 w-2.5 rounded-sm bg-brand-orange" /> Outflow
                 </span>
               </div>
             </Card>
@@ -196,7 +196,7 @@ export default function DashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Account" column="name" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
                     <SortTh label="Bank" column="bank" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
                     <SortTh label="Opening" column="opening" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
@@ -216,10 +216,10 @@ export default function DashboardPage() {
                       <td className="px-5 py-3 text-right tabular-nums">
                         {formatCurrency(a.openingBalance, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-emerald-600">
+                      <td className="px-5 py-3 text-right tabular-nums text-brand">
                         {formatCurrency(a.inflows, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-rose-600">
+                      <td className="px-5 py-3 text-right tabular-nums text-brand-orange">
                         {formatCurrency(a.outflows, a.currency)}
                       </td>
                       <td className="px-5 py-3 text-right font-medium tabular-nums">

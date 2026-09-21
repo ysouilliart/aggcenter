@@ -140,7 +140,7 @@ export default function FilesPage() {
             <div className="max-h-[28rem] overflow-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh className="px-5 py-2 font-medium" label="Key" column="key" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh className="px-5 py-2 font-medium" label="Size" column="size" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
                     <SortTh className="px-5 py-2 font-medium" label="Modified" column="modified" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -151,7 +151,7 @@ export default function FilesPage() {
                   {sorted.rows.map((o) => (
                     <tr
                       key={o.key}
-                      className={selected === o.key ? "bg-indigo-50" : "hover:bg-slate-50"}
+                      className={selected === o.key ? "bg-brand-soft" : "hover:bg-slate-50"}
                     >
                       <td className="px-5 py-2 font-mono text-xs text-slate-700">
                         {o.key}
@@ -166,7 +166,6 @@ export default function FilesPage() {
                         <Button
                           size="small"
                           variant="contained"
-                          color="secondary"
                           onClick={() => viewFile(o.key)}
                         >
                           View

@@ -183,7 +183,7 @@ export default function StatementsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Statement" column="file" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Account" column="account" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Bank" column="bank" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -206,7 +206,7 @@ export default function StatementsPage() {
                       <td className="px-5 py-3 font-medium text-slate-900">
                         <Link
                           href={`/statements/${encodeURIComponent(s.id)}`}
-                          className="text-indigo-600 hover:text-indigo-500 hover:underline"
+                          className="text-brand hover:text-brand-dark hover:underline"
                         >
                           {s.fileName}
                         </Link>
@@ -228,7 +228,7 @@ export default function StatementsPage() {
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             s.source === "upload"
-                              ? "bg-indigo-50 text-indigo-700"
+                              ? "bg-brand-soft text-brand-dark"
                               : s.source === "oci"
                                 ? "bg-emerald-50 text-emerald-700"
                                 : "bg-slate-100 text-slate-600"

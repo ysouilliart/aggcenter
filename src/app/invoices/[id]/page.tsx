@@ -16,14 +16,14 @@ function Field({ label, value }: { label: string; value?: string | number | null
   if (value == null || value === "") {
     return (
       <div>
-        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+        <dt className="text-xs font-medium text-slate-500">{label}</dt>
         <dd className="mt-0.5 text-sm text-slate-400">—</dd>
       </div>
     );
   }
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
       <dd className="mt-0.5 break-all text-sm text-slate-900">{value}</dd>
     </div>
   );
@@ -172,7 +172,7 @@ export default function InvoiceDetailPage() {
                 href={`/api/invoices/${encodeURIComponent(invoice.id)}/file`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-medium text-indigo-600 hover:underline"
+                className="text-xs font-medium text-brand hover:underline"
               >
                 Open original
               </a>
@@ -372,7 +372,7 @@ export default function InvoiceDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <th className="px-5 py-2 font-medium">#</th>
                     <th className="px-5 py-2 font-medium">Description</th>
                     <th className="px-5 py-2 text-right font-medium">Qty</th>
@@ -413,7 +413,7 @@ export default function InvoiceDetailPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr className="text-left text-xs font-semibold text-slate-500">
                       <th className="py-2 pr-4 font-medium">Category</th>
                       <th className="py-2 pr-4 font-medium">Field</th>
                       <th className="py-2 font-medium">Value</th>

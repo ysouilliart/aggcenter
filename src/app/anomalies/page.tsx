@@ -89,7 +89,7 @@ export default function AnomaliesPage() {
             <KpiCard label="Total findings" value={String(visible.length)} />
             <KpiCard label="High" value={String(counts.high)} tone="negative" />
             <KpiCard label="Medium" value={String(counts.medium)} />
-            <KpiCard label="Low" value={String(counts.low)} tone="indigo" />
+            <KpiCard label="Low" value={String(counts.low)} tone="primary" />
           </div>
 
           {currencies.length > 1 ? (
@@ -107,7 +107,7 @@ export default function AnomaliesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Severity" column="severity" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Finding" column="title" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Type" column="type" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />

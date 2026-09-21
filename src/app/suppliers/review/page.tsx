@@ -72,7 +72,6 @@ export default function SupplierReviewPage() {
             <Button
               type="button"
               variant="contained"
-              color="secondary"
               size="small"
               onClick={() => validateIds(items.map((i) => i.id))}
               disabled={Boolean(checking) || items.length === 0}
@@ -101,7 +100,7 @@ export default function SupplierReviewPage() {
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <th className="px-4 py-3 font-medium">Supplier</th>
                     <th className="px-4 py-3 font-medium">Changed</th>
                     <th className="px-4 py-3 font-medium">VAT IDs</th>
@@ -116,7 +115,7 @@ export default function SupplierReviewPage() {
                       <tr
                         key={item.id}
                         className={`cursor-pointer ${
-                          isSelected ? "bg-indigo-50" : "hover:bg-slate-50"
+                          isSelected ? "bg-brand-soft" : "hover:bg-slate-50"
                         }`}
                         onClick={() => setSelectedId(item.id)}
                       >
@@ -136,7 +135,7 @@ export default function SupplierReviewPage() {
                         <td className="px-4 py-2">
                           <VatCheckBadge validity={item.vatCheck?.validity} />
                           {item.vatCheck?.vatScope ? (
-                            <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">
+                            <div className="mt-1 text-[10px] font-medium text-slate-500">
                               {item.vatCheck.vatScope} VAT
                             </div>
                           ) : null}
@@ -191,7 +190,7 @@ function ReviewDetail({
       </div>
       <div className="min-h-0 flex-1 space-y-4 overflow-auto p-5">
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h3 className="mb-2 text-xs font-semibold text-slate-500">
             What changed
           </h3>
           <ul className="space-y-2">
@@ -214,7 +213,7 @@ function ReviewDetail({
 
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
           <div className="mb-2 flex items-center gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <h3 className="text-xs font-semibold text-slate-500">
               EU VIES VAT check
             </h3>
             <VatCheckBadge validity={check?.validity} />
@@ -225,7 +224,7 @@ function ReviewDetail({
           {check ? (
             <div className="mt-2 space-y-1 text-sm text-slate-700">
               <p>
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <span className="text-xs font-medium text-slate-500">
                   {check.vatScope ?? "VAT"} check ·{" "}
                 </span>
                 {check.message}

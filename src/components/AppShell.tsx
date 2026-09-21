@@ -103,7 +103,8 @@ const navItemSx = {
   mx: 0.75,
   borderRadius: 1,
   color: brand.muted,
-  py: 0.75,
+  py: 0.45,
+  minHeight: 32,
   "&.Mui-selected": {
     bgcolor: brand.blueSoft,
     color: brand.blueDark,
@@ -154,12 +155,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           },
         }}
       >
-        <Toolbar sx={{ px: 2, minHeight: 72, alignItems: "flex-end", pb: 1.5 }}>
+        <Toolbar sx={{ px: 2, minHeight: 56, alignItems: "flex-end", pb: 1 }}>
           <Box>
-            <Typography variant="h2" sx={{ fontSize: "1.125rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
+            <Typography variant="h2" sx={{ fontSize: "0.9375rem", fontWeight: 600, letterSpacing: "-0.01em" }}>
               aggcenter
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 400 }}>
               Aggregation Center
             </Typography>
           </Box>
@@ -172,9 +173,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           scrollButtons={false}
           sx={{
             px: 0.5,
-            minHeight: 36,
+            minHeight: 32,
             "& .MuiTabs-indicator": { height: 2 },
-            "& .MuiTab-root": { minWidth: 0, px: 1, fontSize: 12.5 },
+            "& .MuiTab-root": { minWidth: 0, px: 1, fontSize: 12.5, minHeight: 32 },
           }}
         >
           {WORKSPACES.map((ws) => (
@@ -198,7 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               bgcolor: "transparent",
               color: "text.secondary",
               fontSize: 11,
-              fontWeight: 600,
+              fontWeight: 500,
               letterSpacing: "0.04em",
               mt: 1.5,
               lineHeight: "32px",
@@ -250,7 +251,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }}
         >
           <Toolbar sx={{ gap: 1, minHeight: 56 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: 15 }}>
               aggcenter
             </Typography>
           </Toolbar>
@@ -259,7 +260,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onChange={(_, next: WorkspaceId) => goWorkspace(next)}
             variant="scrollable"
             scrollButtons={false}
-            sx={{ px: 0.5, minHeight: 36, "& .MuiTab-root": { minWidth: 0, px: 1, fontSize: 12.5 } }}
+            sx={{ px: 0.5, minHeight: 32, "& .MuiTab-root": { minWidth: 0, px: 1, fontSize: 12.5, minHeight: 32 } }}
           >
             {WORKSPACES.map((ws) => (
               <Tab key={ws.id} value={ws.id} label={ws.label} />
@@ -271,8 +272,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           sx={{
             minWidth: 0,
             flex: 1,
-            px: { xs: 2, sm: 3, lg: 4 },
-            py: fillViewport ? 2 : 3,
+            px: { xs: 2, sm: 2.5, lg: 3 },
+            py: fillViewport ? 1.5 : 2.5,
             display: fillViewport ? "flex" : undefined,
             flexDirection: fillViewport ? "column" : undefined,
             minHeight: fillViewport ? 0 : undefined,
@@ -310,10 +311,10 @@ function NavLink({
       }}
       sx={navItemSx}
     >
-      <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>{icon}</ListItemIcon>
+      <ListItemIcon sx={{ color: "inherit", minWidth: 32 }}>{icon}</ListItemIcon>
       <ListItemText
         primary={label}
-        slotProps={{ primary: { sx: { fontSize: 14, fontWeight: active ? 600 : 500 } } }}
+        slotProps={{ primary: { sx: { fontSize: 13, fontWeight: active ? 500 : 400 } } }}
       />
     </ListItemButton>
   );

@@ -192,7 +192,7 @@ export default function PeopleDocsPage() {
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-lg:grid-rows-[minmax(10rem,38vh)_minmax(0,1fr)] lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
         <Card className="flex min-h-0 flex-col overflow-hidden">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-            <h2 className="font-semibold text-slate-900">Documents</h2>
+            <h2 className="text-[13px] font-medium text-slate-800">Documents</h2>
             {appliedKeyword ? (
               <span className="text-xs text-slate-500">
                 {docs.length} match{docs.length === 1 ? "" : "es"}
@@ -282,7 +282,7 @@ export default function PeopleDocsPage() {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="font-semibold text-slate-900">{selected.doc.fileName}</h2>
+                  <h2 className="text-[13px] font-medium text-slate-800">{selected.doc.fileName}</h2>
                   <p className="mt-1 text-xs text-slate-500">
                     {selected.doc.classifyMode ?? "static"} classify · uploaded{" "}
                     {formatDate(selected.doc.uploadedAt)}

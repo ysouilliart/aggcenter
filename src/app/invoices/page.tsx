@@ -127,7 +127,7 @@ export default function InvoicesPage() {
         <InfoNote message={`LLM classify is on (${summary.data.classify.model}). Static scripting stays the floor; the model only fills missing fields. Extracted invoice text is sent to the configured provider. Low-confidence or partial results stay in Needs review until an operator confirms.`} />
       ) : null}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Landing" value={String(counts?.landing ?? 0)} sub="Drop zone" />
         <KpiCard label="Received" value={String(counts?.received ?? 0)} sub="In flight" />
         <KpiCard
@@ -147,7 +147,7 @@ export default function InvoicesPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <h2 className="mb-4 font-semibold text-slate-900">Upload invoice</h2>
+          <h2 className="mb-2 text-[13px] font-medium text-slate-800">Upload invoice</h2>
           <form onSubmit={handleUpload} className="space-y-4">
             <Button variant="outlined" component="label" fullWidth>
               Choose invoice
@@ -171,8 +171,8 @@ export default function InvoicesPage() {
         </Card>
 
         <Card className="p-0 lg:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
-            <h2 className="font-semibold text-slate-900">Pipeline</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
+            <h2 className="text-[13px] font-medium text-slate-800">Pipeline</h2>
             <SegmentedToggle
               value={folder || "all"}
               onChange={(next) => setFolder(next === "all" ? "" : next)}
@@ -189,9 +189,9 @@ export default function InvoicesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <SortTh label="Invoice" column="invoice" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Supplier" column="supplier" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -210,7 +210,7 @@ export default function InvoicesPage() {
                   ) : (
                     sorted.rows.map((inv) => (
                       <tr key={inv.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-2">
                           <Link
                             href={`/invoices/${encodeURIComponent(inv.id)}`}
                             className="font-medium text-brand hover:underline"
@@ -219,19 +219,19 @@ export default function InvoicesPage() {
                           </Link>
                           <div className="text-xs text-slate-400">{inv.fileName}</div>
                         </td>
-                        <td className="px-5 py-3 text-slate-600">{inv.supplierName || "—"}</td>
-                        <td className="px-5 py-3 text-slate-500">
+                        <td className="px-4 py-2 text-slate-600">{inv.supplierName || "—"}</td>
+                        <td className="px-4 py-2 text-slate-500">
                           {inv.invoiceDate ? formatDate(inv.invoiceDate) : "—"}
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums">
+                        <td className="px-4 py-2 text-right tabular-nums">
                           {inv.total != null
                             ? formatCurrency(inv.total, inv.currency || "AUD")
                             : "—"}
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-2">
                           <StatusBadge status={inv.folder} />
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-2">
                           <StatusBadge status={inv.parseStatus} />
                         </td>
                       </tr>

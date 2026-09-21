@@ -126,7 +126,7 @@ export default function StatementsPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <h2 className="mb-4 font-semibold text-slate-900">
+          <h2 className="mb-2 text-[13px] font-medium text-slate-800">
             Upload bank statement
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -168,8 +168,8 @@ export default function StatementsPage() {
         </Card>
 
         <Card className="p-0 lg:col-span-2">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="font-semibold text-slate-900">Imported statements</h2>
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <h2 className="text-[13px] font-medium text-slate-800">Imported statements</h2>
           </div>
           {statementsState.loading && !statementsState.data ? (
             <div className="px-5">
@@ -181,9 +181,9 @@ export default function StatementsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <SortTh label="Statement" column="file" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Account" column="account" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Bank" column="bank" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -203,7 +203,7 @@ export default function StatementsPage() {
                   ) : (
                     sorted.rows.map((s) => (
                     <tr key={s.id} className="hover:bg-slate-50">
-                      <td className="px-5 py-3 font-medium text-slate-900">
+                      <td className="px-4 py-2 font-medium text-slate-900">
                         <Link
                           href={`/statements/${encodeURIComponent(s.id)}`}
                           className="text-brand hover:text-brand-dark hover:underline"
@@ -211,20 +211,20 @@ export default function StatementsPage() {
                           {s.fileName}
                         </Link>
                       </td>
-                      <td className="px-5 py-3 text-slate-500">
+                      <td className="px-4 py-2 text-slate-500">
                         {accountName(s.accountId)}
                       </td>
-                      <td className="px-5 py-3 text-slate-500">
+                      <td className="px-4 py-2 text-slate-500">
                         {s.bankCode || s.header?.bankName || "—"}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         {s.parseStatus ? (
                           <StatusBadge status={s.parseStatus} />
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             s.source === "upload"
@@ -237,10 +237,10 @@ export default function StatementsPage() {
                           {s.source}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-slate-500">
+                      <td className="px-4 py-2 text-slate-500">
                         {formatDate(s.periodStart)} – {formatDate(s.periodEnd)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums">
+                      <td className="px-4 py-2 text-right tabular-nums">
                         {s.transactionCount}
                       </td>
                     </tr>

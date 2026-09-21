@@ -199,7 +199,7 @@ export default function StatementDetailPage() {
       {state.error ? <ErrorNote message={state.error} /> : null}
 
       {statement ? (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             {statement.parseStatus ? <StatusBadge status={statement.parseStatus} /> : null}
             <StatusBadge status={statement.source} />
@@ -215,7 +215,7 @@ export default function StatementDetailPage() {
           </div>
 
           <Card>
-            <h2 className="mb-3 font-semibold text-slate-900">Source</h2>
+            <h2 className="mb-2 text-[13px] font-medium text-slate-800">Source</h2>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               <div>
                 <dt className="text-xs font-medium text-slate-500">
@@ -256,12 +256,12 @@ export default function StatementDetailPage() {
 
           {statement.header ? (
             <Card>
-              <h2 className="mb-3 font-semibold text-slate-900">Header</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Header</h2>
               <HeaderGrid header={statement.header} />
             </Card>
           ) : (
             <Card>
-              <h2 className="mb-1 font-semibold text-slate-900">Header</h2>
+              <h2 className="mb-1 text-[13px] font-medium text-slate-800">Header</h2>
               <p className="text-sm text-slate-500">
                 No parsed header for this file (CSV / sample statements).
               </p>
@@ -269,7 +269,7 @@ export default function StatementDetailPage() {
           )}
 
           <Card>
-            <h2 className="mb-3 font-semibold text-slate-900">Parse trace</h2>
+            <h2 className="mb-2 text-[13px] font-medium text-slate-800">Parse trace</h2>
             {job ? (
               <div>
                 <p className="mb-3 text-sm text-slate-500">
@@ -291,8 +291,8 @@ export default function StatementDetailPage() {
           </Card>
 
           <Card className="p-0">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-              <h2 className="font-semibold text-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
+              <h2 className="text-[13px] font-medium text-slate-800">
                 Transactions
                 <span className="ml-2 text-sm font-normal text-slate-500">
                   {filtered.length}
@@ -315,7 +315,7 @@ export default function StatementDetailPage() {
               <div className="max-h-[36rem] overflow-auto">
                 <table className="w-full min-w-[56rem] text-sm">
                   <thead className="sticky top-0 bg-white">
-                    <tr className="text-left text-xs font-semibold text-slate-500">
+                    <tr className="text-left text-xs font-medium text-slate-500">
                       {showHsbcCols ? (
                         <th className="px-4 py-2 font-medium">Line</th>
                       ) : null}

@@ -29,14 +29,14 @@ export default function InvoiceAnomaliesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-[13px]">
               <thead>
-                <tr className="text-left text-xs font-semibold text-slate-500">
-                  <th className="px-5 py-3 font-medium">File</th>
-                  <th className="px-5 py-3 font-medium">Reason</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Uploaded</th>
-                  <th className="px-5 py-3 text-right font-medium">Total</th>
+                <tr className="text-left text-xs font-medium text-slate-500">
+                  <th className="px-4 py-2 font-medium">File</th>
+                  <th className="px-4 py-2 font-medium">Reason</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Uploaded</th>
+                  <th className="px-4 py-2 text-right font-medium">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -49,7 +49,7 @@ export default function InvoiceAnomaliesPage() {
                 ) : (
                   invoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-slate-50">
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <Link
                           href={`/invoices/${encodeURIComponent(inv.id)}`}
                           className="font-medium text-brand hover:underline"
@@ -57,14 +57,14 @@ export default function InvoiceAnomaliesPage() {
                           {inv.fileName}
                         </Link>
                       </td>
-                      <td className="max-w-md px-5 py-3 text-slate-600">{inv.reviewReason || "—"}</td>
-                      <td className="px-5 py-3">
+                      <td className="max-w-md px-4 py-2 text-slate-600">{inv.reviewReason || "—"}</td>
+                      <td className="px-4 py-2">
                         <StatusBadge status={inv.parseStatus} />
                       </td>
-                      <td className="px-5 py-3 text-slate-500">
+                      <td className="px-4 py-2 text-slate-500">
                         {inv.uploadedAt ? formatDate(inv.uploadedAt) : "—"}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums">
+                      <td className="px-4 py-2 text-right tabular-nums">
                         {inv.total != null
                           ? formatCurrency(inv.total, inv.currency || "AUD")
                           : "—"}

@@ -35,7 +35,7 @@ export function PageHeader({
       useFlexGap
       className={className || undefined}
       sx={{
-        mb: className ? undefined : 3,
+        mb: className ? undefined : 2,
         flexWrap: "wrap",
         alignItems: "flex-end",
         justifyContent: "space-between",
@@ -44,7 +44,10 @@ export function PageHeader({
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography variant="h1">{title}</Typography>
         {subtitle ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
+          <Typography
+            color="text.secondary"
+            sx={{ mt: 0.25, maxWidth: 720, fontSize: 12, fontWeight: 400, lineHeight: 1.45 }}
+          >
             {subtitle}
           </Typography>
         ) : null}
@@ -73,7 +76,7 @@ export function Card({
         flexDirection: className.includes("flex-col") ? "column" : undefined,
       }}
     >
-      {flush ? children : <CardContent sx={{ "&:last-child": { pb: 2.5 } }}>{children}</CardContent>}
+      {flush ? children : <CardContent>{children}</CardContent>}
     </MuiCard>
   );
 }
@@ -98,19 +101,37 @@ export function KpiCard({
     amber: "warning.main",
   }[tone];
   return (
-    <Card>
-      <Typography variant="overline" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color }}>
-        {value}
-      </Typography>
-      {sub ? (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-          {sub}
+    <MuiCard variant="outlined" sx={{ alignSelf: "start", width: "100%" }}>
+      <Box sx={{ px: 1.5, py: 1.25 }}>
+        <Typography
+          color="text.secondary"
+          sx={{ fontSize: 11, fontWeight: 400, lineHeight: 1.25 }}
+        >
+          {label}
         </Typography>
-      ) : null}
-    </Card>
+        <Typography
+          sx={{
+            mt: 0.35,
+            fontSize: "1.25rem",
+            fontWeight: 500,
+            letterSpacing: "-0.025em",
+            lineHeight: 1.15,
+            fontVariantNumeric: "tabular-nums",
+            color,
+          }}
+        >
+          {value}
+        </Typography>
+        {sub ? (
+          <Typography
+            color="text.secondary"
+            sx={{ mt: 0.25, display: "block", fontSize: 11, fontWeight: 400, lineHeight: 1.3 }}
+          >
+            {sub}
+          </Typography>
+        ) : null}
+      </Box>
+    </MuiCard>
   );
 }
 
@@ -301,7 +322,7 @@ export function DistributionList({
     );
   }
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1}>
       {items.map((item) => (
         <Box key={item.value || emptyLabel}>
           <Stack direction="row" spacing={1.5} sx={{ justifyContent: "space-between" }}>
@@ -315,7 +336,7 @@ export function DistributionList({
           <LinearProgress
             variant="determinate"
             value={Math.max(4, (item.count / max) * 100)}
-            sx={{ mt: 0.5, height: 6, borderRadius: 999 }}
+            sx={{ mt: 0.5, height: 4, borderRadius: 999 }}
           />
         </Box>
       ))}
@@ -358,7 +379,7 @@ export function SortTh({
   sortDir,
   onSort,
   align = "left",
-  className = "px-5 py-3",
+  className = "px-4 py-2",
 }: {
   label: string;
   column: string;

@@ -102,7 +102,7 @@ export default function ReconciliationPage() {
       />
 
       <Card className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-900">Matching rules</h2>
+        <h2 className="text-[13px] font-medium text-slate-800">Matching rules</h2>
         <p className="mt-1 text-xs text-slate-500">
           How a bank line becomes Matched, Partial, or Unmatched. Amount
           matching uses 0 tolerance (exact cents); date is not a constraint.
@@ -127,10 +127,10 @@ export default function ReconciliationPage() {
       {error ? <ErrorNote message={error} /> : null}
 
       {summary ? (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-1">
-              <h2 className="mb-4 font-semibold text-slate-900">Match status</h2>
+              <h2 className="mb-2 text-[13px] font-medium text-slate-800">Match status</h2>
               <DonutChart
                 segments={[
                   { label: "Matched", value: summary.matched, color: chartColors.primary },
@@ -165,8 +165,8 @@ export default function ReconciliationPage() {
           </div>
 
           <Card className="p-0">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3">
-              <h2 className="font-semibold text-slate-900">Transactions</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2">
+              <h2 className="text-[13px] font-medium text-slate-800">Transactions</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {currencies.length > 1 ? (
                   <SegmentedToggle
@@ -189,9 +189,9 @@ export default function ReconciliationPage() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-left text-xs font-semibold text-slate-500">
+                  <tr className="text-left text-xs font-medium text-slate-500">
                     <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Flow" column="flow" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Amount" column="amount" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
@@ -199,16 +199,16 @@ export default function ReconciliationPage() {
                     <SortTh label="Pattern" column="pattern" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Matched to" column="matched" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Conf." column="confidence" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
-                    <th className="px-5 py-3 font-medium">Notes</th>
+                    <th className="px-4 py-2 font-medium">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {sorted.rows.map((r) => (
                     <tr key={r.transactionId} className="hover:bg-slate-50">
-                      <td className="whitespace-nowrap px-5 py-3 text-slate-500">
+                      <td className="whitespace-nowrap px-4 py-2 text-slate-500">
                         {formatDate(r.date)}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             r.flow === "O2C"
@@ -220,31 +220,31 @@ export default function ReconciliationPage() {
                         </span>
                       </td>
                       <td
-                        className={`px-5 py-3 text-right tabular-nums ${
+                        className={`px-4 py-2 text-right tabular-nums ${
                           r.amount >= 0 ? "text-brand" : "text-brand-orange"
                         }`}
                       >
                         {formatCurrency(r.amount, r.currency)}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <StatusBadge status={r.status} />
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <span className="inline-flex max-w-[14rem] rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
                           {r.matchPattern
                             ? MATCH_PATTERN_LABELS[r.matchPattern]
                             : "—"}
                         </span>
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <MatchedToCell result={r} />
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-slate-500">
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-500">
                         {r.confidence > 0
                           ? `${Math.round(r.confidence * 100)}%`
                           : "—"}
                       </td>
-                      <td className="max-w-xl px-5 py-3">
+                      <td className="max-w-xl px-4 py-2">
                         <MatchNotes result={r} />
                       </td>
                     </tr>

@@ -5,7 +5,7 @@ import { formatCompact } from "@/lib/format";
 export function AreaLineChart({
   points,
   currency = "USD",
-  height = 240,
+  height = 180,
 }: {
   points: { label: string; value: number }[];
   currency?: string;
@@ -71,7 +71,7 @@ export function AreaLineChart({
 export function GroupedBarChart({
   data,
   currency = "USD",
-  height = 240,
+  height = 180,
 }: {
   data: { label: string; inflow: number; outflow: number }[];
   currency?: string;
@@ -126,7 +126,7 @@ export function GroupedBarChart({
 /** Donut chart for categorical splits (e.g. reconciliation status). */
 export function DonutChart({
   segments,
-  size = 180,
+  size = 148,
 }: {
   segments: { label: string; value: number; color: string }[];
   size?: number;

@@ -48,15 +48,15 @@ export default function SupplierAuditPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="p-0">
-          <div className="border-b border-slate-100 px-5 py-3">
-            <h2 className="font-semibold text-slate-900">Audit events</h2>
+          <div className="border-b border-slate-100 px-4 py-2">
+            <h2 className="text-[13px] font-medium text-slate-800">Audit events</h2>
           </div>
           {audit.length === 0 && !state.loading ? (
             <p className="px-5 py-8 text-sm text-slate-400">No audit events yet.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {audit.map((e) => (
-                <li key={e.id} className="px-5 py-3 text-sm">
+                <li key={e.id} className="px-4 py-2 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <Chip size="small" label={e.action} variant="outlined" />
                     <span className="font-medium text-slate-900">{e.field ?? "record"}</span>
@@ -80,8 +80,8 @@ export default function SupplierAuditPage() {
         </Card>
 
         <Card className="p-0">
-          <div className="border-b border-slate-100 px-5 py-3">
-            <h2 className="font-semibold text-slate-900">Record versions</h2>
+          <div className="border-b border-slate-100 px-4 py-2">
+            <h2 className="text-[13px] font-medium text-slate-800">Record versions</h2>
           </div>
           {versions.length === 0 && !state.loading ? (
             <p className="px-5 py-8 text-sm text-slate-400">
@@ -90,7 +90,7 @@ export default function SupplierAuditPage() {
           ) : (
             <ul className="divide-y divide-slate-100">
               {versions.map((v) => (
-                <li key={v.id} className="px-5 py-3 text-sm">
+                <li key={v.id} className="px-4 py-2 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-slate-900">
                       {v.recordType} {v.recordId}

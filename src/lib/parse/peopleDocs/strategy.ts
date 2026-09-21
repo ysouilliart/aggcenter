@@ -9,13 +9,16 @@ import type { ExtractedDocument } from "../invoice/types";
 import { classifyPeopleDoc, needsPeopleDocConfirm } from "./classify";
 import { createOpenAiPeopleDocLlmClient, type PeopleDocLlmClient } from "./llm";
 import { mergeStaticAndLlmPeopleDoc } from "./merge";
-import { validatePeopleDocLlm } from "./schema";
+import { peopleDocModelChoices, resolvePeopleDocParseModel } from "./models";
+import { coerceSynopsis, validatePeopleDocLlm } from "./schema";
 import type { PeopleDocClassifyMode, PeopleDocParseResult } from "./types";
 import { PEOPLE_DOC_PARSER_ID } from "./types";
 
 export interface PeopleDocClassifyOptions {
   config?: InvoiceClassifyConfig;
   llmClient?: PeopleDocLlmClient;
+  /** Chat model for this classify call. Falls back to the UI selection, then env. */
+  model?: string;
 }
 
 function withMode(
@@ -44,6 +47,17 @@ function resolveClient(config: InvoiceClassifyConfig, options?: PeopleDocClassif
   return options?.llmClient ?? createOpenAiPeopleDocLlmClient(config);
 }
 
+/**
+ * Tests that pass an explicit config keep that config's model unless they
+ * also pass `model`. Production calls (no config override) honor the UI selection.
+ */
+function modelForCall(config: InvoiceClassifyConfig, options?: PeopleDocClassifyOptions): string {
+  if (options?.model?.trim() || !options?.config) {
+    return resolvePeopleDocParseModel(config, options?.model);
+  }
+  return config.model;
+}
+
 export async function classifyExtractedPeopleDoc(
   extracted: ExtractedDocument,
   options?: PeopleDocClassifyOptions,
@@ -61,11 +75,12 @@ export async function classifyExtractedPeopleDoc(
   if (empty) return withMode(staticResult, "static");
   if (!config.llmReady) return withMode(staticResult, "static", config.warning);
 
+  const model = modelForCall(config, options);
   try {
     const raw = await resolveClient(config, options).complete({
       fileName: extracted.fileName,
       text: extracted.fullText,
-      model: config.model,
+      model,
     });
     const validated = validatePeopleDocLlm(raw);
     if (!validated.ok) {
@@ -75,13 +90,18 @@ export async function classifyExtractedPeopleDoc(
         `LLM output failed schema validation (${validated.error}). Using static parser.`,
       );
     }
+    const source = `${extracted.fileName}\n${extracted.fullText}`;
     return mergeStaticAndLlmPeopleDoc(
       staticResult,
       validated.value.header,
       validated.value.confidence,
       validated.value.warnings,
       validated.value.reviewReasons,
-      `${extracted.fileName}\n${extracted.fullText}`,
+      source,
+      {
+        synopsis: coerceSynopsis(validated.value.synopsis, source),
+        llmModel: model,
+      },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "LLM classify failed";
@@ -94,12 +114,15 @@ export async function classifyExtractedPeopleDoc(
 }
 
 export function getPeopleDocClassifyStatus(config = getConfig().peopleDocsClassify) {
+  const model = resolvePeopleDocParseModel(config);
   return {
     mode: config.llmReady ? ("llm" as const) : ("static" as const),
     llmEnabled: config.llmEnabled,
     llmReady: config.llmReady,
-    model: config.model,
+    model,
+    configuredModel: config.model,
     provider: config.provider,
+    models: peopleDocModelChoices(config.provider, config.model),
     warning: config.warning,
     apiBase: config.llmReady ? config.apiBase : undefined,
   };

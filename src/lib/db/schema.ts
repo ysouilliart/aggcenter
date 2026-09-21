@@ -527,6 +527,8 @@ export const peopleDocs = peopleSchema.table(
     pageCount: integer("page_count"),
     reviewReason: text("review_reason"),
     extractedText: text("extracted_text"),
+    synopsis: text("synopsis"),
+    llmModel: text("llm_model"),
     classifyMode: text("classify_mode"),
     classifierWarning: text("classifier_warning"),
     needsConfirm: boolean("needs_confirm").notNull().default(false),

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { archivePeopleDoc, getPeopleDocDetail, reprocessPeopleDoc } from "@/lib/peopleDocs";
+import { PeopleDocModelError } from "@/lib/parse/peopleDocs/models";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  let body: { action?: string } = {};
+  let body: { action?: string; model?: string } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -39,12 +40,21 @@ export async function PATCH(
   }
 
   if (action === "reprocess") {
-    const doc = await reprocessPeopleDoc(id);
-    if (!doc) {
-      return NextResponse.json({ error: "People doc not found" }, { status: 404 });
+    try {
+      const doc = await reprocessPeopleDoc(id, {
+        model: typeof body.model === "string" ? body.model : undefined,
+      });
+      if (!doc) {
+        return NextResponse.json({ error: "People doc not found" }, { status: 404 });
+      }
+      const detail = await getPeopleDocDetail(id);
+      return NextResponse.json(detail);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Reprocess failed" },
+        { status: err instanceof PeopleDocModelError ? 400 : 500 },
+      );
     }
-    const detail = await getPeopleDocDetail(id);
-    return NextResponse.json(detail);
   }
 
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });

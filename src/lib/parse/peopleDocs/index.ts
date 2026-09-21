@@ -19,7 +19,15 @@ export {
 } from "./types";
 export { classifyPeopleDoc, fieldsFromHeader, parseYesNo, scorePeopleDoc, statusForPeopleDoc } from "./classify";
 export { classifyExtractedPeopleDoc, getPeopleDocClassifyStatus } from "./strategy";
-export { validatePeopleDocLlm, PEOPLE_DOC_LLM_OUTPUT_SCHEMA } from "./schema";
+export { validatePeopleDocLlm, coerceSynopsis, PEOPLE_DOC_LLM_OUTPUT_SCHEMA } from "./schema";
+export {
+  PeopleDocModelError,
+  peopleDocModelChoices,
+  resetPeopleDocModelSelection,
+  resolvePeopleDocParseModel,
+  selectPeopleDocModelForParse,
+  setPeopleDocModelSelection,
+} from "./models";
 export { createOpenAiPeopleDocLlmClient, buildPeopleDocLlmMessages } from "./llm";
 export type { PeopleDocLlmClient } from "./llm";
 export { mergeStaticAndLlmPeopleDoc } from "./merge";

@@ -23,9 +23,16 @@ import {
   searchPeopleDocs,
 } from "@/lib/peopleDocs/search";
 import { classifyPeopleDoc, parseYesNo } from "@/lib/parse/peopleDocs/classify";
+import { buildPeopleDocLlmMessages } from "@/lib/parse/peopleDocs/llm";
 import { mergeStaticAndLlmPeopleDoc } from "@/lib/parse/peopleDocs/merge";
-import { classifyExtractedPeopleDoc } from "@/lib/parse/peopleDocs/strategy";
-import { validatePeopleDocLlm } from "@/lib/parse/peopleDocs/schema";
+import {
+  PeopleDocModelError,
+  resetPeopleDocModelSelection,
+  resolvePeopleDocParseModel,
+  setPeopleDocModelSelection,
+} from "@/lib/parse/peopleDocs/models";
+import { coerceSynopsis, validatePeopleDocLlm } from "@/lib/parse/peopleDocs/schema";
+import { classifyExtractedPeopleDoc, getPeopleDocClassifyStatus } from "@/lib/parse/peopleDocs/strategy";
 import { parsePeopleDocument } from "@/lib/parse/peopleDocs";
 import { LocalStorageProvider } from "@/lib/storage/local";
 
@@ -57,6 +64,7 @@ const llmConfig = (overrides: Partial<InvoiceClassifyConfig> = {}): InvoiceClass
 
 afterEach(() => {
   resetPeopleDocRepositoryCache();
+  resetPeopleDocModelSelection();
   vi.unstubAllGlobals();
 });
 
@@ -332,12 +340,108 @@ describe("people doc LLM schema and overlay", () => {
     );
     expect(merged.header.agreementType).toBe("Consultancy");
   });
+
+  it("asks the model for a synopsis rather than an extract", () => {
+    const messages = buildPeopleDocLlmMessages("agreement.txt", "Agreement ID: AGR-1");
+    expect(messages[0].content).toMatch(/synopsis/i);
+    expect(messages[0].content).toMatch(/own words/i);
+  });
+
+  it("keeps an LLM synopsis and classifies with the requested model", async () => {
+    const complete = vi.fn(async (request: { model: string }) => {
+      expect(request.model).toBe("gpt-4o");
+      return {
+        confidence: 90,
+        header: { agreementId: "AGR-HIDDEN-22" },
+        warnings: [],
+        reviewReasons: [],
+        synopsis:
+          "This NDA sets confidentiality terms between ResMed Ltd and the named requestor for the agreement identified in the file.",
+      };
+    });
+    const parsed = await classifyExtractedPeopleDoc(
+      {
+        kind: "text",
+        fileName: "nda.txt",
+        mimeType: "text/plain",
+        pageCount: 1,
+        lines: ["NDA AGR-HIDDEN-22", "ResMed Ltd", "Requestor: Sam Ortiz"],
+        fullText: "NDA AGR-HIDDEN-22\nResMed Ltd\nRequestor: Sam Ortiz\nAgreement type: NDA\n",
+        warnings: [],
+      },
+      {
+        config: llmConfig(),
+        model: "gpt-4o",
+        llmClient: { complete },
+      },
+    );
+    expect(complete).toHaveBeenCalledOnce();
+    expect(parsed.classifyMode).toBe("llm");
+    expect(parsed.llmModel).toBe("gpt-4o");
+    expect(parsed.synopsis).toMatch(/confidentiality terms/i);
+    expect(parsed.header.agreementId).toBe("AGR-HIDDEN-22");
+  });
+
+  it("drops a synopsis that is only the source extract", () => {
+    const source = "NDA AGR-HIDDEN-22 ResMed Ltd Requestor: Sam Ortiz Agreement type: NDA";
+    expect(coerceSynopsis(source, source)).toBeUndefined();
+    expect(
+      coerceSynopsis(
+        "This NDA sets confidentiality terms between ResMed Ltd and the named requestor.",
+        source,
+      ),
+    ).toMatch(/confidentiality/);
+  });
+
+  it("uses the selected parsing model and rejects unknown ids", () => {
+    const config = llmConfig();
+    expect(setPeopleDocModelSelection("not-a-model", config.provider, config.model).ok).toBe(false);
+    expect(setPeopleDocModelSelection("gpt-4.1", config.provider, config.model).ok).toBe(true);
+    expect(resolvePeopleDocParseModel(config)).toBe("gpt-4.1");
+    expect(() => resolvePeopleDocParseModel(config, "nope")).toThrow(PeopleDocModelError);
+    const status = getPeopleDocClassifyStatus();
+    const choice = status.models.find((model) => model.id !== status.configuredModel) ?? status.models[0];
+    expect(choice).toBeTruthy();
+    const set = setPeopleDocModelSelection(choice.id, status.provider, status.configuredModel);
+    expect(set.ok).toBe(true);
+    expect(getPeopleDocClassifyStatus().model).toBe(choice.id);
+  });
 });
+
+function stubPeopleDocLlm() {
+  const fetchMock = vi.fn<typeof fetch>(async () => {
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                confidence: 91,
+                header: {},
+                warnings: [],
+                reviewReasons: [],
+                synopsis:
+                  "An employment agreement between ResMed Pty Ltd and an individual contractor covering a fixed term.",
+              }),
+            },
+          },
+        ],
+      }),
+    } as Response;
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
 
 describe("people doc ingest", () => {
   const tmp = () => path.join(os.tmpdir(), `aggc-pd-${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
   it("seeds samples, parses them, and is idempotent", async () => {
+    const fetchMock = stubPeopleDocLlm();
+    const status = getPeopleDocClassifyStatus();
+    const choice = status.models.find((model) => model.id !== status.configuredModel) ?? status.models[0];
+    expect(setPeopleDocModelSelection(choice.id, status.provider, status.configuredModel).ok).toBe(true);
     const root = tmp();
     const storage = new LocalStorageProvider(root);
     const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
@@ -367,23 +471,41 @@ describe("people doc ingest", () => {
     const employment = docs.find((d) => d.fileName.includes("employment"));
     expect(employment?.agreementId).toBe("AGR-2026-0441");
     expect((await repo.summary()).total).toBe(docs.length);
+    if (fetchMock.mock.calls.length > 0) {
+      const requestInit = fetchMock.mock.calls[0]?.[1];
+      const body = JSON.parse(String(requestInit?.body)) as { model?: string };
+      expect(body.model).toBe(choice.id);
+      expect(employment?.synopsis).toMatch(/fixed term/i);
+      expect(employment?.llmModel).toBe(choice.id);
+      expect(employment?.extractedText).toBeTruthy();
+    }
   });
 
   it("uploads a text agreement and reprocesses it", async () => {
+    const fetchMock = stubPeopleDocLlm();
     const root = tmp();
     const storage = new LocalStorageProvider(root);
     const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
+    const status = getPeopleDocClassifyStatus();
     const doc = await uploadPeopleDoc({
       fileName: "full.txt",
       content: Buffer.from(FULL_LINES.join("\n")),
       storage,
       repo,
+      model: status.models[0]?.id,
     });
     expect(doc.folder).toBe("processed");
     expect(doc.agreementId).toBe("AGR-2026-0441");
+    if (fetchMock.mock.calls.length > 0) {
+      expect(doc.synopsis).toMatch(/fixed term/i);
+      expect(doc.llmModel).toBe(status.models[0]?.id);
+    }
     const again = await reprocessPeopleDoc(doc.id, { storage, repo });
     expect(again?.id).toBe(doc.id);
     expect(again?.agreementId).toBe("AGR-2026-0441");
+    if (fetchMock.mock.calls.length > 1) {
+      expect(again?.synopsis).toMatch(/fixed term/i);
+    }
   });
 
   it("resolves people-docs LLM independently of invoice classify", () => {

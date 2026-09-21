@@ -66,6 +66,13 @@ export interface PeopleDocParseResult {
   trace: PeopleDocParseTraceEvent[];
   pageCount: number;
   extractedText: string;
+  /**
+   * Concise LLM-authored overview for the matching panel.
+   * Absent when classify did not run or the model returned an extract instead.
+   */
+  synopsis?: string;
+  /** Model id that produced the LLM overlay and synopsis. */
+  llmModel?: string;
   classifyMode: PeopleDocClassifyMode;
   classifierWarning?: string;
   needsConfirm: boolean;

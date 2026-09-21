@@ -8,6 +8,7 @@ import { getStatementRepository } from "./statements";
 import { getReferenceRepository } from "./reference/repository";
 import { isDatabaseConfigured } from "./db/client";
 import { parseBankStatementCsv } from "./parse/bankStatement";
+import { getPeopleDocClassifyStatus } from "./parse/peopleDocs/strategy";
 import { reconcile, summarize } from "./recon/reconcile";
 import { computeCashPosition } from "./cash/position";
 import { buildCashForecast } from "./cash/forecast";
@@ -460,7 +461,7 @@ export function getIntegrationStatus(): IntegrationStatus {
       mode: config.peopleDocsClassify.llmReady ? "llm" : "static",
       llmEnabled: config.peopleDocsClassify.llmEnabled,
       llmReady: config.peopleDocsClassify.llmReady,
-      model: config.peopleDocsClassify.model,
+      model: getPeopleDocClassifyStatus(config.peopleDocsClassify).model,
       provider: config.peopleDocsClassify.provider,
       warning: config.peopleDocsClassify.warning,
       seedSamples: config.peopleDocsSeedSamples,

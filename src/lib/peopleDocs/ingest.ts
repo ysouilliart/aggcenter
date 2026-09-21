@@ -5,6 +5,7 @@ import path from "path";
 import { getConfig } from "../config";
 import { mimeForFile } from "../parse/invoice/extract";
 import { parsePeopleDocument } from "../parse/peopleDocs";
+import { selectPeopleDocModelForParse } from "../parse/peopleDocs/models";
 import { getStorageProvider, type StorageProvider } from "../storage";
 import {
   contentTypeForName,
@@ -32,11 +33,13 @@ export interface PeopleDocIngestResult {
 }
 
 export interface PeopleDocIngestDeps {
-  storage: StorageProvider;
-  repo: PeopleDocRepository;
+  storage?: StorageProvider;
+  repo?: PeopleDocRepository;
   prefix?: string;
   sampleDir?: string;
   seedSamples?: boolean;
+  /** Chat model for this ingest. Omit to use the UI selection or env default. */
+  model?: string;
 }
 
 function docIdFor(seed: string): string {
@@ -78,8 +81,12 @@ async function persistParse(options: {
   source: PeopleDocSource;
   originalKey: string;
   currentKey: string;
+  model: string;
 }): Promise<PeopleDocRecord> {
-  const parsed = await parsePeopleDocument(options.buf, { fileName: options.fileName });
+  const parsed = await parsePeopleDocument(options.buf, {
+    fileName: options.fileName,
+    model: options.model,
+  });
   const destFolder = folderForPeopleDocStatus(parsed.status, { needsConfirm: parsed.needsConfirm });
   const destKey = peopleDocFolderKey(options.prefix, destFolder, options.id, options.fileName);
   await options.storage.put(destKey, options.buf, contentTypeForName(options.fileName));
@@ -134,6 +141,7 @@ async function seedLandingFromSamples(
 }
 
 export async function ingestPeopleDocs(deps?: PeopleDocIngestDeps): Promise<PeopleDocIngestResult> {
+  const model = selectPeopleDocModelForParse(deps?.model);
   const storage = deps?.storage ?? getStorageProvider();
   const repo = deps?.repo ?? getPeopleDocRepository();
   const prefix = withTrailingSlash(deps?.prefix ?? getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
@@ -179,6 +187,7 @@ export async function ingestPeopleDocs(deps?: PeopleDocIngestDeps): Promise<Peop
         source: usedSampleFallback ? "sample" : storage.name === "oci" ? "oci" : "upload",
         originalKey: object.key,
         currentKey: object.key,
+        model,
       });
       ingested.push({
         key: object.key,
@@ -209,7 +218,9 @@ export async function uploadPeopleDoc(input: {
   content: Buffer;
   storage?: StorageProvider;
   repo?: PeopleDocRepository;
+  model?: string;
 }): Promise<PeopleDocRecord> {
+  const model = selectPeopleDocModelForParse(input.model);
   const storage = input.storage ?? getStorageProvider();
   const repo = input.repo ?? getPeopleDocRepository();
   const prefix = withTrailingSlash(getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
@@ -229,6 +240,7 @@ export async function uploadPeopleDoc(input: {
     source: "upload",
     originalKey,
     currentKey: originalKey,
+    model,
   });
 }
 
@@ -267,8 +279,9 @@ export async function archivePeopleDoc(id: string): Promise<PeopleDocRecord | un
 
 export async function reprocessPeopleDoc(
   id: string,
-  deps?: { storage?: StorageProvider; repo?: PeopleDocRepository },
+  deps?: { storage?: StorageProvider; repo?: PeopleDocRepository; model?: string },
 ): Promise<PeopleDocRecord | undefined> {
+  const model = selectPeopleDocModelForParse(deps?.model);
   const repo = deps?.repo ?? getPeopleDocRepository();
   const storage = deps?.storage ?? getStorageProvider();
   const prefix = withTrailingSlash(getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
@@ -285,6 +298,7 @@ export async function reprocessPeopleDoc(
     source: detail.doc.source,
     originalKey: detail.doc.originalKey ?? detail.doc.storageKey,
     currentKey: detail.doc.storageKey,
+    model,
   });
 }
 

@@ -147,6 +147,8 @@ function rowToRecord(row: {
   pageCount: number | null;
   reviewReason: string | null;
   extractedText: string | null;
+  synopsis: string | null;
+  llmModel: string | null;
   classifyMode: string | null;
   classifierWarning: string | null;
   needsConfirm: boolean;
@@ -180,6 +182,8 @@ function rowToRecord(row: {
     pageCount: row.pageCount ?? undefined,
     reviewReason: row.reviewReason ?? undefined,
     extractedText: row.extractedText ?? undefined,
+    synopsis: row.synopsis ?? undefined,
+    llmModel: row.llmModel ?? undefined,
     classifyMode: (row.classifyMode as PeopleDocRecord["classifyMode"]) ?? undefined,
     classifierWarning: row.classifierWarning ?? undefined,
     needsConfirm: row.needsConfirm,
@@ -229,6 +233,8 @@ export class PostgresPeopleDocRepository implements PeopleDocRepository {
         pageCount: doc.pageCount ?? null,
         reviewReason: doc.reviewReason ?? null,
         extractedText: doc.extractedText ?? null,
+        synopsis: doc.synopsis ?? null,
+        llmModel: doc.llmModel ?? null,
         classifyMode: doc.classifyMode ?? null,
         classifierWarning: doc.classifierWarning ?? null,
         needsConfirm: Boolean(doc.needsConfirm),

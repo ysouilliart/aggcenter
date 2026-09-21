@@ -40,6 +40,10 @@ export interface PeopleDocRecord extends PeopleDocHeader {
   pageCount?: number;
   reviewReason?: string;
   extractedText?: string;
+  /** LLM-authored overview shown under matched parameters. */
+  synopsis?: string;
+  /** Model that parsed this document when classify ran. */
+  llmModel?: string;
   classifyMode?: PeopleDocClassifyMode;
   classifierWarning?: string;
   needsConfirm?: boolean;

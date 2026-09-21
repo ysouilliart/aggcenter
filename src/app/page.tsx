@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -9,6 +10,7 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   SortTh,
   Spinner,
 } from "@/components/ui";
@@ -67,21 +69,11 @@ export default function DashboardPage() {
         subtitle="Actual cash from the bank-statement baseline. Remittances not yet on the statement are a forecast (predicted in / out)."
         actions={
           positions.length > 1 ? (
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
-              {positions.map((p) => (
-                <button
-                  key={p.currency}
-                  onClick={() => setCurrency(p.currency)}
-                  className={`rounded-md px-3 py-1 font-medium transition-colors ${
-                    active?.currency === p.currency
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {p.currency}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              value={active?.currency ?? positions[0].currency}
+              onChange={setCurrency}
+              options={positions.map((p) => ({ value: p.currency, label: p.currency }))}
+            />
           ) : null
         }
       />
@@ -99,17 +91,17 @@ export default function DashboardPage() {
             <KpiCard
               label="Inflows (O2C)"
               value={formatCurrency(active.totalInflows, active.currency)}
-              tone="positive"
+              tone="primary"
             />
             <KpiCard
               label="Outflows (P2P)"
               value={formatCurrency(active.totalOutflows, active.currency)}
-              tone="negative"
+              tone="amber"
             />
             <KpiCard
               label="Closing balance"
               value={formatCurrency(active.closingBalance, active.currency)}
-              tone="indigo"
+              tone="primary"
               sub={closingKpiSub(active)}
             />
           </div>
@@ -119,13 +111,13 @@ export default function DashboardPage() {
               <KpiCard
                 label="Predicted in"
                 value={formatCurrency(forecast.predictedInflows, forecast.currency)}
-                tone="positive"
+                tone="primary"
                 sub={`${forecast.inflowCount} customer remittances`}
               />
               <KpiCard
                 label="Predicted out"
                 value={formatCurrency(forecast.predictedOutflows, forecast.currency)}
-                tone="negative"
+                tone="amber"
                 sub={`${forecast.outflowCount} vendor remittances`}
               />
               <KpiCard
@@ -142,12 +134,9 @@ export default function DashboardPage() {
                     Supporting remittances still to land — not anomalies.
                   </p>
                 </div>
-                <Link
-                  href="/forecast"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
+                <Button component={Link} href="/forecast" variant="outlined" size="small">
                   View forecast
-                </Link>
+                </Button>
               </Card>
             </div>
           ) : null}
@@ -191,10 +180,10 @@ export default function DashboardPage() {
               />
               <div className="mt-3 flex gap-4 text-xs text-slate-500">
                 <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Inflow
+                  <span className="h-2.5 w-2.5 rounded-sm bg-brand" /> Inflow
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" /> Outflow
+                  <span className="h-2.5 w-2.5 rounded-sm bg-brand-orange" /> Outflow
                 </span>
               </div>
             </Card>
@@ -207,7 +196,7 @@ export default function DashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Account" column="name" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
                     <SortTh label="Bank" column="bank" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} />
                     <SortTh label="Opening" column="opening" sortKey={accounts.sortKey} sortDir={accounts.sortDir} onSort={accounts.toggle} align="right" />
@@ -227,10 +216,10 @@ export default function DashboardPage() {
                       <td className="px-5 py-3 text-right tabular-nums">
                         {formatCurrency(a.openingBalance, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-emerald-600">
+                      <td className="px-5 py-3 text-right tabular-nums text-brand">
                         {formatCurrency(a.inflows, a.currency)}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-rose-600">
+                      <td className="px-5 py-3 text-right tabular-nums text-brand-orange">
                         {formatCurrency(a.outflows, a.currency)}
                       </td>
                       <td className="px-5 py-3 text-right font-medium tabular-nums">

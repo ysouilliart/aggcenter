@@ -4,11 +4,13 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { DonutChart } from "@/components/charts";
+import { chartColors } from "@/components/theme";
 import {
   Card,
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   SortTh,
   Spinner,
   StatusBadge,
@@ -110,7 +112,7 @@ export default function ReconciliationPage() {
         <dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {MATCH_RULES.map((rule) => (
             <div key={rule.title} className="rounded-lg bg-slate-50 px-3 py-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+              <dt className="text-xs font-semibold text-slate-700">
                 {rule.title}
               </dt>
               <dd className="mt-1 text-xs leading-relaxed text-slate-600">
@@ -131,12 +133,12 @@ export default function ReconciliationPage() {
               <h2 className="mb-4 font-semibold text-slate-900">Match status</h2>
               <DonutChart
                 segments={[
-                  { label: "Matched", value: summary.matched, color: "#10b981" },
-                  { label: "Partial", value: summary.partial, color: "#f59e0b" },
+                  { label: "Matched", value: summary.matched, color: chartColors.primary },
+                  { label: "Partial", value: summary.partial, color: chartColors.warning },
                   {
                     label: "Unmatched",
                     value: summary.unmatched,
-                    color: "#f43f5e",
+                    color: chartColors.error,
                   },
                 ]}
               />
@@ -146,7 +148,7 @@ export default function ReconciliationPage() {
               <KpiCard
                 label="Match rate (by value)"
                 value={formatPercent(summary.matchRate)}
-                tone="indigo"
+                tone="primary"
               />
               <KpiCard
                 label="Matched"
@@ -167,53 +169,29 @@ export default function ReconciliationPage() {
               <h2 className="font-semibold text-slate-900">Transactions</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {currencies.length > 1 ? (
-                  <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
-                    <button
-                      onClick={() => setCurrency("all")}
-                      className={`rounded-md px-3 py-1 font-medium ${
-                        currency === "all"
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      All
-                    </button>
-                    {currencies.map((ccy) => (
-                      <button
-                        key={ccy}
-                        onClick={() => setCurrency(ccy)}
-                        className={`rounded-md px-3 py-1 font-medium ${
-                          currency === ccy
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        {ccy}
-                      </button>
-                    ))}
-                  </div>
+                  <SegmentedToggle
+                    value={currency}
+                    onChange={setCurrency}
+                    options={[
+                      { value: "all", label: "All" },
+                      ...currencies.map((ccy) => ({ value: ccy, label: ccy })),
+                    ]}
+                  />
                 ) : null}
-                <div className="flex rounded-lg border border-slate-200 p-1 text-sm">
-                {FILTERS.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`rounded-md px-3 py-1 font-medium capitalize transition-colors ${
-                      filter === f
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-                </div>
+                <SegmentedToggle
+                  value={filter}
+                  onChange={setFilter}
+                  options={FILTERS.map((f) => ({
+                    value: f,
+                    label: f === "all" ? "All" : f,
+                  }))}
+                />
               </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Date" column="date" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Flow" column="flow" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Amount" column="amount" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} align="right" />
@@ -234,8 +212,8 @@ export default function ReconciliationPage() {
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             r.flow === "O2C"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-indigo-50 text-indigo-700"
+                              ? "bg-brand-soft text-brand-dark"
+                              : "bg-brand-orange-soft text-brand-orange"
                           }`}
                         >
                           {r.flow}
@@ -243,7 +221,7 @@ export default function ReconciliationPage() {
                       </td>
                       <td
                         className={`px-5 py-3 text-right tabular-nums ${
-                          r.amount >= 0 ? "text-emerald-600" : "text-rose-600"
+                          r.amount >= 0 ? "text-brand" : "text-brand-orange"
                         }`}
                       >
                         {formatCurrency(r.amount, r.currency)}
@@ -570,7 +548,7 @@ function AnalysisPlan({ steps }: { steps: AnalysisStep[] }) {
   if (!steps.length) return null;
   return (
     <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      <div className="text-[11px] font-semibold text-slate-500">
         Path
       </div>
       <ol className="mt-1 space-y-0.5 text-[11px] leading-snug text-slate-600">

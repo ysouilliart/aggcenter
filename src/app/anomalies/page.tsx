@@ -7,6 +7,7 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   SortTh,
   SeverityBadge,
   Spinner,
@@ -88,42 +89,25 @@ export default function AnomaliesPage() {
             <KpiCard label="Total findings" value={String(visible.length)} />
             <KpiCard label="High" value={String(counts.high)} tone="negative" />
             <KpiCard label="Medium" value={String(counts.medium)} />
-            <KpiCard label="Low" value={String(counts.low)} tone="indigo" />
+            <KpiCard label="Low" value={String(counts.low)} tone="primary" />
           </div>
 
           {currencies.length > 1 ? (
-            <div className="flex rounded-lg border border-slate-200 bg-white p-1 text-sm w-fit">
-              <button
-                onClick={() => setCurrency("all")}
-                className={`rounded-md px-3 py-1 font-medium ${
-                  currency === "all"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                All
-              </button>
-              {currencies.map((ccy) => (
-                <button
-                  key={ccy}
-                  onClick={() => setCurrency(ccy)}
-                  className={`rounded-md px-3 py-1 font-medium ${
-                    currency === ccy
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {ccy}
-                </button>
-              ))}
-            </div>
+            <SegmentedToggle
+              value={currency}
+              onChange={setCurrency}
+              options={[
+                { value: "all", label: "All" },
+                ...currencies.map((ccy) => ({ value: ccy, label: ccy })),
+              ]}
+            />
           ) : null}
 
           <Card className="overflow-hidden p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Severity" column="severity" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Finding" column="title" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Type" column="type" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />

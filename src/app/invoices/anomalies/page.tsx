@@ -31,7 +31,7 @@ export default function InvoiceAnomaliesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="text-left text-xs font-semibold text-slate-500">
                   <th className="px-5 py-3 font-medium">File</th>
                   <th className="px-5 py-3 font-medium">Reason</th>
                   <th className="px-5 py-3 font-medium">Status</th>
@@ -52,7 +52,7 @@ export default function InvoiceAnomaliesPage() {
                       <td className="px-5 py-3">
                         <Link
                           href={`/invoices/${encodeURIComponent(inv.id)}`}
-                          className="font-medium text-indigo-600 hover:underline"
+                          className="font-medium text-brand hover:underline"
                         >
                           {inv.fileName}
                         </Link>

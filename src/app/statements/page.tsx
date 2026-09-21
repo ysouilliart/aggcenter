@@ -1,9 +1,12 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
-import { Card, ErrorNote, PageHeader, SortTh, Spinner, StatusBadge } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, SortTh, Spinner, StatusBadge, SuccessNote } from "@/components/ui";
 import type { BankAccount, Statement } from "@/lib/domain/types";
 import { formatDate } from "@/lib/format";
 import { invalidateCashFetchCache, useFetch } from "@/lib/useFetch";
@@ -109,13 +112,9 @@ export default function StatementsPage() {
         subtitle="Bank-statement baseline consumed by reconciliation. Sync from bucket replaces the previous parse so each file is loaded once."
         actions={
           <div className="flex flex-col items-end gap-1">
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
+            <Button variant="outlined" size="small" onClick={handleSync} disabled={syncing}>
               {syncing ? "Syncing…" : "Sync from bucket"}
-            </button>
+            </Button>
             {syncMessage ? (
               <span className="max-w-xs text-right text-xs text-slate-500">
                 {syncMessage}
@@ -131,49 +130,39 @@ export default function StatementsPage() {
             Upload bank statement
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <TextField
+              select
+              label="Account"
+              size="small"
+              fullWidth
+              value={accountId}
+              onChange={(e) => setSelectedAccountId(e.target.value)}
+            >
+              {accounts.map((a) => (
+                <MenuItem key={a.id} value={a.id}>
+                  {a.name} ({a.currency})
+                </MenuItem>
+              ))}
+            </TextField>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                Account
-              </label>
-              <select
-                value={accountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                CSV file
-              </label>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv,text/csv"
-                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
-              />
+              <Button variant="outlined" component="label" fullWidth>
+                Choose CSV
+                <input
+                  ref={fileRef}
+                  type="file"
+                  hidden
+                  accept=".csv,text/csv"
+                />
+              </Button>
               <p className="mt-1 text-xs text-slate-400">
                 Columns: date, description, reference, counterparty, amount,
                 currency
               </p>
             </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
-            >
+            <Button type="submit" variant="contained" disabled={submitting} fullWidth>
               {submitting ? "Importing…" : "Import statement"}
-            </button>
-            {message ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                {message}
-              </div>
-            ) : null}
+            </Button>
+            {message ? <SuccessNote message={message} /> : null}
             {uploadError ? <ErrorNote message={uploadError} /> : null}
           </form>
         </Card>
@@ -194,7 +183,7 @@ export default function StatementsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh label="Statement" column="file" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Account" column="account" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
                     <SortTh label="Bank" column="bank" sortKey={sorted.sortKey} sortDir={sorted.sortDir} onSort={sorted.toggle} />
@@ -217,7 +206,7 @@ export default function StatementsPage() {
                       <td className="px-5 py-3 font-medium text-slate-900">
                         <Link
                           href={`/statements/${encodeURIComponent(s.id)}`}
-                          className="text-indigo-600 hover:text-indigo-500 hover:underline"
+                          className="text-brand hover:text-brand-dark hover:underline"
                         >
                           {s.fileName}
                         </Link>
@@ -239,7 +228,7 @@ export default function StatementsPage() {
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                             s.source === "upload"
-                              ? "bg-indigo-50 text-indigo-700"
+                              ? "bg-brand-soft text-brand-dark"
                               : s.source === "oci"
                                 ? "bg-emerald-50 text-emerald-700"
                                 : "bg-slate-100 text-slate-600"

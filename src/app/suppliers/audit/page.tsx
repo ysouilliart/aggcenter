@@ -1,5 +1,7 @@
 "use client";
 
+import Chip from "@mui/material/Chip";
+import TextField from "@mui/material/TextField";
 import { useMemo, useState } from "react";
 
 import { Card, ErrorNote, PageHeader, Spinner } from "@/components/ui";
@@ -32,11 +34,12 @@ export default function SupplierAuditPage() {
       />
 
       <div className="mb-4">
-        <input
+        <TextField
+          size="small"
           value={recordId}
           onChange={(e) => setRecordId(e.target.value)}
           placeholder="Filter by record id…"
-          className="w-72 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+          sx={{ width: 288 }}
         />
       </div>
 
@@ -55,9 +58,7 @@ export default function SupplierAuditPage() {
               {audit.map((e) => (
                 <li key={e.id} className="px-5 py-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium uppercase text-slate-600">
-                      {e.action}
-                    </span>
+                    <Chip size="small" label={e.action} variant="outlined" />
                     <span className="font-medium text-slate-900">{e.field ?? "record"}</span>
                     <span className="text-xs text-slate-400">{e.recordType}:{e.recordId}</span>
                   </div>

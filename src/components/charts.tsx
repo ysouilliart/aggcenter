@@ -1,3 +1,4 @@
+import { chartColors } from "@/components/theme";
 import { formatCompact } from "@/lib/format";
 
 /** Area + line chart for a single running series (e.g. running balance). */
@@ -40,26 +41,26 @@ export function AreaLineChart({
     >
       <defs>
         <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+          <stop offset="0%" stopColor={chartColors.primary} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={chartColors.primary} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon points={area} fill="url(#areaFill)" />
       <polyline
         points={line}
         fill="none"
-        stroke="#4f46e5"
+        stroke={chartColors.primary}
         strokeWidth="2.5"
         strokeLinejoin="round"
         strokeLinecap="round"
       />
       {points.map((p, i) => (
-        <circle key={i} cx={x(i)} cy={y(p.value)} r="3" fill="#4f46e5" />
+        <circle key={i} cx={x(i)} cy={y(p.value)} r="3" fill={chartColors.primary} />
       ))}
-      <text x={padX} y={14} fontSize="12" fill="#64748b">
+      <text x={padX} y={14} fontSize="12" fill={chartColors.muted}>
         {formatCompact(max, currency)}
       </text>
-      <text x={padX} y={H - 6} fontSize="12" fill="#64748b">
+      <text x={padX} y={H - 6} fontSize="12" fill={chartColors.muted}>
         {formatCompact(min, currency)}
       </text>
     </svg>
@@ -91,7 +92,7 @@ export function GroupedBarChart({
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img">
-      <line x1={padX} y1={base} x2={W - padX} y2={base} stroke="#e2e8f0" />
+      <line x1={padX} y1={base} x2={W - padX} y2={base} stroke={chartColors.grid} />
       {data.map((d, i) => {
         const cx = padX + i * groupW + groupW / 2;
         return (
@@ -102,7 +103,7 @@ export function GroupedBarChart({
               width={barW}
               height={base - y(d.inflow)}
               rx="2"
-              fill="#10b981"
+              fill={chartColors.primary}
             />
             <rect
               x={cx + 1}
@@ -110,12 +111,12 @@ export function GroupedBarChart({
               width={barW}
               height={base - y(d.outflow)}
               rx="2"
-              fill="#f43f5e"
+              fill={chartColors.warning}
             />
           </g>
         );
       })}
-      <text x={padX} y={14} fontSize="12" fill="#64748b">
+      <text x={padX} y={14} fontSize="12" fill={chartColors.muted}>
         {formatCompact(max, currency)}
       </text>
     </svg>
@@ -147,7 +148,7 @@ export function DonutChart({
             cy={r}
             r={radius}
             fill="none"
-            stroke="#eef2f7"
+            stroke={chartColors.track}
             strokeWidth={stroke}
           />
           {total > 0 &&
@@ -177,11 +178,11 @@ export function DonutChart({
           textAnchor="middle"
           fontSize="24"
           fontWeight="600"
-          fill="#0f172a"
+          fill={chartColors.text}
         >
           {total}
         </text>
-        <text x={r} y={r + 18} textAnchor="middle" fontSize="12" fill="#64748b">
+        <text x={r} y={r + 18} textAnchor="middle" fontSize="12" fill={chartColors.muted}>
           total
         </text>
       </svg>

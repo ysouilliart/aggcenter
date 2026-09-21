@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import { useMemo, useState } from "react";
 
 import {
@@ -8,7 +9,9 @@ import {
   ErrorNote,
   KpiCard,
   PageHeader,
+  SegmentedToggle,
   Spinner,
+  SuccessNote,
 } from "@/components/ui";
 import type { SupplierSummary } from "@/lib/suppliers/types";
 import { formatDate } from "@/lib/format";
@@ -52,42 +55,33 @@ export default function SupplierOverviewPage() {
         title="Supplier workspace"
         subtitle="Master-data quality: missing attributes, VAT format, address checks, and rationalisation of terms / group / type"
         actions={
-          <button
+          <Button
             type="button"
+            variant="contained"
+            size="small"
             onClick={handleSync}
             disabled={syncing}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
           >
             {syncing ? "Loading…" : "Load from bucket"}
-          </button>
+          </Button>
         }
       />
 
-      <div className="mb-4 flex rounded-lg border border-slate-200 bg-white p-1 text-sm w-fit">
-        <button
-          type="button"
-          onClick={() => setSource("oci-supplier")}
-          className={`rounded-md px-3 py-1 font-medium ${
-            source === "oci-supplier" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          Conversion extract
-        </button>
-        <button
-          type="button"
-          onClick={() => setSource("")}
-          className={`rounded-md px-3 py-1 font-medium ${
-            source === "" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          All sources
-        </button>
+      <div className="mb-4">
+        <SegmentedToggle
+          value={source || "all"}
+          onChange={(next) => setSource(next === "all" ? "" : next)}
+          options={[
+            { value: "oci-supplier", label: "Conversion extract" },
+            { value: "all", label: "All sources" },
+          ]}
+        />
       </div>
 
       {summary.loading ? <Spinner /> : null}
       {summary.error ? <ErrorNote message={summary.error} /> : null}
       {syncMessage ? (
-        <p className="mb-4 text-sm text-slate-600">{syncMessage}</p>
+        <SuccessNote message={syncMessage} />
       ) : null}
 
       {data ? (

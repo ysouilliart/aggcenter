@@ -1,11 +1,12 @@
 "use client";
 
+import TextField from "@mui/material/TextField";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 
 import { SupplierActionPanel } from "@/components/suppliers/SupplierActionPanel";
 import type { GraphFocus } from "@/components/suppliers/SupplierSiteGraph";
-import { Card, ErrorNote, IssueBadge, PageHeader, SortTh, Spinner } from "@/components/ui";
+import { Card, ErrorNote, IssueBadge, PageHeader, SegmentedToggle, SortTh, Spinner } from "@/components/ui";
 import { groupSupplierRecords } from "@/lib/suppliers/group";
 import type { SupplierIssueType, SupplierRecord } from "@/lib/suppliers/types";
 import { useFetch } from "@/lib/useFetch";
@@ -105,40 +106,28 @@ export default function SupplierRecordsPage() {
         />
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <input
+          <TextField
+            size="small"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search name, number, VAT, city…"
-            className="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+            sx={{ width: 256 }}
           />
-          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-            {SOURCE_FILTERS.map((f) => (
-              <button
-                key={f.id || "all-sources"}
-                type="button"
-                onClick={() => setSource(f.id)}
-                className={`rounded-md px-3 py-1 font-medium ${
-                  source === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-1 text-sm">
-            {ISSUE_FILTERS.map((f) => (
-              <button
-                key={f.id || "all"}
-                type="button"
-                onClick={() => setIssue(f.id)}
-                className={`rounded-md px-3 py-1 font-medium ${
-                  issue === f.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedToggle
+            value={source || "all"}
+            onChange={(next) => setSource(next === "all" ? "" : next)}
+            options={SOURCE_FILTERS.map((f) => ({ value: f.id || "all", label: f.label }))}
+          />
+          <SegmentedToggle
+            value={issue || "all-issues"}
+            onChange={(next) =>
+              setIssue((next === "all-issues" ? "" : next) as "" | "any" | SupplierIssueType)
+            }
+            options={ISSUE_FILTERS.map((f) => ({
+              value: f.id || "all-issues",
+              label: f.label,
+            }))}
+          />
           <span className="ml-auto text-xs text-slate-500">
             {list.data
               ? `${groups.length} suppliers · ${list.data.records.length} listed sites`
@@ -156,7 +145,7 @@ export default function SupplierRecordsPage() {
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="text-left text-xs font-semibold text-slate-500">
                     <SortTh
                       className="px-4 py-2 font-medium"
                       label="Supplier"
@@ -198,7 +187,7 @@ export default function SupplierRecordsPage() {
                       <tr
                         key={g.id}
                         className={`cursor-pointer ${
-                          selectedSupplierId === g.id ? "bg-indigo-50" : "hover:bg-slate-50"
+                          selectedSupplierId === g.id ? "bg-brand-soft" : "hover:bg-slate-50"
                         }`}
                         onClick={() => selectSupplier(g.id)}
                       >
@@ -235,7 +224,7 @@ export default function SupplierRecordsPage() {
           </Card>
 
           <Card className="flex min-h-0 flex-col overflow-hidden p-0">
-            <div className="shrink-0 border-b border-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="shrink-0 border-b border-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
               Supplier · sites
             </div>
             <div className="min-h-0 flex-1">

@@ -1,8 +1,9 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import { useMemo, useRef, useState } from "react";
 
-import { Card, ConfidencePill, ErrorNote, KpiCard, PageHeader, Spinner, StatusBadge } from "@/components/ui";
+import { Card, ConfidencePill, ErrorNote, InfoNote, KpiCard, PageHeader, Spinner, StatusBadge, SuccessNote, WarningNote } from "@/components/ui";
 import type { PeopleDocDetail, PeopleDocRecord, PeopleDocSummary } from "@/lib/peopleDocs/types";
 import { PEOPLE_DOC_FIELD_DEFS, type PeopleDocFieldKey } from "@/lib/parse/peopleDocs/types";
 import { formatDate } from "@/lib/format";
@@ -155,31 +156,20 @@ export default function PeopleDocsPage() {
           title="People docs"
           subtitle="Hybrid classify for aggcenter/peopleDocs: static floor, then PEOPLE_DOCS_LLM_API_KEY. Reprocess after enabling LLM."
           actions={
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncing}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
+            <Button type="button" variant="outlined" size="small" onClick={handleSync} disabled={syncing}>
               {syncing ? "Syncing…" : "Sync landing folder"}
-            </button>
+            </Button>
           }
         />
 
         {summary.data?.classify?.warning ? (
-          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {summary.data.classify.warning}
-          </div>
+          <WarningNote message={summary.data.classify.warning} />
         ) : summary.data?.classify?.llmReady ? (
-          <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-            LLM classify is on ({summary.data.classify.model}). People-docs key is independent of
-            invoices. Scripting stays the floor; extracted people-doc text is sent to the provider
-            only when classify runs.
-          </div>
+          <InfoNote message={`LLM classify is on (${summary.data.classify.model}). People-docs key is independent of invoices. Scripting stays the floor; extracted people-doc text is sent to the provider only when classify runs.`} />
         ) : null}
 
         {error ? <ErrorNote message={error} /> : null}
-        {message ? <p className="mb-3 text-sm text-slate-600">{message}</p> : null}
+        {message ? <SuccessNote message={message} /> : null}
 
         <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard label="Landing" value={String(counts?.landing ?? 0)} sub="Drop zone" />
@@ -226,19 +216,18 @@ export default function PeopleDocsPage() {
             </a>
           </div>
           <form onSubmit={handleUpload} className="mb-3 shrink-0 space-y-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.docx,.xlsx,.csv,.txt"
-              className="block w-full text-sm text-slate-600"
-            />
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-            >
+            <Button variant="outlined" component="label" fullWidth size="small">
+              Choose document
+              <input
+                ref={fileRef}
+                type="file"
+                hidden
+                accept=".pdf,.docx,.xlsx,.csv,.txt"
+              />
+            </Button>
+            <Button type="submit" variant="contained" disabled={submitting} fullWidth size="small">
               {submitting ? "Parsing…" : "Parse document"}
-            </button>
+            </Button>
           </form>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {list.loading && !docs.length ? (
@@ -259,7 +248,7 @@ export default function PeopleDocsPage() {
                         type="button"
                         onClick={() => setSelectedId(doc.id)}
                         className={`w-full rounded-lg px-2 py-3 text-left ${
-                          active ? "bg-indigo-50" : "hover:bg-slate-50"
+                          active ? "bg-brand-soft" : "hover:bg-slate-50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -305,22 +294,24 @@ export default function PeopleDocsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outlined"
+                    size="small"
                     onClick={() => patchDoc("reprocess")}
                     disabled={reprocessing}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
                     {reprocessing ? "Reprocessing…" : "Reprocess"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outlined"
+                    size="small"
                     onClick={() => patchDoc("archive")}
                     disabled={reprocessing || selected.doc.folder === "archived"}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
                     Archive
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -328,19 +319,12 @@ export default function PeopleDocsPage() {
                 {selected.doc.classifierWarning &&
                 selected.doc.classifierWarning !== summary.data?.classify?.warning &&
                 !/LLM classify is off/i.test(selected.doc.classifierWarning) ? (
-                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                    {selected.doc.classifierWarning}
-                  </p>
+                  <WarningNote message={selected.doc.classifierWarning} />
                 ) : selected.doc.classifyMode === "llm" ? (
-                  <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
-                    LLM overlay on the static parser. Scripted fields were kept; the model filled
-                    gaps.
-                  </p>
+                  <InfoNote message="LLM overlay on the static parser. Scripted fields were kept; the model filled gaps." />
                 ) : null}
                 {selected.doc.reviewReason ? (
-                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                    {selected.doc.reviewReason}
-                  </p>
+                  <WarningNote message={selected.doc.reviewReason} />
                 ) : null}
 
                 <dl className="grid gap-3 sm:grid-cols-2">
@@ -352,7 +336,7 @@ export default function PeopleDocsPage() {
                     return (
                       <div key={def.key} className="rounded-lg border border-slate-100 px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          <dt className="text-xs font-medium text-slate-500">
                             {def.label}
                           </dt>
                           <ConfidencePill confidence={field?.confidence ?? 0} missing={missing} />

@@ -17,6 +17,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { IssueBadge } from "@/components/ui";
+import { brand } from "@/components/theme";
 import type { SupplierGroup } from "@/lib/suppliers/group";
 import { siteIssuesFor, supplierIssuesFor } from "@/lib/suppliers/group";
 import type { SupplierIssue, SupplierRecord } from "@/lib/suppliers/types";
@@ -52,11 +53,11 @@ function SupplierFlowNode({ data }: NodeProps<Node<SupplierNodeData, "supplier">
   return (
     <div
       className={`w-[13.5rem] rounded-lg border bg-white px-3 py-2 shadow-sm ${
-        data.selected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-slate-200"
+        data.selected ? "border-brand ring-2 ring-brand-soft" : "border-slate-200"
       }`}
     >
       <Handle type="source" position={Position.Right} className="!bg-slate-400" />
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-brand">
         Supplier{data.inactive ? " · inactive" : ""}
       </div>
       <div className="truncate text-sm font-semibold text-slate-900" title={data.name}>
@@ -78,7 +79,7 @@ function SiteFlowNode({ data }: NodeProps<Node<SiteNodeData, "site">>) {
   return (
     <div
       className={`w-[13.5rem] rounded-lg border bg-white px-3 py-2 shadow-sm ${
-        data.selected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-slate-200"
+        data.selected ? "border-brand ring-2 ring-brand-soft" : "border-slate-200"
       }`}
     >
       <Handle type="target" position={Position.Left} className="!bg-slate-400" />
@@ -154,6 +155,7 @@ function buildGraph(
       source: `supplier:${group.supplier.id}`,
       target: id,
       type: "smoothstep",
+      style: { stroke: brand.blue, strokeWidth: 1.5 },
     });
   });
   return { nodes, edges };
@@ -197,8 +199,9 @@ function GraphCanvas({
       }}
       minZoom={0.4}
       maxZoom={1.4}
+      defaultEdgeOptions={{ style: { stroke: brand.blue, strokeWidth: 1.5 } }}
     >
-      <Background gap={16} color="#e2e8f0" />
+      <Background gap={16} color={brand.line} />
       <Controls showInteractive={false} />
     </ReactFlow>
   );

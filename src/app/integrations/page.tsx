@@ -1,8 +1,10 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import { useState } from "react";
 
-import { Card, ErrorNote, PageHeader, Spinner } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, Spinner, SuccessNote } from "@/components/ui";
 import { invalidateCashFetchCache, useFetch } from "@/lib/useFetch";
 
 interface IntegrationStatus {
@@ -65,20 +67,7 @@ function folderName(prefix: string | undefined, fallback: string): string {
 }
 
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
-        ok
-          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-          : "bg-slate-100 text-slate-600 ring-slate-500/20"
-      }`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-500" : "bg-slate-400"}`}
-      />
-      {label}
-    </span>
-  );
+  return <Chip size="small" color={ok ? "success" : "default"} variant="outlined" label={label} />;
 }
 
 export default function IntegrationsPage() {
@@ -233,14 +222,15 @@ export default function IntegrationsPage() {
               <h2 className="font-semibold text-slate-900">
                 Reference documents
               </h2>
-              <button
+              <Button
                 type="button"
+                variant="outlined"
+                size="small"
                 onClick={handleReferenceSync}
                 disabled={syncing}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 {syncing ? "Loading…" : "Load from bucket"}
-              </button>
+              </Button>
             </div>
             <p className="text-sm text-slate-600">
               The <strong>bank statement</strong> in{" "}
@@ -291,9 +281,7 @@ export default function IntegrationsPage() {
                 value={String(reference.data?.salesOrders ?? "—")}
               />
             </dl>
-            {syncMessage ? (
-              <p className="mt-3 text-xs text-slate-500">{syncMessage}</p>
-            ) : null}
+            {syncMessage ? <SuccessNote message={syncMessage} /> : null}
           </Card>
 
           <Card>

@@ -16,6 +16,7 @@ import {
 } from "./folders";
 import { folderForPeopleDocStatus, recordsFromPeopleDocParse } from "./fromParse";
 import { getPeopleDocRepository, type PeopleDocRepository } from "./repository";
+import { searchPeopleDocs } from "./search";
 import type { PeopleDocFolder } from "../parse/peopleDocs/types";
 import type { PeopleDocRecord, PeopleDocSource, PeopleDocSummary } from "./types";
 
@@ -234,8 +235,9 @@ export async function uploadPeopleDoc(input: {
 export async function listPeopleDocs(filter?: {
   folder?: PeopleDocFolder;
   parseStatus?: string;
+  q?: string;
 }): Promise<PeopleDocRecord[]> {
-  return getPeopleDocRepository().list(filter);
+  return searchPeopleDocs(filter);
 }
 
 export async function getPeopleDocSummary(): Promise<PeopleDocSummary> {

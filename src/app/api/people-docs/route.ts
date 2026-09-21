@@ -11,11 +11,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const folder = url.searchParams.get("folder") as PeopleDocFolder | null;
   const parseStatus = url.searchParams.get("status") ?? undefined;
+  const q = url.searchParams.get("q") ?? undefined;
   const docs = await listPeopleDocs({
     folder: folder || undefined,
     parseStatus,
+    q,
   });
-  return NextResponse.json({ docs, classify: getPeopleDocClassifyStatus() });
+  return NextResponse.json({ docs, classify: getPeopleDocClassifyStatus(), q: q?.trim() ?? "" });
 }
 
 export async function POST(request: Request) {

@@ -62,6 +62,36 @@ export interface PeopleDocSummary {
   parsed: number;
 }
 
+/** Sanitized keyword-search hit for JSON download (no storage keys, hashes, or binary). */
+export interface PeopleDocSearchMatch {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  source: PeopleDocSource;
+  folder: PeopleDocFolder;
+  parseStatus: PeopleDocParseStatus;
+  parserId?: string;
+  parserVersion?: string;
+  confidence: number;
+  pageCount?: number;
+  classifyMode?: PeopleDocClassifyMode;
+  needsConfirm?: boolean;
+  reviewReason?: string;
+  uploadedAt: string;
+  processedAt?: string;
+  archivedAt?: string;
+  header: PeopleDocHeader;
+  fields: PeopleDocField[];
+  textExcerpt?: string;
+}
+
+export interface PeopleDocSearchExport {
+  keyword: string;
+  exportedAt: string;
+  matchCount: number;
+  docs: PeopleDocSearchMatch[];
+}
+
 export const PEOPLE_DOC_FOLDERS: PeopleDocFolder[] = [
   "landing",
   "processed",

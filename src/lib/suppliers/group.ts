@@ -1,8 +1,10 @@
 import {
   SUPPLIER_HEADER_FIELDS,
+  type SiteOperatingUnit,
   type Supplier,
   type SupplierIssue,
   type SupplierRecord,
+  type SupplierSite,
 } from "./types";
 
 export interface SupplierGroup {
@@ -66,8 +68,24 @@ export function siteLabel(record: SupplierRecord, siblings: SupplierRecord[] = [
   return extra ? `${code} · ${extra}` : code;
 }
 
+/** Operating units assigned to a site. Falls back to the primary OU columns. */
+export function siteOperatingUnits(site: SupplierSite): SiteOperatingUnit[] {
+  if (site.operatingUnits?.length) return site.operatingUnits;
+  const name = site.operatingUnit?.trim() ?? "";
+  const orgId = site.orgId?.trim() ?? "";
+  if (!name && !orgId) return [];
+  return [{ name, orgId }];
+}
+
 export function siteChipLabel(record: SupplierRecord, siblings: SupplierRecord[] = []): string {
-  return `${siteLabel(record, siblings)} · ${record.site.id}`;
+  const base = `${siteLabel(record, siblings)} · ${record.site.id}`;
+  const units = siteOperatingUnits(record.site);
+  if (units.length === 0) return base;
+  if (units.length === 1) {
+    const label = units[0].name.replace(/^OU:\s*/i, "").trim() || units[0].orgId;
+    return label ? `${base} · ${label}` : base;
+  }
+  return `${base} · ${units.length} OUs`;
 }
 
 export function groupSupplierRecords(records: SupplierRecord[]): SupplierGroup[] {

@@ -37,13 +37,24 @@ export interface Supplier {
   updatedAt: string;
 }
 
+/** One operating-unit assignment for a supplier site (OU is a function of the site). */
+export interface SiteOperatingUnit {
+  name: string;
+  orgId: string;
+}
+
 export interface SupplierSite {
   id: string;
   supplierId: string;
   siteCode: string;
   addressName: string;
   procurementBu: string;
+  /** Primary operating unit name, the first assignment when a site has several. */
   operatingUnit?: string;
+  /** Primary Oracle ORG_ID for the operating unit. */
+  orgId?: string;
+  /** Every OU assignment from the VAT extract. A site can belong to more than one OU. */
+  operatingUnits?: SiteOperatingUnit[];
   inactiveDate?: string;
   paymentTerms: string;
   payGroup: string;

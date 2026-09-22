@@ -1,4 +1,4 @@
-import type { Supplier, SupplierSite, SupplierStatus } from "./types";
+import type { SiteOperatingUnit, Supplier, SupplierSite, SupplierStatus } from "./types";
 
 const SOURCE = "oci-supplier";
 
@@ -34,20 +34,31 @@ function siteKey(supplierNumber: string, siteCode: string): string {
   return `${blank(supplierNumber)}|${blank(siteCode).slice(0, 15).toUpperCase()}`;
 }
 
-function pickVat(rows: Record<string, string>[]): { supplierVat: string; siteVat: string; operatingUnit?: string } {
+function vidSidKey(vid: string, sid: string): string {
+  return `${blank(vid)}|${blank(sid)}`;
+}
+
+function collectVat(rows: Record<string, string>[]): {
+  supplierVat: string;
+  siteVat: string;
+  operatingUnits: SiteOperatingUnit[];
+} {
   let supplierVat = "";
   let siteVat = "";
-  const ous: string[] = [];
+  const operatingUnits: SiteOperatingUnit[] = [];
+  const seen = new Set<string>();
   for (const row of rows) {
     if (!supplierVat && blank(row.supplier_vat)) supplierVat = blank(row.supplier_vat);
     if (!siteVat && blank(row.site_vat)) siteVat = blank(row.site_vat);
-    if (blank(row.operating_unit)) ous.push(blank(row.operating_unit));
+    const name = blank(row.operating_unit);
+    const orgId = blank(row.org_id);
+    if (!name && !orgId) continue;
+    const key = `${name}|${orgId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    operatingUnits.push({ name, orgId });
   }
-  return {
-    supplierVat,
-    siteVat,
-    operatingUnit: ous[0],
-  };
+  return { supplierVat, siteVat, operatingUnits };
 }
 
 export interface SupplierExtracts {
@@ -62,7 +73,9 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
   sites: SupplierSite[];
 } {
   // Record baseline is the site extract (one row per supplier site).
-  // VAT rows only overlay supplierVat/siteVat onto those sites.
+  // VAT rows overlay supplier/site VAT and the site's operating units.
+  // Prefer VID + SID (vendor id and vendor site id). Fall back to supplier
+  // number + site code only for VAT rows that do not carry those ids.
   const now = new Date().toISOString();
   const profiles = input.profiles;
   const sites = input.sites;
@@ -88,21 +101,37 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
     }
   }
 
-  const vatByKey = new Map<string, Record<string, string>[]>();
+  const vatByVidSid = new Map<string, Record<string, string>[]>();
+  const vatByCode = new Map<string, Record<string, string>[]>();
   const vatByNumber = new Map<string, Record<string, string>[]>();
+  const vatByVid = new Map<string, Record<string, string>[]>();
   for (const row of vatRows) {
     const num = blank(row.supplier_number);
-    const site = blank(row.vendor_site_code);
+    const vid = blank(row.vid);
+    const sid = blank(row.sid);
     if (num) {
       const listN = vatByNumber.get(num) ?? [];
       listN.push(row);
       vatByNumber.set(num, listN);
     }
+    if (vid) {
+      const listV = vatByVid.get(vid) ?? [];
+      listV.push(row);
+      vatByVid.set(vid, listV);
+    }
+    if (vid && sid) {
+      const key = vidSidKey(vid, sid);
+      const list = vatByVidSid.get(key) ?? [];
+      list.push(row);
+      vatByVidSid.set(key, list);
+      continue;
+    }
+    const site = blank(row.vendor_site_code);
     if (num && site) {
       const key = siteKey(num, site);
-      const list = vatByKey.get(key) ?? [];
+      const list = vatByCode.get(key) ?? [];
       list.push(row);
-      vatByKey.set(key, list);
+      vatByCode.set(key, list);
     }
   }
 
@@ -144,8 +173,12 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
     const address =
       addressByVidName.get(`${vid}|${blank(row.address_name).toUpperCase()}`) ??
       addressByVid.get(vid)?.[0];
-    const vatHits = vatByKey.get(siteKey(supplierNumber, blank(row.supplier_site))) ?? [];
-    const vat = pickVat(vatHits);
+    const byIds = vatByVidSid.get(vidSidKey(vid, blank(row.sid))) ?? [];
+    const vatHits = byIds.length
+      ? byIds
+      : (vatByCode.get(siteKey(supplierNumber, blank(row.supplier_site))) ?? []);
+    const vat = collectVat(vatHits);
+    const primaryOu = vat.operatingUnits[0];
 
     const supplier = upsertSupplier({
       id: vid || `N-${supplierNumber}`,
@@ -170,7 +203,9 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
       siteCode: blank(row.supplier_site),
       addressName: blank(row.address_name) || blank(address?.address_name),
       procurementBu: blank(row.procurement_bu),
-      operatingUnit: vat.operatingUnit,
+      operatingUnit: primaryOu?.name || undefined,
+      orgId: primaryOu?.orgId || undefined,
+      operatingUnits: vat.operatingUnits.length ? vat.operatingUnits : undefined,
       inactiveDate: blank(row.inactive_date) || undefined,
       paymentTerms: blank(row.payment_terms),
       payGroup: blank(row.pay_group),
@@ -195,7 +230,9 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
 
   for (const supplier of suppliers.values()) {
     if (supplier.supplierVat) continue;
-    const vat = pickVat(vatByNumber.get(supplier.supplierNumber) ?? []);
+    const vat = collectVat(
+      vatByVid.get(supplier.id) ?? vatByNumber.get(supplier.supplierNumber) ?? [],
+    );
     if (vat.supplierVat) supplier.supplierVat = vat.supplierVat;
   }
 

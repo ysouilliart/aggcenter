@@ -265,6 +265,69 @@ describe("mapSupplierExtracts", () => {
     expect(mapped.sites[0].country).toBe("NL");
     expect(mapped.sites[0].paymentTerms).toBe("30 jours FM");
     expect(mapped.suppliers[0].supplierVat).toBe("NL814016479B01");
+    expect(mapped.sites[0].operatingUnit).toBe("OU: ResMed EPN");
+    expect(mapped.sites[0].operatingUnits).toEqual([{ name: "OU: ResMed EPN", orgId: "" }]);
+  });
+
+  it("joins VAT by VID and SID and keeps every operating unit on the site", () => {
+    const mapped = mapSupplierExtracts({
+      profiles: [
+        {
+          vid: "1001",
+          supplier_name: "CMS",
+          supplier_number: "101774",
+        },
+      ],
+      sites: [
+        {
+          vid: "1001",
+          sid: "2001",
+          supplier_name: "CMS",
+          supplier_site: "UTRECHT",
+          address_name: "UTRECHT",
+          payment_terms: "30 Days",
+        },
+      ],
+      addresses: [],
+      vat: [
+        {
+          vid: "1001",
+          sid: "2001",
+          supplier_number: "WRONG",
+          vendor_site_code: "OTHER",
+          supplier_vat: "NL814016479B01",
+          site_vat: "NL814016479B01",
+          operating_unit: "OU: ResMed EPN",
+          org_id: "385",
+        },
+        {
+          vid: "1001",
+          sid: "2001",
+          supplier_number: "101774",
+          vendor_site_code: "UTRECHT",
+          operating_unit: "OU: ResMed UK",
+          org_id: "112",
+          site_vat: "NL814016479B01",
+        },
+        {
+          supplier_number: "101774",
+          vendor_site_code: "UTRECHT",
+          operating_unit: "OU: Should Not Attach",
+          org_id: "1",
+          site_vat: "XX",
+        },
+      ],
+    });
+    expect(mapped.sites).toHaveLength(1);
+    expect(mapped.sites[0].id).toBe("2001");
+    expect(mapped.sites[0].siteVat).toBe("NL814016479B01");
+    expect(mapped.suppliers[0].supplierVat).toBe("NL814016479B01");
+    expect(mapped.sites[0].operatingUnit).toBe("OU: ResMed EPN");
+    expect(mapped.sites[0].orgId).toBe("385");
+    expect(mapped.sites[0].operatingUnits).toEqual([
+      { name: "OU: ResMed EPN", orgId: "385" },
+      { name: "OU: ResMed UK", orgId: "112" },
+    ]);
   });
 
   it("does not list unmatched VAT-only rows as records", () => {
@@ -451,6 +514,28 @@ describe("groupSupplierRecords", () => {
     expect(siteLabel(records[1], records)).toContain("30 jours FM");
     expect(siteChipLabel(records[0], records)).toContain("s1");
     expect(siteChipLabel(records[1], records)).toContain("s2");
+  });
+
+  it("adds the operating unit to the site chip", () => {
+    const records = [
+      {
+        id: "s1",
+        supplier: supplier({ id: "1" }),
+        site: site({
+          id: "s1",
+          supplierId: "1",
+          siteCode: "UTRECHT",
+          operatingUnit: "OU: ResMed EPN",
+          orgId: "385",
+          operatingUnits: [
+            { name: "OU: ResMed EPN", orgId: "385" },
+            { name: "OU: ResMed UK", orgId: "112" },
+          ],
+        }),
+        issues: [],
+      },
+    ];
+    expect(siteChipLabel(records[0], records)).toBe("UTRECHT · s1 · 2 OUs");
   });
 });
 

@@ -102,7 +102,7 @@ export default function SupplierRecordsPage() {
         <PageHeader
           className="mb-3"
           title="Supplier records"
-          subtitle="Pick a unique supplier, inspect its sites in the graph, then correct supplier- or site-level data. Final review of updates is under Review."
+          subtitle="Pick a unique supplier, inspect its sites and operating units in the graph, then correct supplier- or site-level data. Final review of updates is under Review."
         />
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -110,7 +110,7 @@ export default function SupplierRecordsPage() {
             size="small"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, number, VAT, city…"
+            placeholder="Search name, number, VAT, city, OU…"
             sx={{ width: 256 }}
           />
           <SegmentedToggle

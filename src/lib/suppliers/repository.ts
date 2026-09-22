@@ -6,6 +6,7 @@ import { isDatabaseConfigured } from "../db/client";
 import {
   SITE_FIELDS,
   SUPPLIER_HEADER_FIELDS,
+  type SiteOperatingUnit,
   type Supplier,
   type SupplierAuditAction,
   type SupplierAuditEvent,
@@ -319,6 +320,9 @@ export class PostgresSupplierRepository implements SupplierRepository {
         ilike(supplierSites.city, like),
         ilike(supplierSites.paymentTerms, like),
         ilike(supplierSites.payGroup, like),
+        ilike(supplierSites.operatingUnit, like),
+        ilike(supplierSites.orgId, like),
+        ilike(supplierSites.operatingUnits, like),
       ];
       if (matched.length) qConds.push(inArray(supplierSites.supplierId, matched.map((r) => r.id)));
       const qOr = or(...qConds);
@@ -494,7 +498,9 @@ function siteInsert(s: SupplierSite) {
     siteCode: s.siteCode,
     addressName: s.addressName,
     procurementBu: s.procurementBu,
-    operatingUnit: s.operatingUnit ?? null,
+    operatingUnit: s.operatingUnit ?? s.operatingUnits?.[0]?.name ?? null,
+    orgId: s.orgId ?? s.operatingUnits?.[0]?.orgId ?? null,
+    operatingUnits: s.operatingUnits?.length ? JSON.stringify(s.operatingUnits) : null,
     inactiveDate: s.inactiveDate ?? null,
     paymentTerms: s.paymentTerms,
     payGroup: s.payGroup,
@@ -549,6 +555,34 @@ function supplierFromRow(r: {
   };
 }
 
+function readOperatingUnits(
+  raw: string | null,
+  operatingUnit: string | null,
+  orgId: string | null,
+): SiteOperatingUnit[] | undefined {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        const units = parsed.flatMap((item) => {
+          if (!item || typeof item !== "object") return [];
+          const name = String((item as { name?: unknown }).name ?? "").trim();
+          const id = String((item as { orgId?: unknown }).orgId ?? "").trim();
+          if (!name && !id) return [];
+          return [{ name, orgId: id }];
+        });
+        if (units.length) return units;
+      }
+    } catch {
+      /* fall through to the primary columns */
+    }
+  }
+  const name = operatingUnit?.trim() ?? "";
+  const id = orgId?.trim() ?? "";
+  if (!name && !id) return undefined;
+  return [{ name, orgId: id }];
+}
+
 function siteFromRow(r: {
   id: string;
   supplierId: string;
@@ -556,6 +590,8 @@ function siteFromRow(r: {
   addressName: string;
   procurementBu: string;
   operatingUnit: string | null;
+  orgId: string | null;
+  operatingUnits: string | null;
   inactiveDate: string | null;
   paymentTerms: string;
   payGroup: string;
@@ -583,6 +619,8 @@ function siteFromRow(r: {
     addressName: r.addressName,
     procurementBu: r.procurementBu,
     operatingUnit: r.operatingUnit ?? undefined,
+    orgId: r.orgId ?? undefined,
+    operatingUnits: readOperatingUnits(r.operatingUnits, r.operatingUnit, r.orgId),
     inactiveDate: r.inactiveDate ?? undefined,
     paymentTerms: r.paymentTerms,
     payGroup: r.payGroup,
@@ -860,7 +898,16 @@ export function applySiteListFilter(
     if (filter.country && site.country !== filter.country) return false;
     if (filter.paymentTerms && site.paymentTerms !== filter.paymentTerms) return false;
     if (q) {
-      const hay = [site.siteCode, site.siteVat, site.city, site.paymentTerms, site.payGroup]
+      const hay = [
+        site.siteCode,
+        site.siteVat,
+        site.city,
+        site.paymentTerms,
+        site.payGroup,
+        site.operatingUnit,
+        site.orgId,
+        ...(site.operatingUnits ?? []).flatMap((ou) => [ou.name, ou.orgId]),
+      ]
         .join(" ")
         .toLowerCase();
       if (!hay.includes(q) && !supplierIdsFromQ.has(site.supplierId)) return false;

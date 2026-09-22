@@ -63,6 +63,9 @@ export function matchesSupplierListQuery(record: SupplierRecord, query: Supplier
     record.site.city,
     record.site.paymentTerms,
     record.site.payGroup,
+    record.site.operatingUnit,
+    record.site.orgId,
+    ...(record.site.operatingUnits ?? []).flatMap((ou) => [ou.name, ou.orgId]),
   ]
     .join(" ")
     .toLowerCase();

@@ -221,6 +221,8 @@ export const supplierSites = supplierSchema.table(
     addressName: text("address_name").notNull().default(""),
     procurementBu: text("procurement_bu").notNull().default(""),
     operatingUnit: text("operating_unit"),
+    orgId: text("org_id"),
+    operatingUnits: text("operating_units"),
     inactiveDate: text("inactive_date"),
     paymentTerms: text("payment_terms").notNull().default(""),
     payGroup: text("pay_group").notNull().default(""),

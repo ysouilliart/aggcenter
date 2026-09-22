@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { listPeopleDocs, uploadPeopleDoc } from "@/lib/peopleDocs";
 import { getPeopleDocClassifyStatus } from "@/lib/parse/peopleDocs";
+import { PeopleDocModelError } from "@/lib/parse/peopleDocs/models";
 import type { PeopleDocFolder } from "@/lib/parse/peopleDocs/types";
 
 export const runtime = "nodejs";
@@ -29,14 +30,16 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  const modelField = formData.get("model");
+  const model = typeof modelField === "string" ? modelField : undefined;
   try {
     const content = Buffer.from(await file.arrayBuffer());
-    const doc = await uploadPeopleDoc({ fileName: file.name, content });
+    const doc = await uploadPeopleDoc({ fileName: file.name, content, model });
     return NextResponse.json({ doc, classify: getPeopleDocClassifyStatus() }, { status: 201 });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Upload failed" },
-      { status: 500 },
+      { status: err instanceof PeopleDocModelError ? 400 : 500 },
     );
   }
 }

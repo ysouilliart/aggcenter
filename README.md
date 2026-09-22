@@ -41,7 +41,9 @@ Built with **Next.js (App Router) + React + TypeScript**, **Material UI**, and *
   and field-level confidence pills (agreement ID, requestor, type, subtype,
   business function, ResMed entity, start/end dates, auto-renew, perpetual).
   Hybrid classify: static labelled regex is the floor; the LLM fills gaps
-  (`PEOPLE_DOCS_LLM_*`, independent of invoice classify). Reprocess re-runs parse.
+  (`PEOPLE_DOCS_LLM_*`, independent of invoice classify) and writes a short
+  synopsis under the matched parameters. The People docs page can switch the
+  chat model used for that parse. Reprocess re-runs parse.
   Folders:
   `aggcenter/peopleDocs/{landing,processed,archived,anomaly}/`.
 - **Integrations** — pluggable adapters for **OCI Object Storage** (files),

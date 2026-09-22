@@ -78,6 +78,7 @@ export function mergeStaticAndLlmPeopleDoc(
   llmWarnings: string[],
   llmReasons: string[],
   fullText: string,
+  extras?: { synopsis?: string; llmModel?: string },
 ): PeopleDocParseResult {
   const header: PeopleDocHeader = { ...staticResult.header };
   for (const key of STRING_KEYS) {
@@ -138,11 +139,18 @@ export function mergeStaticAndLlmPeopleDoc(
         level: "info",
         stage: "llm",
         message: `LLM overlay on static floor; status=${status} confidence=${confidence}`,
-        detail: { agreementId: header.agreementId, agreementType: header.agreementType },
+        detail: {
+          agreementId: header.agreementId,
+          agreementType: header.agreementType,
+          model: extras?.llmModel,
+          synopsis: Boolean(extras?.synopsis),
+        },
       },
     ],
     pageCount: staticResult.pageCount,
     extractedText: staticResult.extractedText,
+    synopsis: extras?.synopsis,
+    llmModel: extras?.llmModel,
     classifyMode,
     needsConfirm: needsPeopleDocConfirm({ status, confidence, classifyMode }),
   };

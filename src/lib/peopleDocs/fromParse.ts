@@ -35,6 +35,8 @@ export function recordsFromPeopleDocParse(options: {
     pageCount: options.parsed.pageCount,
     reviewReason: options.parsed.reviewReasons[0],
     extractedText: options.parsed.extractedText,
+    synopsis: options.parsed.synopsis,
+    llmModel: options.parsed.llmModel,
     classifyMode: options.parsed.classifyMode,
     classifierWarning: options.parsed.classifierWarning,
     needsConfirm: options.parsed.needsConfirm,

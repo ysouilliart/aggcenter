@@ -337,7 +337,7 @@ export default function IntegrationsPage() {
             <dl className="mt-4 space-y-1 text-sm">
               <Row label="Prefix" value={data.peopleDocsClassify?.prefix ?? "aggcenter/peopleDocs/"} />
               <Row label="Mode" value={data.peopleDocsClassify?.mode ?? "static"} />
-              <Row label="Model" value={data.peopleDocsClassify?.model ?? "—"} />
+              <Row label="Parsing model" value={data.peopleDocsClassify?.model ?? "—"} />
               <Row
                 label="Sample seed"
                 value={data.peopleDocsClassify?.seedSamples ? "On" : "Off"}
@@ -347,8 +347,10 @@ export default function IntegrationsPage() {
               <p className="mt-3 text-xs text-amber-700">{data.peopleDocsClassify.warning}</p>
             ) : data.peopleDocsClassify?.llmReady ? (
               <p className="mt-3 text-xs text-slate-400">
-                People LLM is on. A dedicated PEOPLE_DOCS_LLM_API_KEY stays enabled even if
-                PEOPLE_DOCS_LLM_CLASSIFY=false (that flag only blocks invoice-key lab fallback).
+                People LLM is on. Change the parsing model on People docs; the next parse or
+                reprocess uses it for parameter matching and the synopsis. A dedicated
+                PEOPLE_DOCS_LLM_API_KEY stays enabled even if PEOPLE_DOCS_LLM_CLASSIFY=false
+                (that flag only blocks invoice-key lab fallback).
               </p>
             ) : (
               <p className="mt-3 text-xs text-slate-400">

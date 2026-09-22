@@ -7,7 +7,7 @@ import type { PeopleDocHeader } from "./types";
 export const PEOPLE_DOC_LLM_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["confidence", "header", "warnings", "reviewReasons"],
+  required: ["confidence", "header", "warnings", "reviewReasons", "synopsis"],
   properties: {
     confidence: { type: "integer", minimum: 0, maximum: 100 },
     header: {
@@ -28,6 +28,11 @@ export const PEOPLE_DOC_LLM_OUTPUT_SCHEMA = {
     },
     warnings: { type: "array", items: { type: "string" } },
     reviewReasons: { type: "array", items: { type: "string" } },
+    synopsis: {
+      type: "string",
+      description:
+        "Concise 2-4 sentence overview written in the model's own words. Not a quotation or extract of the source.",
+    },
   },
 } as const;
 
@@ -36,6 +41,42 @@ export interface PeopleDocLlmPayload {
   header: PeopleDocHeader;
   warnings: string[];
   reviewReasons: string[];
+  synopsis?: string;
+}
+
+const SYNOPSIS_MAX = 900;
+
+function isExtractDump(synopsis: string, sourceText: string): boolean {
+  const src = sourceText.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!src) return false;
+  const syn = synopsis.toLowerCase();
+  if (syn === src) return true;
+  if (syn.length >= 160 && src.includes(syn)) return true;
+  if (
+    src.length >= 40 &&
+    syn.length >= Math.floor(src.length * 0.75) &&
+    (src.includes(syn) || syn.includes(src.slice(0, Math.min(80, src.length))))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Keep a short model-authored overview. Drop blanks and text that is just
+ * the source extract pasted back.
+ */
+export function coerceSynopsis(value: unknown, sourceText = ""): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  if (collapsed.length < 12) return undefined;
+  const clipped =
+    collapsed.length > SYNOPSIS_MAX
+      ? collapsed.slice(0, SYNOPSIS_MAX).replace(/\s+\S*$/, "").trim()
+      : collapsed;
+  if (clipped.length < 12) return undefined;
+  if (isExtractDump(clipped, sourceText)) return undefined;
+  return clipped;
 }
 
 export type PeopleDocSchemaResult =
@@ -123,8 +164,9 @@ export function validatePeopleDocLlm(input: unknown): PeopleDocSchemaResult {
     : {};
   const warnings = asStringList(input.warnings, "warnings", errors);
   const reviewReasons = asStringList(input.reviewReasons, "reviewReasons", errors);
+  const synopsis = coerceSynopsis(input.synopsis);
   if (errors.length) {
     return { ok: false, error: errors.slice(0, 6).join("; ") };
   }
-  return { ok: true, value: { confidence, header, warnings, reviewReasons } };
+  return { ok: true, value: { confidence, header, warnings, reviewReasons, synopsis } };
 }

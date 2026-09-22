@@ -42,6 +42,7 @@ General:
 - If agreement ID, type, entity, or dates are missing or ambiguous, say so in reviewReasons.
 - confidence is 0–100 for how complete and reliable the mapping is.
 - You fill gaps the static parser misses. Do not contradict clearly labelled values in the text.
+- synopsis: always include this. Write 2 to 4 sentences, in your own words, describing what the document is, who it involves, and the term or obligation it sets. It is a reviewer overview, not a quote, field list, or extract. Do not copy sentences or paragraphs from the source.
 
 Schema:
 ${JSON.stringify(PEOPLE_DOC_LLM_OUTPUT_SCHEMA)}`;

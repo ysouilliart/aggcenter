@@ -10,11 +10,15 @@ import { formatDate } from "@/lib/format";
 import { peopleDocDisplayTitle } from "@/lib/peopleDocs/folders";
 import { useFetch } from "@/lib/useFetch";
 
+type ModelChoice = { id: string; label: string };
+
 type ClassifyStatus = {
   mode: "llm" | "static";
   llmReady: boolean;
   warning?: string;
   model?: string;
+  configuredModel?: string;
+  models?: ModelChoice[];
 };
 
 const EMPTY_DOCS: PeopleDocRecord[] = [];
@@ -55,10 +59,15 @@ export default function PeopleDocsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
+  const [savingModel, setSavingModel] = useState(false);
+  const [model, setModel] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const counts = summary.data?.byFolder;
+  const classify = summary.data?.classify;
+  const modelOptions = classify?.models ?? [];
+  const selectedModel = model ?? classify?.model ?? "";
 
   async function reloadAll() {
     list.reload();
@@ -79,6 +88,7 @@ export default function PeopleDocsPage() {
     try {
       const form = new FormData();
       form.append("file", file);
+      if (selectedModel) form.append("model", selectedModel);
       const res = await fetch("/api/people-docs", { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Upload failed");
@@ -98,7 +108,11 @@ export default function PeopleDocsPage() {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch("/api/people-docs/ingest", { method: "POST" });
+      const res = await fetch("/api/people-docs/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedModel ? { model: selectedModel } : {}),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
       setMessage(
@@ -123,14 +137,20 @@ export default function PeopleDocsPage() {
       const res = await fetch(`/api/people-docs/${activeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          ...(action === "reprocess" && selectedModel ? { model: selectedModel } : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `${action} failed`);
       const mode = json.doc?.classifyMode ?? json.doc?.doc?.classifyMode;
+      const parsedWith = json.doc?.llmModel as string | undefined;
       setMessage(
         action === "reprocess"
-          ? `Reprocessed (${mode ?? "static"}).`
+          ? parsedWith
+            ? `Reprocessed with ${parsedWith}.`
+            : `Reprocessed (${mode ?? "static"}).`
           : "Archived.",
       );
       await reloadAll();
@@ -138,6 +158,29 @@ export default function PeopleDocsPage() {
       setError(err instanceof Error ? err.message : `${action} failed`);
     } finally {
       setReprocessing(false);
+    }
+  }
+
+  async function handleModelChange(next: string) {
+    setModel(next);
+    setSavingModel(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/people-docs/model", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Could not change the parsing model");
+      setMessage(`Parsing model set to ${json.classify?.model ?? next}. Parse or reprocess a document to match fields and write a synopsis with it.`);
+      summary.reload();
+    } catch (err) {
+      setModel(null);
+      setError(err instanceof Error ? err.message : "Could not change the parsing model");
+    } finally {
+      setSavingModel(false);
     }
   }
 
@@ -154,18 +197,40 @@ export default function PeopleDocsPage() {
         <PageHeader
           className="mb-3"
           title="People docs"
-          subtitle="Hybrid classify for aggcenter/peopleDocs: static floor, then PEOPLE_DOCS_LLM_API_KEY. Reprocess after enabling LLM."
+          subtitle="Hybrid classify for aggcenter/peopleDocs. The selected model fills parameter gaps and writes the synopsis under the match."
           actions={
-            <Button type="button" variant="outlined" size="small" onClick={handleSync} disabled={syncing}>
-              {syncing ? "Syncing…" : "Sync landing folder"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-xs text-slate-500">
+                Parsing model
+                <select
+                  aria-label="Parsing model"
+                  value={selectedModel}
+                  onChange={(e) => void handleModelChange(e.target.value)}
+                  disabled={!classify || savingModel || modelOptions.length === 0}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 disabled:bg-slate-50"
+                >
+                  {modelOptions.length === 0 && selectedModel ? (
+                    <option value={selectedModel}>{selectedModel}</option>
+                  ) : null}
+                  {modelOptions.map((choice) => (
+                    <option key={choice.id} value={choice.id}>
+                      {choice.label}
+                      {choice.id === classify?.configuredModel ? " (env default)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="button" variant="outlined" size="small" onClick={handleSync} disabled={syncing}>
+                {syncing ? "Syncing…" : "Sync landing folder"}
+              </Button>
+            </div>
           }
         />
 
-        {summary.data?.classify?.warning ? (
-          <WarningNote message={summary.data.classify.warning} />
-        ) : summary.data?.classify?.llmReady ? (
-          <InfoNote message={`LLM classify is on (${summary.data.classify.model}). People-docs key is independent of invoices. Scripting stays the floor; extracted people-doc text is sent to the provider only when classify runs.`} />
+        {classify?.warning ? (
+          <WarningNote message={classify.warning} />
+        ) : classify?.llmReady ? (
+          <InfoNote message={`LLM classify is on (${classify.model}). People-docs key is independent of invoices. Scripting stays the floor. The model fills missing parameters and writes a synopsis. Extracted text is sent only when classify runs.`} />
         ) : null}
 
         {error ? <ErrorNote message={error} /> : null}
@@ -271,15 +336,17 @@ export default function PeopleDocsPage() {
           </div>
         </Card>
 
-        <Card className="flex min-h-0 flex-col overflow-hidden">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden p-0">
           {!activeId ? (
-            <p className="text-sm text-slate-500">Select a document to see classified fields.</p>
+            <p className="p-4 text-sm text-slate-500">Select a document to see classified fields.</p>
           ) : detail.loading && !selected ? (
-            <Spinner />
+            <div className="p-4">
+              <Spinner />
+            </div>
           ) : !selected ? (
-            <p className="text-sm text-slate-500">Document not found.</p>
+            <p className="p-4 text-sm text-slate-500">Document not found.</p>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
               <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-[13px] font-medium text-slate-800">{selected.doc.fileName}</h2>
@@ -317,7 +384,7 @@ export default function PeopleDocsPage() {
 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {selected.doc.classifierWarning &&
-                selected.doc.classifierWarning !== summary.data?.classify?.warning &&
+                selected.doc.classifierWarning !== classify?.warning &&
                 !/LLM classify is off/i.test(selected.doc.classifierWarning) ? (
                   <WarningNote message={selected.doc.classifierWarning} />
                 ) : selected.doc.classifyMode === "llm" ? (
@@ -327,6 +394,7 @@ export default function PeopleDocsPage() {
                   <WarningNote message={selected.doc.reviewReason} />
                 ) : null}
 
+                <h3 className="mb-2 text-xs font-medium text-slate-500">Matched parameters</h3>
                 <dl className="grid gap-3 sm:grid-cols-2">
                   {PEOPLE_DOC_FIELD_DEFS.map((def) => {
                     const field = fieldMap.get(def.key);
@@ -346,13 +414,24 @@ export default function PeopleDocsPage() {
                     );
                   })}
                 </dl>
-
-                {selected.doc.extractedText ? (
-                  <pre className="mt-4 max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-600 whitespace-pre-wrap">
-                    {selected.doc.extractedText.slice(0, 4000)}
-                  </pre>
-                ) : null}
               </div>
+
+              <section
+                className="mt-3 shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"
+                aria-label="Document synopsis"
+              >
+                <h3 className="text-xs font-medium text-slate-500">Synopsis</h3>
+                {selected.doc.synopsis ? (
+                  <p className="mt-1 text-sm leading-relaxed text-slate-800">{selected.doc.synopsis}</p>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500">
+                    No LLM synopsis for this document. Choose a parsing model and reprocess to generate one.
+                  </p>
+                )}
+                {selected.doc.llmModel ? (
+                  <p className="mt-2 text-xs text-slate-400">Parsed with {selected.doc.llmModel}</p>
+                ) : null}
+              </section>
             </div>
           )}
         </Card>

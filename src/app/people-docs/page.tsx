@@ -336,15 +336,17 @@ export default function PeopleDocsPage() {
           </div>
         </Card>
 
-        <Card className="flex min-h-0 flex-col overflow-hidden">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden p-0">
           {!activeId ? (
-            <p className="text-sm text-slate-500">Select a document to see classified fields.</p>
+            <p className="p-4 text-sm text-slate-500">Select a document to see classified fields.</p>
           ) : detail.loading && !selected ? (
-            <Spinner />
+            <div className="p-4">
+              <Spinner />
+            </div>
           ) : !selected ? (
-            <p className="text-sm text-slate-500">Document not found.</p>
+            <p className="p-4 text-sm text-slate-500">Document not found.</p>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
               <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-[13px] font-medium text-slate-800">{selected.doc.fileName}</h2>
@@ -412,21 +414,24 @@ export default function PeopleDocsPage() {
                     );
                   })}
                 </dl>
-
-                <section className="mt-4 rounded-lg border border-slate-100 px-3 py-3" aria-label="Document synopsis">
-                  <h3 className="text-xs font-medium text-slate-500">Synopsis</h3>
-                  {selected.doc.synopsis ? (
-                    <p className="mt-1 text-sm leading-relaxed text-slate-800">{selected.doc.synopsis}</p>
-                  ) : (
-                    <p className="mt-1 text-sm text-slate-500">
-                      No LLM synopsis for this document. Choose a parsing model and reprocess to generate one.
-                    </p>
-                  )}
-                  {selected.doc.llmModel ? (
-                    <p className="mt-2 text-xs text-slate-400">Parsed with {selected.doc.llmModel}</p>
-                  ) : null}
-                </section>
               </div>
+
+              <section
+                className="mt-3 shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"
+                aria-label="Document synopsis"
+              >
+                <h3 className="text-xs font-medium text-slate-500">Synopsis</h3>
+                {selected.doc.synopsis ? (
+                  <p className="mt-1 text-sm leading-relaxed text-slate-800">{selected.doc.synopsis}</p>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500">
+                    No LLM synopsis for this document. Choose a parsing model and reprocess to generate one.
+                  </p>
+                )}
+                {selected.doc.llmModel ? (
+                  <p className="mt-2 text-xs text-slate-400">Parsed with {selected.doc.llmModel}</p>
+                ) : null}
+              </section>
             </div>
           )}
         </Card>

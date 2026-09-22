@@ -194,7 +194,7 @@ export default function SupplierRecordsPage() {
                         <td className="px-4 py-1.5">
                           <div className="font-medium text-slate-900">{g.supplier.name}</div>
                           <div className="text-xs text-slate-500">
-                            {g.supplier.supplierNumber} · {dash(g.supplier.type)}
+                            {g.supplier.supplierNumber} · VID {g.supplier.id} · {dash(g.supplier.type)}
                           </div>
                         </td>
                         <td className="px-4 py-1.5 tabular-nums text-slate-700">{g.siteCount}</td>

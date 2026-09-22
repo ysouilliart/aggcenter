@@ -92,12 +92,12 @@ function OuTags({ units }: { units: SiteOperatingUnit[] }) {
         return (
           <span
             key={key}
-            className="inline-flex max-w-full items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700"
+            className="flex max-w-full flex-col rounded bg-slate-100 px-1.5 py-0.5 text-[10px] leading-tight text-slate-700"
             title={ou.orgId ? `${name} · OU ID ${ou.orgId}` : name}
           >
-            <span className="truncate">{name}</span>
+            <span className="truncate font-medium">{name}</span>
             {ou.orgId ? (
-              <span className="shrink-0 font-mono text-slate-500">{ou.orgId}</span>
+              <span className="font-mono text-slate-500">OU ID {ou.orgId}</span>
             ) : null}
           </span>
         );
@@ -146,7 +146,7 @@ const nodeTypes: NodeTypes = {
 function siteNodeHeight(record: SupplierRecord): number {
   const units = Math.max(1, siteOperatingUnits(record.site).length);
   const issueRows = siteIssuesFor(record).length > 2 ? 2 : 1;
-  return 118 + units * 22 + issueRows * 22;
+  return 124 + units * 32 + issueRows * 22;
 }
 
 function buildGraph(

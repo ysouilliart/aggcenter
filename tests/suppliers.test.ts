@@ -330,6 +330,39 @@ describe("mapSupplierExtracts", () => {
     ]);
   });
 
+  it("matches Oracle decimal VID, SID and ORG_ID to the site extract", () => {
+    const mapped = mapSupplierExtracts({
+      profiles: [{ vid: "1001", supplier_name: "CMS", supplier_number: "101774" }],
+      sites: [
+        {
+          vid: "1001",
+          sid: "2001",
+          supplier_site: "UTRECHT",
+          address_name: "UTRECHT",
+          payment_terms: "30 Days",
+        },
+      ],
+      addresses: [],
+      vat: [
+        {
+          vid: "1001.00000000",
+          sid: "2001.00000000",
+          operating_unit: "OU: ResMed - Spain",
+          org_id: "989.00000000",
+          supplier_vat: "NL814016479B01",
+          site_vat: "NL814016479B01",
+          vendor_site_code: "UTRECHT",
+          supplier_number: "101774",
+        },
+      ],
+    });
+    expect(mapped.sites[0].id).toBe("2001");
+    expect(mapped.sites[0].supplierId).toBe("1001");
+    expect(mapped.sites[0].operatingUnit).toBe("OU: ResMed - Spain");
+    expect(mapped.sites[0].orgId).toBe("989");
+    expect(mapped.sites[0].siteVat).toBe("NL814016479B01");
+  });
+
   it("does not list unmatched VAT-only rows as records", () => {
     const mapped = mapSupplierExtracts({
       profiles: [],

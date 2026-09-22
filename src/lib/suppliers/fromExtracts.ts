@@ -6,6 +6,13 @@ function blank(value: string | undefined): string {
   return (value ?? "").trim();
 }
 
+/** Oracle extracts emit integer ids as `167497.00000000`. Compare the integer form. */
+function idKey(value: string | undefined): string {
+  const s = blank(value);
+  const match = /^(\d+)\.0+$/.exec(s);
+  return match ? match[1] : s;
+}
+
 function yn(value: string | undefined): boolean {
   return /^y|yes|true|1$/i.test(blank(value));
 }
@@ -51,7 +58,7 @@ function collectVat(rows: Record<string, string>[]): {
     if (!supplierVat && blank(row.supplier_vat)) supplierVat = blank(row.supplier_vat);
     if (!siteVat && blank(row.site_vat)) siteVat = blank(row.site_vat);
     const name = blank(row.operating_unit);
-    const orgId = blank(row.org_id);
+    const orgId = idKey(row.org_id);
     if (!name && !orgId) continue;
     const key = `${name}|${orgId}`;
     if (seen.has(key)) continue;
@@ -84,14 +91,14 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
 
   const profileByVid = new Map<string, Record<string, string>>();
   for (const row of profiles) {
-    const vid = blank(row.vid);
+    const vid = idKey(row.vid);
     if (vid) profileByVid.set(vid, row);
   }
 
   const addressByVidName = new Map<string, Record<string, string>>();
   const addressByVid = new Map<string, Record<string, string>[]>();
   for (const row of addresses) {
-    const vid = blank(row.vid);
+    const vid = idKey(row.vid);
     const name = blank(row.address_name).toUpperCase();
     if (vid && name) addressByVidName.set(`${vid}|${name}`, row);
     if (vid) {
@@ -107,8 +114,8 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
   const vatByVid = new Map<string, Record<string, string>[]>();
   for (const row of vatRows) {
     const num = blank(row.supplier_number);
-    const vid = blank(row.vid);
-    const sid = blank(row.sid);
+    const vid = idKey(row.vid);
+    const sid = idKey(row.sid);
     if (num) {
       const listN = vatByNumber.get(num) ?? [];
       listN.push(row);
@@ -163,9 +170,9 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
   }
 
   for (const row of sites) {
-    const vid = blank(row.vid);
+    const vid = idKey(row.vid);
     const sid = uniqueId(
-      blank(row.sid) || `${vid}-${slug(blank(row.supplier_site))}`,
+      idKey(row.sid) || `${vid}-${slug(blank(row.supplier_site))}`,
       usedSiteIds,
     );
     const profile = profileByVid.get(vid);
@@ -173,7 +180,7 @@ export function mapSupplierExtracts(input: SupplierExtracts): {
     const address =
       addressByVidName.get(`${vid}|${blank(row.address_name).toUpperCase()}`) ??
       addressByVid.get(vid)?.[0];
-    const byIds = vatByVidSid.get(vidSidKey(vid, blank(row.sid))) ?? [];
+    const byIds = vatByVidSid.get(vidSidKey(vid, idKey(row.sid))) ?? [];
     const vatHits = byIds.length
       ? byIds
       : (vatByCode.get(siteKey(supplierNumber, blank(row.supplier_site))) ?? []);

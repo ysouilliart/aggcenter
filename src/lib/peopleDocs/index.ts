@@ -1,5 +1,7 @@
 export type {
   PeopleDocDetail,
+  PeopleDocLandingFile,
+  PeopleDocLandingList,
   PeopleDocParseJob,
   PeopleDocRecord,
   PeopleDocSearchExport,
@@ -13,11 +15,14 @@ export {
   getPeopleDocDetail,
   getPeopleDocFile,
   getPeopleDocSummary,
+  ingestPeopleDocLandingFile,
   ingestPeopleDocs,
+  listPeopleDocLanding,
   listPeopleDocs,
   reprocessPeopleDoc,
   uploadPeopleDoc,
 } from "./ingest";
+export { PeopleDocLandingError } from "./ingest";
 export {
   PEOPLE_DOC_SEARCH_TEXT_EXCERPT_MAX,
   exportPeopleDocsKeywordSearch,

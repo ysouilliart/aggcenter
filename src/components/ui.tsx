@@ -67,16 +67,37 @@ export function Card({
   className?: string;
 }) {
   const flush = /(^|\s)p-0(\s|$)/.test(className);
+  const column = className.includes("flex-col");
   return (
     <MuiCard
       variant="outlined"
       className={className}
       sx={{
         display: className.includes("flex") ? "flex" : undefined,
-        flexDirection: className.includes("flex-col") ? "column" : undefined,
+        flexDirection: column ? "column" : undefined,
+        minHeight: className.includes("min-h-0") ? 0 : undefined,
+        overflow: className.includes("overflow-hidden") ? "hidden" : undefined,
       }}
     >
-      {flush ? children : <CardContent>{children}</CardContent>}
+      {flush ? (
+        children
+      ) : (
+        <CardContent
+          sx={
+            column
+              ? {
+                  display: "flex",
+                  flex: 1,
+                  flexDirection: "column",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }
+              : undefined
+          }
+        >
+          {children}
+        </CardContent>
+      )}
     </MuiCard>
   );
 }
@@ -162,6 +183,17 @@ export function StatusBadge({ status }: { status: string }) {
       color={color}
       variant={color === "default" ? "outlined" : "filled"}
       sx={{ textTransform: "capitalize" }}
+    />
+  );
+}
+
+/** Landing files stay "Not processed" until a run moves them out of landing. */
+export function ProcessPill({ processed }: { processed: boolean }) {
+  return (
+    <Chip
+      label={processed ? "Processed" : "Not processed"}
+      color={processed ? "success" : "warning"}
+      variant={processed ? "filled" : "outlined"}
     />
   );
 }

@@ -7,7 +7,10 @@ import { getConfig, resolveInvoiceClassifyConfig, resolvePeopleDocsClassifyConfi
 import { folderForPeopleDocStatus } from "@/lib/peopleDocs/fromParse";
 import { peopleDocDisplayTitle } from "@/lib/peopleDocs/folders";
 import {
+  ingestPeopleDocLandingFile,
   ingestPeopleDocs,
+  listPeopleDocLanding,
+  PeopleDocLandingError,
   reprocessPeopleDoc,
   uploadPeopleDoc,
 } from "@/lib/peopleDocs/ingest";
@@ -506,6 +509,68 @@ describe("people doc ingest", () => {
     if (fetchMock.mock.calls.length > 1) {
       expect(again?.synopsis).toMatch(/fixed term/i);
     }
+  });
+
+  it("lists landing files without parsing them, then runs one file", async () => {
+    stubPeopleDocLlm();
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
+    const prefix = "aggcenter/peopleDocs/";
+    const landedKey = `${prefix}landing/new-agreement.txt`;
+    const otherKey = `${prefix}landing/still-waiting.txt`;
+    await storage.put(landedKey, Buffer.from(FULL_LINES.join("\n")), "text/plain");
+    await storage.put(otherKey, Buffer.from("Waiting in landing."), "text/plain");
+
+    const before = await listPeopleDocLanding({ storage, repo, prefix });
+    expect(before.provider).toBe("local");
+    expect(before.files.map((file) => file.fileName).sort()).toEqual([
+      "new-agreement.txt",
+      "still-waiting.txt",
+    ]);
+    expect(before.files.every((file) => file.processed === false)).toBe(true);
+    expect(await repo.list()).toHaveLength(0);
+
+    await expect(
+      ingestPeopleDocLandingFile({
+        key: `${prefix}processed/PD-1/new-agreement.txt`,
+        storage,
+        repo,
+        prefix,
+      }),
+    ).rejects.toBeInstanceOf(PeopleDocLandingError);
+
+    const ran = await ingestPeopleDocLandingFile({
+      key: landedKey,
+      storage,
+      repo,
+      prefix,
+    });
+    expect(ran.skipped).toBeUndefined();
+    expect(ran.doc.fileName).toBe("new-agreement.txt");
+    expect(ran.doc.folder).toBe("processed");
+    expect(await storage.list(`${prefix}landing/`)).toEqual([
+      expect.objectContaining({ key: otherKey }),
+    ]);
+
+    const after = await listPeopleDocLanding({ storage, repo, prefix });
+    expect(after.files).toEqual([
+      expect.objectContaining({ key: otherKey, fileName: "still-waiting.txt", processed: false }),
+    ]);
+
+    const duplicateKey = `${prefix}landing/copy-agreement.txt`;
+    await storage.put(duplicateKey, Buffer.from(FULL_LINES.join("\n")), "text/plain");
+    const duplicate = await ingestPeopleDocLandingFile({
+      key: duplicateKey,
+      storage,
+      repo,
+      prefix,
+    });
+    expect(duplicate.skipped).toBe("duplicate content");
+    expect(duplicate.doc.id).toBe(ran.doc.id);
+    expect((await listPeopleDocLanding({ storage, repo, prefix })).files.map((file) => file.key)).toEqual([
+      otherKey,
+    ]);
   });
 
   it("resolves people-docs LLM independently of invoice classify", () => {

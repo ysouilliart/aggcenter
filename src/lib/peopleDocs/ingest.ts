@@ -19,7 +19,23 @@ import { folderForPeopleDocStatus, recordsFromPeopleDocParse } from "./fromParse
 import { getPeopleDocRepository, type PeopleDocRepository } from "./repository";
 import { searchPeopleDocs } from "./search";
 import type { PeopleDocFolder } from "../parse/peopleDocs/types";
-import type { PeopleDocRecord, PeopleDocSource, PeopleDocSummary } from "./types";
+import type {
+  PeopleDocLandingFile,
+  PeopleDocLandingList,
+  PeopleDocRecord,
+  PeopleDocSource,
+  PeopleDocSummary,
+} from "./types";
+
+export class PeopleDocLandingError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = "PeopleDocLandingError";
+    this.status = status;
+  }
+}
 
 const SAMPLE_DIR = path.join(process.cwd(), "data/sample/people-docs/landing");
 
@@ -211,6 +227,122 @@ export async function ingestPeopleDocs(deps?: PeopleDocIngestDeps): Promise<Peop
     skipped,
     errors,
   };
+}
+
+function landingPrefixFor(prefix: string): string {
+  return `${withTrailingSlash(prefix)}landing/`;
+}
+
+function assertLandingObjectKey(prefix: string, key: string): string {
+  const landingPrefix = landingPrefixFor(prefix);
+  const normalized = key.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized || normalized.includes("..") || !normalized.startsWith(landingPrefix)) {
+    throw new PeopleDocLandingError("Choose a file from the people-docs landing folder.");
+  }
+  if (!isPeopleDocFileName(normalized)) {
+    throw new PeopleDocLandingError("That file type cannot be parsed as a people document.");
+  }
+  return normalized;
+}
+
+async function removeStaleLandingCopy(
+  storage: StorageProvider,
+  key: string,
+  storageKey?: string,
+): Promise<void> {
+  if (!storageKey || storageKey === key) return;
+  try {
+    await storage.delete(key);
+  } catch {
+    /* landing originals can stay if delete is unsupported */
+  }
+}
+
+export async function listPeopleDocLanding(deps?: {
+  storage?: StorageProvider;
+  repo?: PeopleDocRepository;
+  prefix?: string;
+}): Promise<PeopleDocLandingList> {
+  const storage = deps?.storage ?? getStorageProvider();
+  const repo = deps?.repo ?? getPeopleDocRepository();
+  const prefix = withTrailingSlash(deps?.prefix ?? getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
+  const objects = (await storage.list(landingPrefixFor(prefix))).filter((object) =>
+    isPeopleDocFileName(object.key),
+  );
+  const docs = await repo.list();
+  const byOriginalKey = new Map(
+    docs.flatMap((doc) => (doc.originalKey ? [[doc.originalKey, doc] as const] : [])),
+  );
+
+  const files: PeopleDocLandingFile[] = objects.map((object) => {
+    const doc = byOriginalKey.get(object.key);
+    const processed = Boolean(doc && doc.folder !== "landing");
+    return {
+      key: object.key,
+      fileName: fileNameOf(object.key),
+      size: object.size,
+      lastModified: object.lastModified,
+      processed,
+      docId: doc?.id,
+      folder: doc?.folder,
+    };
+  });
+  files.sort(
+    (a, b) => b.lastModified.localeCompare(a.lastModified) || a.fileName.localeCompare(b.fileName),
+  );
+
+  return { provider: storage.name, prefix, files };
+}
+
+export async function ingestPeopleDocLandingFile(input: {
+  key: string;
+  model?: string;
+  storage?: StorageProvider;
+  repo?: PeopleDocRepository;
+  prefix?: string;
+}): Promise<{ doc: PeopleDocRecord; skipped?: string }> {
+  const model = selectPeopleDocModelForParse(input.model);
+  const storage = input.storage ?? getStorageProvider();
+  const repo = input.repo ?? getPeopleDocRepository();
+  const prefix = withTrailingSlash(input.prefix ?? getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
+  const key = assertLandingObjectKey(prefix, input.key);
+
+  const existing = await repo.findByOriginalKey(key);
+  if (existing) {
+    await removeStaleLandingCopy(storage, key, existing.storageKey);
+    return { doc: existing, skipped: "already ingested" };
+  }
+
+  let buf: Buffer;
+  try {
+    buf = await storage.get(key);
+  } catch {
+    throw new PeopleDocLandingError(
+      "That landing file is no longer in the bucket. Refresh and try again.",
+      404,
+    );
+  }
+
+  const hashed = await repo.findByHash(hashOf(buf));
+  if (hashed) {
+    await removeStaleLandingCopy(storage, key, hashed.storageKey);
+    return { doc: hashed, skipped: "duplicate content" };
+  }
+
+  const fileName = fileNameOf(key);
+  const doc = await persistParse({
+    repo,
+    storage,
+    prefix,
+    id: docIdFor(key),
+    fileName,
+    buf,
+    source: storage.name === "oci" ? "oci" : "upload",
+    originalKey: key,
+    currentKey: key,
+    model,
+  });
+  return { doc };
 }
 
 export async function uploadPeopleDoc(input: {

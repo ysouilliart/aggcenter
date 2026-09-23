@@ -65,16 +65,20 @@ export default function PeopleDocsPage() {
     () => new Set(docs.flatMap((doc) => (doc.originalKey ? [doc.originalKey] : []))),
     [docs],
   );
+  const unprocessedLanding = useMemo(
+    () =>
+      landingFiles.filter((file) => {
+        if (file.processed) return false;
+        if (file.docId && docIds.has(file.docId)) return false;
+        return !docOriginalKeys.has(file.key);
+      }),
+    [docIds, docOriginalKeys, landingFiles],
+  );
   const pendingLanding = useMemo(() => {
     const keyword = appliedKeyword.toLowerCase();
-    return landingFiles.filter((file) => {
-      if (file.processed) return false;
-      if (file.docId && docIds.has(file.docId)) return false;
-      if (docOriginalKeys.has(file.key)) return false;
-      if (!keyword) return true;
-      return file.fileName.toLowerCase().includes(keyword);
-    });
-  }, [appliedKeyword, docIds, docOriginalKeys, landingFiles]);
+    if (!keyword) return unprocessedLanding;
+    return unprocessedLanding.filter((file) => file.fileName.toLowerCase().includes(keyword));
+  }, [appliedKeyword, unprocessedLanding]);
   const landingSelection =
     pendingLanding.find((file) => selectedId === landingSelectionId(file.key)) ?? null;
   const selectedDocId = selectedId && !selectedId.startsWith("landing:") ? selectedId : null;
@@ -330,7 +334,7 @@ export default function PeopleDocsPage() {
         {message ? <SuccessNote message={message} /> : null}
 
         <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Landing" value={String(counts?.landing ?? 0)} sub="Drop zone" />
+          <KpiCard label="Landing" value={String(unprocessedLanding.length)} sub="Drop zone" />
           <KpiCard
             label="Processed"
             value={String(counts?.processed ?? 0)}

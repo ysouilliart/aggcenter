@@ -14,8 +14,9 @@ export function recordsFromPeopleDocParse(options: {
   parsed: PeopleDocParseResult;
   uploadedAt?: string;
   startedAt?: string;
+  processedAt?: string;
 }): { doc: PeopleDocRecord; parsed: PeopleDocParseResult; job: PeopleDocParseJob } {
-  const finishedAt = new Date().toISOString();
+  const finishedAt = options.processedAt ?? new Date().toISOString();
   const uploadedAt = options.uploadedAt ?? finishedAt;
   const header = options.parsed.header;
   const doc: PeopleDocRecord = {

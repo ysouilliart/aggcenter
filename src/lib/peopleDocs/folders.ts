@@ -7,14 +7,47 @@ export function withTrailingSlash(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;
 }
 
+/**
+ * Process day as dd-mm-yyyy. Object keys cannot use `/` inside one folder
+ * name, so 23/09/2026 is stored as the single subfolder `23-09-2026`.
+ */
+export function peopleDocProcessDay(iso: string): string {
+  const parsed = new Date(iso);
+  const when = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const dd = String(when.getUTCDate()).padStart(2, "0");
+  const mm = String(when.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = String(when.getUTCFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+export function isPeopleDocProcessDay(segment: string): boolean {
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(segment)) return false;
+  const [dd, mm, yyyy] = segment.split("-").map((part) => Number(part));
+  const when = new Date(Date.UTC(yyyy, mm - 1, dd));
+  return (
+    when.getUTCFullYear() === yyyy && when.getUTCMonth() === mm - 1 && when.getUTCDate() === dd
+  );
+}
+
+/** File name, with an id suffix only when two documents would share one day folder. */
+export function peopleDocObjectName(fileName: string, disambiguator?: string): string {
+  const safe = fileName.replace(/[/\\]/g, "_").trim() || "document";
+  if (!disambiguator) return safe;
+  const dot = safe.lastIndexOf(".");
+  if (dot <= 0) return `${safe}__${disambiguator}`;
+  return `${safe.slice(0, dot)}__${disambiguator}${safe.slice(dot)}`;
+}
+
 export function peopleDocFolderKey(
   prefix: string,
   folder: PeopleDocFolder,
-  docId: string,
   fileName: string,
+  processedOn: string,
+  disambiguator?: string,
 ): string {
-  const safe = fileName.replace(/[/\\]/g, "_");
-  return `${withTrailingSlash(prefix)}${folder}/${docId}/${safe}`;
+  const name = peopleDocObjectName(fileName, disambiguator);
+  if (folder === "landing") return landingKey(prefix, name);
+  return `${withTrailingSlash(prefix)}${folder}/${peopleDocProcessDay(processedOn)}/${name}`;
 }
 
 export function landingKey(prefix: string, fileName: string): string {

@@ -19,6 +19,7 @@ export {
   ingestPeopleDocs,
   listPeopleDocLanding,
   listPeopleDocs,
+  regroupPeopleDocsByProcessDay,
   reprocessPeopleDoc,
   uploadPeopleDoc,
 } from "./ingest";
@@ -35,4 +36,10 @@ export {
 export type { PeopleDocSearchFilter } from "./search";
 export { folderForPeopleDocStatus } from "./fromParse";
 export { getPeopleDocRepository, resetPeopleDocRepositoryCache } from "./repository";
-export { DEFAULT_PEOPLE_DOCS_PREFIX, peopleDocFolderKey, landingKey } from "./folders";
+export {
+  DEFAULT_PEOPLE_DOCS_PREFIX,
+  isPeopleDocProcessDay,
+  landingKey,
+  peopleDocFolderKey,
+  peopleDocProcessDay,
+} from "./folders";

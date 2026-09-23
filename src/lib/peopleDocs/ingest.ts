@@ -11,6 +11,7 @@ import {
   contentTypeForName,
   DEFAULT_PEOPLE_DOCS_PREFIX,
   isPeopleDocFileName,
+  isPeopleDocProcessDay,
   landingKey,
   peopleDocFolderKey,
   withTrailingSlash,
@@ -19,12 +20,13 @@ import { folderForPeopleDocStatus, recordsFromPeopleDocParse } from "./fromParse
 import { getPeopleDocRepository, type PeopleDocRepository } from "./repository";
 import { searchPeopleDocs } from "./search";
 import type { PeopleDocFolder } from "../parse/peopleDocs/types";
-import type {
-  PeopleDocLandingFile,
-  PeopleDocLandingList,
-  PeopleDocRecord,
-  PeopleDocSource,
-  PeopleDocSummary,
+import {
+  PEOPLE_DOC_FOLDERS,
+  type PeopleDocLandingFile,
+  type PeopleDocLandingList,
+  type PeopleDocRecord,
+  type PeopleDocSource,
+  type PeopleDocSummary,
 } from "./types";
 
 export class PeopleDocLandingError extends Error {
@@ -87,6 +89,35 @@ async function putCopy(
   }
 }
 
+const DAY_FOLDERS: PeopleDocFolder[] = PEOPLE_DOC_FOLDERS.filter((folder) => folder !== "landing");
+
+async function resolvePeopleDocStorageKey(options: {
+  repo: PeopleDocRepository;
+  prefix: string;
+  folder: PeopleDocFolder;
+  id: string;
+  fileName: string;
+  processedOn: string;
+}): Promise<string> {
+  const primary = peopleDocFolderKey(
+    options.prefix,
+    options.folder,
+    options.fileName,
+    options.processedOn,
+  );
+  if (options.folder === "landing") return primary;
+  const docs = await options.repo.list();
+  const clash = docs.some((doc) => doc.storageKey === primary && doc.id !== options.id);
+  if (!clash) return primary;
+  return peopleDocFolderKey(
+    options.prefix,
+    options.folder,
+    options.fileName,
+    options.processedOn,
+    options.id,
+  );
+}
+
 async function persistParse(options: {
   repo: PeopleDocRepository;
   storage: StorageProvider;
@@ -104,7 +135,15 @@ async function persistParse(options: {
     model: options.model,
   });
   const destFolder = folderForPeopleDocStatus(parsed.status, { needsConfirm: parsed.needsConfirm });
-  const destKey = peopleDocFolderKey(options.prefix, destFolder, options.id, options.fileName);
+  const processedAt = new Date().toISOString();
+  const destKey = await resolvePeopleDocStorageKey({
+    repo: options.repo,
+    prefix: options.prefix,
+    folder: destFolder,
+    id: options.id,
+    fileName: options.fileName,
+    processedOn: processedAt,
+  });
   await options.storage.put(destKey, options.buf, contentTypeForName(options.fileName));
   if (options.currentKey !== destKey) {
     try {
@@ -123,6 +162,7 @@ async function persistParse(options: {
     storageKey: destKey,
     originalKey: options.originalKey,
     parsed,
+    processedAt,
   });
   await options.repo.saveParsed({
     doc: bundle.doc,
@@ -398,7 +438,15 @@ export async function archivePeopleDoc(id: string): Promise<PeopleDocRecord | un
   const prefix = withTrailingSlash(getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
   const detail = await repo.get(id);
   if (!detail) return undefined;
-  const dest = peopleDocFolderKey(prefix, "archived", id, detail.doc.fileName);
+  const processedOn = detail.doc.processedAt ?? new Date().toISOString();
+  const dest = await resolvePeopleDocStorageKey({
+    repo,
+    prefix,
+    folder: "archived",
+    id,
+    fileName: detail.doc.fileName,
+    processedOn,
+  });
   if (detail.doc.storageKey && detail.doc.storageKey !== dest) {
     const buf = await storage.get(detail.doc.storageKey);
     await putCopy(storage, detail.doc.storageKey, dest, buf, detail.doc.fileName);
@@ -407,6 +455,105 @@ export async function archivePeopleDoc(id: string): Promise<PeopleDocRecord | un
     storageKey: dest,
     archivedAt: new Date().toISOString(),
   });
+}
+
+export interface PeopleDocRegroupResult {
+  moved: { from: string; to: string }[];
+  skipped: { key: string; reason: string }[];
+  errors: { key: string; error: string }[];
+}
+
+function folderOfRelative(parts: string[]): PeopleDocFolder | undefined {
+  const folder = parts[0];
+  return DAY_FOLDERS.find((candidate) => candidate === folder);
+}
+
+/**
+ * Move processed, anomaly, and archived objects out of per-file subfolders
+ * into `dd-mm-yyyy` folders. Landing is left as a flat drop zone.
+ */
+export async function regroupPeopleDocsByProcessDay(deps?: {
+  storage?: StorageProvider;
+  repo?: PeopleDocRepository;
+  prefix?: string;
+}): Promise<PeopleDocRegroupResult> {
+  const storage = deps?.storage ?? getStorageProvider();
+  const repo = deps?.repo ?? getPeopleDocRepository();
+  const prefix = withTrailingSlash(deps?.prefix ?? getConfig().peopleDocsPrefix ?? DEFAULT_PEOPLE_DOCS_PREFIX);
+  const docs = await repo.list();
+  const byStorage = new Map(
+    docs.flatMap((doc) => (doc.storageKey ? [[doc.storageKey, doc] as const] : [])),
+  );
+  const reserved = new Set<string>();
+  const moved: PeopleDocRegroupResult["moved"] = [];
+  const skipped: PeopleDocRegroupResult["skipped"] = [];
+  const errors: PeopleDocRegroupResult["errors"] = [];
+  const pending: { key: string; folder: PeopleDocFolder; lastModified: string }[] = [];
+
+  for (const folder of DAY_FOLDERS) {
+    const objects = await storage.list(`${prefix}${folder}/`);
+    for (const object of objects) {
+      const relative = object.key.startsWith(prefix) ? object.key.slice(prefix.length) : object.key;
+      const parts = relative.split("/").filter(Boolean);
+      const objectFolder = folderOfRelative(parts);
+      if (!objectFolder) {
+        skipped.push({ key: object.key, reason: "outside a people-doc folder" });
+        continue;
+      }
+      const flatFile = parts.length === 2 && (object.size > 0 || isPeopleDocFileName(parts[1] ?? ""));
+      const nestedFile = parts.length >= 3;
+      if (!flatFile && !nestedFile) {
+        skipped.push({ key: object.key, reason: "folder marker" });
+        continue;
+      }
+      if (nestedFile && isPeopleDocProcessDay(parts[1] ?? "") && parts.length === 3) {
+        reserved.add(object.key);
+        skipped.push({ key: object.key, reason: "already grouped by process day" });
+        continue;
+      }
+      pending.push({ key: object.key, folder: objectFolder, lastModified: object.lastModified });
+    }
+  }
+
+  for (const object of pending) {
+    const doc = byStorage.get(object.key);
+    const relative = object.key.startsWith(prefix) ? object.key.slice(prefix.length) : object.key;
+    const parts = relative.split("/").filter(Boolean);
+    const fileName = doc?.fileName ?? parts[parts.length - 1] ?? "document";
+    const processedOn = doc?.processedAt ?? object.lastModified;
+    const folder = doc && DAY_FOLDERS.includes(doc.folder) ? doc.folder : object.folder;
+    let dest = peopleDocFolderKey(prefix, folder, fileName, processedOn);
+    if (reserved.has(dest) && dest !== object.key) {
+      dest = peopleDocFolderKey(prefix, folder, fileName, processedOn, doc?.id ?? fileNameOf(object.key));
+    }
+    if (dest === object.key) {
+      reserved.add(dest);
+      skipped.push({ key: object.key, reason: "already in place" });
+      continue;
+    }
+    try {
+      const buf = await storage.get(object.key);
+      await storage.put(dest, buf, contentTypeForName(fileName));
+      if (doc) {
+        await repo.updateFolder(doc.id, doc.folder, { storageKey: dest });
+      }
+      try {
+        await storage.delete(object.key);
+      } catch {
+        /* new copy is already stored */
+      }
+      reserved.add(dest);
+      byStorage.delete(object.key);
+      moved.push({ from: object.key, to: dest });
+    } catch (err) {
+      errors.push({
+        key: object.key,
+        error: err instanceof Error ? err.message : "Could not move the file",
+      });
+    }
+  }
+
+  return { moved, skipped, errors };
 }
 
 export async function reprocessPeopleDoc(

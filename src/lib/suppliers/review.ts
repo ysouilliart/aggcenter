@@ -1,6 +1,7 @@
 /**
  * Group field-level update audits into a final-review list: one row per
- * edited site, with net before → after for each changed field.
+ * edited supplier. Supplier-header changes are listed once; each site's
+ * net before → after sits on that site.
  */
 
 import type {
@@ -8,6 +9,7 @@ import type {
   Supplier,
   SupplierAuditEvent,
   SupplierReviewItem,
+  SupplierReviewSite,
   SupplierSite,
   SupplierVatCheck,
 } from "./types";
@@ -44,6 +46,24 @@ export function latestVatCheck(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 }
 
+function reviewSiteFrom(
+  site: SupplierSite,
+  events: SupplierAuditEvent[],
+  vatChecks: SupplierVatCheck[],
+  fallback?: SupplierAuditEvent,
+): SupplierReviewSite {
+  const last = latest(events) ?? fallback;
+  return {
+    site,
+    changes: netFieldChanges(events),
+    lastActor: last?.actor ?? "operator",
+    lastReason: last?.reason,
+    lastUpdatedAt: last?.createdAt ?? site.updatedAt,
+    updateCount: events.length,
+    vatCheck: latestVatCheck(vatChecks, site.id),
+  };
+}
+
 export function buildReviewItems(input: {
   suppliers: Supplier[];
   sites: SupplierSite[];
@@ -77,43 +97,58 @@ export function buildReviewItems(input: {
     }
   }
 
-  const selected = new Map<string, SupplierSite>();
+  const supplierIds = new Set<string>(supplierEvents.keys());
   for (const site of input.sites) {
-    if (siteEvents.has(site.id)) selected.set(site.id, site);
-  }
-  for (const [supplierId, events] of supplierEvents) {
-    const sites = sitesBySupplier.get(supplierId) ?? [];
-    const already = sites.filter((s) => selected.has(s.id));
-    if (already.length) continue;
-    // Header-only edit: show one review row on the first site of that supplier.
-    const first = sites[0];
-    if (first) selected.set(first.id, first);
-    else if (events.length) {
-      // No sites — skip; review is site-grained.
-    }
+    if (siteEvents.has(site.id)) supplierIds.add(site.supplierId);
   }
 
+  const vatChecks = input.vatChecks ?? [];
   const items: SupplierReviewItem[] = [];
-  for (const site of selected.values()) {
-    const supplier = suppliersById.get(site.supplierId);
+
+  for (const supplierId of supplierIds) {
+    const supplier = suppliersById.get(supplierId);
     if (!supplier) continue;
-    const events = [
-      ...(siteEvents.get(site.id) ?? []),
-      ...(supplierEvents.get(supplier.id) ?? []),
+
+    const headerEvents = supplierEvents.get(supplierId) ?? [];
+    const headerChanges = netFieldChanges(headerEvents);
+    const headerLast = latest(headerEvents);
+    const supplierSites = sitesBySupplier.get(supplierId) ?? [];
+    const edited = supplierSites.filter((site) => siteEvents.has(site.id));
+
+    const reviewSites: SupplierReviewSite[] = [];
+    if (edited.length) {
+      for (const site of edited) {
+        const events = siteEvents.get(site.id) ?? [];
+        const entry = reviewSiteFrom(site, events, vatChecks, headerLast);
+        if (entry.changes.length === 0) continue;
+        reviewSites.push(entry);
+      }
+    } else if (headerChanges.length && supplierSites[0]) {
+      // Header-only edit: keep one site so VAT validation still has a target.
+      reviewSites.push(reviewSiteFrom(supplierSites[0], [], vatChecks, headerLast));
+    }
+
+    if (headerChanges.length === 0 && reviewSites.length === 0) continue;
+
+    reviewSites.sort((a, b) => b.lastUpdatedAt.localeCompare(a.lastUpdatedAt));
+
+    const allEvents = [
+      ...headerEvents,
+      ...reviewSites.flatMap((entry) => siteEvents.get(entry.site.id) ?? []),
     ];
-    const changes = netFieldChanges(events);
-    if (changes.length === 0) continue;
-    const last = latest(events);
+    const last = latest(allEvents);
     items.push({
-      id: site.id,
+      id: supplier.id,
       supplier,
-      site,
-      changes,
+      changes: headerChanges,
+      headerUpdateCount: headerEvents.length,
+      headerActor: headerLast?.actor,
+      headerReason: headerLast?.reason,
+      sites: reviewSites,
       lastActor: last?.actor ?? "operator",
       lastReason: last?.reason,
-      lastUpdatedAt: last?.createdAt ?? site.updatedAt,
-      updateCount: events.length,
-      vatCheck: latestVatCheck(input.vatChecks ?? [], site.id),
+      lastUpdatedAt: last?.createdAt ?? supplier.updatedAt,
+      updateCount: allEvents.length,
     });
   }
 

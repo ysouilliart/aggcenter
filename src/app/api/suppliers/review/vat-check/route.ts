@@ -23,21 +23,28 @@ export async function POST(request: Request) {
     const forcedScope = asScope(body.scope);
     let ids = (body.ids ?? []).map((id) => String(id)).filter(Boolean);
     const { items } = await listSupplierReview();
+    const sites = items.flatMap((item) =>
+      item.sites.map((entry) => ({
+        siteId: entry.site.id,
+        siteVat: entry.site.siteVat,
+        supplierVat: item.supplier.supplierVat,
+      })),
+    );
     if (ids.length === 0) {
-      ids = items
-        .filter((item) => Boolean(item.site.siteVat || item.supplier.supplierVat))
-        .map((item) => item.id);
+      ids = sites
+        .filter((entry) => Boolean(entry.siteVat.trim() || entry.supplierVat.trim()))
+        .map((entry) => entry.siteId);
     }
     ids = [...new Set(ids)].slice(0, MAX_BATCH);
     if (ids.length === 0) {
       return NextResponse.json({ checks: [], errors: [], skipped: true });
     }
-    const byId = new Map(items.map((item) => [item.id, item]));
+    const bySiteId = new Map(sites.map((entry) => [entry.siteId, entry]));
     const checks = [];
     const errors: { id: string; error: string }[] = [];
     for (const id of ids) {
-      const item = byId.get(id);
-      const scope: VatScope = forcedScope ?? (item?.site.siteVat.trim() ? "site" : "supplier");
+      const entry = bySiteId.get(id);
+      const scope: VatScope = forcedScope ?? (entry?.siteVat.trim() ? "site" : "supplier");
       try {
         checks.push(await checkSupplierVat(id, body.actor, undefined, scope));
       } catch (err) {

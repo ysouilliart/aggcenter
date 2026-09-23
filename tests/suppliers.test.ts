@@ -646,7 +646,7 @@ describe("review grouping", () => {
     ]);
   });
 
-  it("builds one review row per updated site including header changes", () => {
+  it("builds one review row per updated supplier and keeps header changes once", () => {
     const items = buildReviewItems({
       suppliers: [supplier({ id: "1", name: "Acme NV", version: 2 })],
       sites: [
@@ -676,14 +676,190 @@ describe("review grouping", () => {
           oldValue: "Acme",
           newValue: "Acme NV",
           actor: "operator",
+          reason: "registered name",
           createdAt: "2026-09-11T10:00:01.000Z",
           version: 2,
         },
       ],
     });
     expect(items).toHaveLength(1);
-    expect(items[0].id).toBe("s1");
-    expect(items[0].changes.map((c) => c.field).sort()).toEqual(["name", "paymentTerms"]);
+    expect(items[0].id).toBe("1");
+    expect(items[0].changes).toEqual([{ field: "name", from: "Acme", to: "Acme NV" }]);
+    expect(items[0].headerReason).toBe("registered name");
+    expect(items[0].sites).toHaveLength(1);
+    expect(items[0].sites[0].site.id).toBe("s1");
+    expect(items[0].sites[0].changes).toEqual([
+      { field: "paymentTerms", from: "30 jours FM", to: "30 Days EOM" },
+    ]);
+  });
+
+  it("nests every edited site under one supplier row", () => {
+    const items = buildReviewItems({
+      suppliers: [
+        supplier({ id: "aura", name: "AURA IMPRIMEURS", supplierNumber: "39918" }),
+        supplier({ id: "other", name: "Vodafone Spain SL", supplierNumber: "40949" }),
+      ],
+      sites: [
+        site({
+          id: "s1",
+          supplierId: "aura",
+          siteCode: "24-26 Rue Des Haveurs",
+          siteVat: "FR35544970839",
+          city: "Saint-Etienne",
+        }),
+        site({
+          id: "s2",
+          supplierId: "aura",
+          siteCode: "24-26 Rue Des H",
+          siteVat: "FR35544970839",
+          city: "Lyon",
+        }),
+        site({
+          id: "s3",
+          supplierId: "aura",
+          siteCode: "ZI Montmartre",
+          siteVat: "FR35544970840",
+        }),
+        site({ id: "v1", supplierId: "other", siteCode: "MADRID", siteVat: "ESB6748189" }),
+      ],
+      audit: [
+        {
+          id: "a1",
+          recordType: "site",
+          recordId: "s1",
+          action: "update",
+          field: "city",
+          oldValue: "Lyon",
+          newValue: "Saint-Etienne",
+          actor: "operator",
+          createdAt: "2026-09-14T10:00:00.000Z",
+          version: 2,
+        },
+        {
+          id: "a2",
+          recordType: "site",
+          recordId: "s2",
+          action: "update",
+          field: "paymentTerms",
+          oldValue: "30 jours FM",
+          newValue: "30 Days EOM",
+          actor: "operator",
+          createdAt: "2026-09-14T11:00:00.000Z",
+          version: 2,
+        },
+        {
+          id: "a3",
+          recordType: "site",
+          recordId: "s3",
+          action: "update",
+          field: "inactiveDate",
+          oldValue: "",
+          newValue: "2026-09-01",
+          actor: "operator",
+          createdAt: "2026-09-14T09:00:00.000Z",
+          version: 2,
+        },
+        {
+          id: "a4",
+          recordType: "supplier",
+          recordId: "aura",
+          action: "update",
+          field: "name",
+          oldValue: "AURA",
+          newValue: "AURA IMPRIMEURS",
+          actor: "operator",
+          createdAt: "2026-09-14T08:00:00.000Z",
+          version: 2,
+        },
+        {
+          id: "a5",
+          recordType: "site",
+          recordId: "v1",
+          action: "update",
+          field: "city",
+          oldValue: "Barcelona",
+          newValue: "Madrid",
+          actor: "operator",
+          createdAt: "2026-09-12T10:00:00.000Z",
+          version: 2,
+        },
+      ],
+      vatChecks: [
+        {
+          id: "c1",
+          siteId: "s1",
+          supplierId: "aura",
+          vatScope: "site",
+          vatNumber: "FR35544970839",
+          countryCode: "FR",
+          validity: "inconclusive",
+          nameMatch: "unknown",
+          addressMatch: "unknown",
+          message: "inconclusive",
+          actor: "operator",
+          createdAt: "2026-09-14T12:00:00.000Z",
+        },
+        {
+          id: "c2",
+          siteId: "s2",
+          supplierId: "aura",
+          vatScope: "site",
+          vatNumber: "FR35544970839",
+          countryCode: "FR",
+          validity: "valid",
+          nameMatch: "match",
+          addressMatch: "match",
+          message: "valid",
+          actor: "operator",
+          createdAt: "2026-09-14T12:05:00.000Z",
+        },
+      ],
+    });
+
+    expect(items.map((item) => item.id)).toEqual(["aura", "other"]);
+    const aura = items[0];
+    expect(aura.changes.map((change) => change.field)).toEqual(["name"]);
+    expect(aura.sites.map((entry) => entry.site.id)).toEqual(["s2", "s1", "s3"]);
+    expect(aura.sites.find((entry) => entry.site.id === "s1")?.changes.map((c) => c.field)).toEqual([
+      "city",
+    ]);
+    expect(aura.sites.find((entry) => entry.site.id === "s1")?.vatCheck?.validity).toBe(
+      "inconclusive",
+    );
+    expect(aura.sites.find((entry) => entry.site.id === "s2")?.vatCheck?.validity).toBe("valid");
+    expect(aura.sites.find((entry) => entry.site.id === "s3")?.vatCheck).toBeUndefined();
+    expect(items[1].sites.map((entry) => entry.site.id)).toEqual(["v1"]);
+    expect(items[1].changes).toEqual([]);
+  });
+
+  it("keeps a header-only edit on one supplier row", () => {
+    const items = buildReviewItems({
+      suppliers: [supplier({ id: "1", name: "Acme NV", version: 2 })],
+      sites: [
+        site({ id: "s1", supplierId: "1" }),
+        site({ id: "s2", supplierId: "1", siteCode: "OTHER" }),
+      ],
+      audit: [
+        {
+          id: "a1",
+          recordType: "supplier",
+          recordId: "1",
+          action: "update",
+          field: "supplierVat",
+          oldValue: "NL1",
+          newValue: "NL814016479B01",
+          actor: "operator",
+          createdAt: "2026-09-11T10:00:00.000Z",
+          version: 2,
+        },
+      ],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("1");
+    expect(items[0].changes.map((change) => change.field)).toEqual(["supplierVat"]);
+    expect(items[0].sites).toHaveLength(1);
+    expect(items[0].sites[0].site.id).toBe("s1");
+    expect(items[0].sites[0].changes).toEqual([]);
   });
 });
 

@@ -1,9 +1,11 @@
 import { extractPdfTextItems } from "../pdf/extract";
 import { parseCsv } from "../csv";
+import { extractDocLines } from "./doc";
 import {
   extractDocxText,
   extractXlsxLines,
   looksLikeOle,
+  looksLikeZip,
 } from "./office";
 import { linesFromPdfItems, normalizeSpace } from "./text";
 import type { ExtractedDocument } from "./types";
@@ -13,6 +15,7 @@ export type InvoiceFileKind = ExtractedDocument["kind"];
 const MIME: Record<string, string> = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  doc: "application/msword",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   csv: "text/csv",
   text: "text/plain",
@@ -29,6 +32,7 @@ export function mimeForFile(fileName: string, kind?: InvoiceFileKind): string {
   const ext = extensionOf(fileName);
   if (ext === "pdf") return MIME.pdf;
   if (ext === "docx") return MIME.docx;
+  if (ext === "doc") return MIME.doc;
   if (ext === "xlsx" || ext === "xlsm") return MIME.xlsx;
   if (ext === "csv") return MIME.csv;
   if (ext === "txt") return MIME.text;
@@ -42,7 +46,9 @@ function kindFromName(fileName: string, buf: Buffer): InvoiceFileKind {
   if (ext === "csv" || ext === "txt") return ext === "txt" ? "text" : "csv";
   if (ext === "docx") return "docx";
   if (ext === "xlsx" || ext === "xlsm") return "xlsx";
-  if (ext === "doc" || ext === "xls" || looksLikeOle(buf)) return "unsupported";
+  if (ext === "doc" && looksLikeZip(buf)) return "docx";
+  if (ext === "doc" && looksLikeOle(buf)) return "doc";
+  if (ext === "xls" || looksLikeOle(buf)) return "unsupported";
   return "unsupported";
 }
 
@@ -85,17 +91,28 @@ function csvLines(content: string): string[] {
 
 /**
  * Extract normalised text lines from an invoice document.
- * Unsupported legacy OLE (.doc / .xls) returns an empty extraction with a warning.
+ * Legacy .xls (OLE) stays empty. A .doc is read as Word zip when the bytes are
+ * a package, and from the Word piece table when they are OLE.
  */
 export async function extractInvoiceDocument(
   buf: Buffer,
   fileName: string,
 ): Promise<ExtractedDocument> {
   const kind = kindFromName(fileName, buf);
+  if (kind === "doc") {
+    const lines = extractDocLines(buf);
+    if (lines.length === 0) {
+      return fromLines("unsupported", fileName, [], 0, [
+        "Legacy .doc text could not be read; save as .docx.",
+      ]);
+    }
+    return fromLines("doc", fileName, lines, 1);
+  }
   if (kind === "unsupported") {
-    const why = looksLikeOle(buf)
-      ? "Legacy .doc/.xls (OLE) is not supported; save as .docx/.xlsx."
-      : `Unsupported file type (${extensionOf(fileName) || "unknown"}).`;
+    const why =
+      extensionOf(fileName) === "xls" || looksLikeOle(buf)
+        ? "Legacy .xls (OLE) is not supported; save as .xlsx."
+        : `Unsupported file type (${extensionOf(fileName) || "unknown"}).`;
     return fromLines(kind, fileName, [], 0, [why]);
   }
   if (kind === "pdf") {

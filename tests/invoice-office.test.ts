@@ -32,6 +32,91 @@ function xlsx(rows: string[][]): Buffer {
   ]);
 }
 
+/** Minimal OLE compound file holding one unicode Word piece. */
+function legacyDoc(text: string): Buffer {
+  const body = text.endsWith("\r") ? text : `${text}\r`;
+  const utf16 = Buffer.from(body, "utf16le");
+  const textAt = 0x800;
+  const word = Buffer.alloc(textAt + utf16.length);
+  word.writeUInt16LE(0xa5ec, 0);
+  word.writeUInt16LE(0x00c1, 2);
+  word.writeUInt16LE(0x000e, 0x20);
+  word.writeUInt16LE(0x0016, 0x3e);
+  word.writeUInt32LE(body.length, 0x4c);
+  word.writeUInt16LE(0x005d, 0x98);
+  const pieceBytes = 16;
+  const clx = Buffer.alloc(1 + 4 + pieceBytes);
+  clx.writeUInt8(2, 0);
+  clx.writeUInt32LE(pieceBytes, 1);
+  clx.writeUInt32LE(0, 5);
+  clx.writeUInt32LE(body.length, 9);
+  clx.writeUInt32LE(textAt, 15);
+  utf16.copy(word, textAt);
+  word.writeUInt32LE(0, 0x1a2);
+  word.writeUInt32LE(clx.length, 0x1a6);
+
+  const sectorSize = 512;
+  const end = 0xfffffffe;
+  const free = 0xffffffff;
+  const fatSect = 0xfffffffd;
+  const wordSectors = Math.ceil(word.length / sectorSize);
+  const tableSector = 2 + wordSectors;
+  const sectorCount = tableSector + 1;
+  const fat = Buffer.alloc(sectorSize, 0);
+  for (let i = 0; i < sectorSize / 4; i += 1) fat.writeUInt32LE(free, i * 4);
+  fat.writeUInt32LE(fatSect, 0);
+  fat.writeUInt32LE(end, 4);
+  for (let i = 0; i < wordSectors; i += 1) {
+    const sector = 2 + i;
+    fat.writeUInt32LE(i + 1 < wordSectors ? sector + 1 : end, sector * 4);
+  }
+  fat.writeUInt32LE(end, tableSector * 4);
+
+  const directory = Buffer.alloc(sectorSize, 0);
+  const writeEntry = (index: number, name: string, type: number, start: number, size: number) => {
+    const entry = Buffer.alloc(128, 0);
+    const named = Buffer.from(`${name}\0`, "utf16le");
+    named.copy(entry, 0, 0, Math.min(named.length, 64));
+    entry.writeUInt16LE(Math.min(named.length, 64), 0x40);
+    entry.writeUInt8(type, 0x42);
+    entry.writeUInt8(1, 0x43);
+    entry.writeUInt32LE(0xffffffff, 0x44);
+    entry.writeUInt32LE(0xffffffff, 0x48);
+    entry.writeUInt32LE(0xffffffff, 0x4c);
+    entry.writeUInt32LE(start, 0x74);
+    entry.writeUInt32LE(size, 0x78);
+    entry.copy(directory, index * 128);
+  };
+  writeEntry(0, "Root Entry", 5, end, 0);
+  writeEntry(1, "WordDocument", 2, 2, word.length);
+  writeEntry(2, "0Table", 2, tableSector, clx.length);
+
+  const header = Buffer.alloc(sectorSize, 0);
+  Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]).copy(header, 0);
+  header.writeUInt16LE(0x003e, 0x18);
+  header.writeUInt16LE(0x0003, 0x1a);
+  header.writeUInt16LE(0xfffe, 0x1c);
+  header.writeUInt16LE(9, 0x1e);
+  header.writeUInt16LE(6, 0x20);
+  header.writeUInt32LE(1, 0x2c);
+  header.writeUInt32LE(1, 0x30);
+  header.writeUInt32LE(0, 0x38);
+  header.writeUInt32LE(end, 0x3c);
+  header.writeUInt32LE(0, 0x40);
+  header.writeUInt32LE(end, 0x44);
+  header.writeUInt32LE(0, 0x48);
+  for (let i = 0; i < 109; i += 1) header.writeUInt32LE(free, 0x4c + i * 4);
+  header.writeUInt32LE(0, 0x4c);
+
+  const file = Buffer.alloc(sectorSize * (1 + sectorCount));
+  header.copy(file, 0);
+  fat.copy(file, sectorSize);
+  directory.copy(file, sectorSize * 2);
+  word.copy(file, sectorSize * 3);
+  clx.copy(file, sectorSize * (1 + tableSector));
+  return file;
+}
+
 describe("office extractors", () => {
   it("pulls paragraphs from a DOCX and classifies them", async () => {
     const buf = docx([
@@ -100,6 +185,30 @@ describe("office extractors", () => {
     const extracted = await extractInvoiceDocument(ole, "legacy.xls");
     expect(extracted.kind).toBe("unsupported");
     expect(extracted.warnings[0]).toMatch(/OLE|\.xls/);
+    const wordNamedXls = await extractInvoiceDocument(legacyDoc("Order total USD 1250"), "legacy.xls");
+    expect(wordNamedXls.kind).toBe("unsupported");
+    expect(wordNamedXls.lines).toEqual([]);
+  });
+
+  it("reads order totals from a legacy Word .doc", async () => {
+    const extracted = await extractInvoiceDocument(
+      legacyDoc("Order total USD 1250\rSchedule 1 fee AUD 500 on 2026-09-01"),
+      "agreement.doc",
+    );
+    expect(extracted.kind).toBe("doc");
+    expect(extracted.fullText).toMatch(/Order total USD 1250/);
+    expect(extracted.fullText).toMatch(/Schedule 1 fee AUD 500/);
+    expect(mimeForFile("agreement.doc")).toBe("application/msword");
+  });
+
+  it("reads a .doc whose bytes are a Word zip", async () => {
+    const extracted = await extractInvoiceDocument(
+      docx(["Order total USD 980", "Schedule 2 arranges the monthly fee"]),
+      "mislabeled.doc",
+    );
+    expect(extracted.kind).toBe("docx");
+    expect(extracted.fullText).toMatch(/Order total USD 980/);
+    expect(extracted.fullText).toMatch(/Schedule 2/);
   });
 
   it("reads a plain-text invoice", async () => {

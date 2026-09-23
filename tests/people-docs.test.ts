@@ -8,6 +8,7 @@ import { folderForPeopleDocStatus } from "@/lib/peopleDocs/fromParse";
 import {
   peopleDocDisplayTitle,
   peopleDocFolderKey,
+  peopleDocLandingMarkerKey,
   peopleDocProcessDay,
 } from "@/lib/peopleDocs/folders";
 import {
@@ -190,6 +191,22 @@ describe("people doc LLM schema and overlay", () => {
     }
   });
 
+  it("keeps a synopsis when the model omits confidence", () => {
+    const result = validatePeopleDocLlm({
+      header: { agreementType: "Assignment" },
+      warnings: [],
+      reviewReasons: [],
+      synopsis:
+        "This services agreement sets an order total of USD 1250. Schedule 1 arranges the fee against the start date.",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.confidence).toBe(50);
+      expect(result.value.synopsis).toMatch(/order total of USD 1250/);
+      expect(result.value.warnings.some((warning) => /confidence/i.test(warning))).toBe(true);
+    }
+  });
+
   it("rejects non-objects", () => {
     expect(validatePeopleDocLlm(null).ok).toBe(false);
     expect(validatePeopleDocLlm("nope").ok).toBe(false);
@@ -356,6 +373,32 @@ describe("people doc LLM schema and overlay", () => {
     expect(messages[0].content).toMatch(/currency/i);
     expect(messages[0].content).toMatch(/date versus cost/i);
     expect(messages[0].content).toMatch(/every monetary amount/i);
+    expect(messages[0].content).toMatch(/order summary/i);
+    expect(messages[0].content).toMatch(/order total/i);
+    expect(messages[0].content).toMatch(/schedule/i);
+    expect(messages[0].content).toMatch(/arranges amounts/i);
+    expect(messages[0].content).toMatch(/insurance limits/i);
+  });
+
+  it("indexes schedule headings and currency lines for the synopsis", () => {
+    const messages = buildPeopleDocLlmMessages(
+      "sow.doc",
+      [
+        "Master terms mention a statement of work in passing.",
+        "commercial general liability with limits of at least US$1 million per occurrence",
+        "Schedule 1: Services Agreement – Statement of Work",
+        "Fee for Services (ResMed will pay Contractor)",
+        "(USD)",
+      ].join("\n"),
+    );
+    const index = (messages[1].content.split("Amount and schedule index")[1] ?? "").split(
+      "Extracted text:",
+    )[0];
+    expect(index).toMatch(/Schedule 1/);
+    expect(index).toMatch(/Fee for Services/);
+    expect(index).toMatch(/\(USD\) \[currency named, no figure on this line\]/);
+    expect(index).toMatch(/US\$1 million/);
+    expect(index).not.toMatch(/in passing/);
   });
 
   it("keeps an LLM synopsis and classifies with the requested model", async () => {
@@ -562,6 +605,7 @@ describe("people doc ingest", () => {
     );
     expect(ran.doc.storageKey).not.toContain(`/${ran.doc.id}/`);
     expect(await storage.list(`${prefix}landing/`)).toEqual([
+      expect.objectContaining({ key: peopleDocLandingMarkerKey(prefix) }),
       expect.objectContaining({ key: otherKey }),
     ]);
 
@@ -590,6 +634,25 @@ describe("people doc ingest", () => {
     expect((await listPeopleDocLanding({ storage, repo, prefix })).files.map((file) => file.key)).toEqual([
       otherKey,
     ]);
+  });
+
+  it("keeps the landing folder when it has no documents", async () => {
+    stubPeopleDocLlm();
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
+    const prefix = "aggcenter/peopleDocs/";
+    const marker = peopleDocLandingMarkerKey(prefix);
+
+    const empty = await listPeopleDocLanding({ storage, repo, prefix });
+    expect(empty.files).toEqual([]);
+    expect((await storage.list(`${prefix}landing/`)).map((object) => object.key)).toEqual([marker]);
+
+    const onlyKey = `${prefix}landing/only.txt`;
+    await storage.put(onlyKey, Buffer.from(FULL_LINES.join("\n")), "text/plain");
+    await ingestPeopleDocLandingFile({ key: onlyKey, storage, repo, prefix });
+    expect((await storage.list(`${prefix}landing/`)).map((object) => object.key)).toEqual([marker]);
+    expect((await listPeopleDocLanding({ storage, repo, prefix })).files).toEqual([]);
   });
 
   it("regroups per-file folders into the process day", async () => {

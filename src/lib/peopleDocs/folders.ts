@@ -54,6 +54,16 @@ export function landingKey(prefix: string, fileName: string): string {
   return `${withTrailingSlash(prefix)}landing/${fileName.replace(/[/\\]/g, "_")}`;
 }
 
+/**
+ * Object-storage folders are prefixes. A kept object under landing/ remains
+ * when the last document is moved out, so the landing folder stays visible.
+ */
+export const PEOPLE_DOC_LANDING_MARKER = ".keep";
+
+export function peopleDocLandingMarkerKey(prefix: string): string {
+  return `${withTrailingSlash(prefix)}landing/${PEOPLE_DOC_LANDING_MARKER}`;
+}
+
 export function folderFromKey(key: string, prefix: string): PeopleDocFolder | undefined {
   const rest = key.startsWith(prefix) ? key.slice(prefix.length) : key;
   const first = rest.split("/").filter(Boolean)[0];
@@ -71,6 +81,7 @@ export function contentTypeForName(fileName: string): string {
   }
   if (ext === "csv") return "text/csv";
   if (ext === "txt") return "text/plain";
+  if (ext === "doc") return "application/msword";
   return "application/octet-stream";
 }
 

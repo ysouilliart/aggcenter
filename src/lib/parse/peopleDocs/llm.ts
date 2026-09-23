@@ -40,16 +40,59 @@ General:
 - autoRenew and perpetual are booleans.
 - Do not invent values that are not supported by the text or file name. Omit unknown fields.
 - If agreement ID, type, entity, or dates are missing or ambiguous, say so in reviewReasons.
-- confidence is 0–100 for how complete and reliable the mapping is.
+- confidence is required: an integer from 0 to 100 for how complete and reliable the mapping is. Never omit it.
 - You fill gaps the static parser misses. Do not contradict clearly labelled values in the text.
 - synopsis: always include this. Write it in your own words. Start with what the document is, who it involves, and the term or obligation it sets. Do not copy sentences or paragraphs from the source.
-  Then extract every monetary amount the contract is about, with its currency (ISO code or the symbol as written, such as AUD, USD, EUR, GBP, or $) and what the amount pays for (salary, fee, bonus, rate, cap, penalty, liability, or other cost). Pair each amount with the specific date it relates to when the text gives one (effective date, payment date, milestone, invoice date, anniversary, or term date). Write those pairs as date versus cost. If an amount has no date, include the amount and say that no date is stated. If a date has no amount, include the date and say that no amount is stated. Include every amount you can find, not only the headline fee. If the document states no amounts, say that no contract amounts are stated.
+  Look through the whole document, including an order summary or an order total. State that amount with its currency (ISO code or the symbol as written, such as AUD, USD, EUR, GBP, or $).
+  Read every schedule (Schedule, Annex, Appendix, Exhibit, Statement of Work, or pricing table). Name each schedule heading. From those schedules, describe how the document arranges amounts: what each schedule prices, the rate or fee, the quantity or unit, and the currency. A synopsis that skips a schedule heading from the index is incomplete.
+  Then extract every monetary amount the contract is about, with its currency and what the amount pays for (salary, fee, bonus, rate, cap, penalty, liability, insurance limit, or other cost). Pair each amount with the specific date it relates to when the text gives one (effective date, payment date, milestone, invoice date, anniversary, or term date). Write those pairs as date versus cost. If an amount has no date, include the amount and say that no date is stated. If a date has no amount, include the date and say that no amount is stated. Include every amount you can find, not only the headline fee or order total. Insurance limits and liability caps count. If a schedule or order table names a currency but the amount cell is blank, say the currency and that no figure is filled in. If the document states no amounts, say that no contract amounts are stated. Use the amount and schedule index in the user message; do not skip a figure that appears there.
 
 Schema:
 ${JSON.stringify(PEOPLE_DOC_LLM_OUTPUT_SCHEMA)}`;
 
 export function truncatePeopleDocText(text: string): string {
   return truncateLlmText(text, PEOPLE_DOC_LLM_MAX_TEXT_CHARS);
+}
+
+const AMOUNT_LINE =
+  /(?:US\s*\$|A\s*\$|[$€£]\s?\d|\b(?:USD|AUD|EUR|GBP|SGD|HKD|NZD)\b|\(\s*(?:USD|AUD|EUR|GBP|SGD|HKD|NZD)\s*\))/i;
+const ARRANGEMENT_LINE =
+  /^(?:schedule|annex|appendix|exhibit)\b|^(?:order summary|order total|fee for services)\b/i;
+
+/** Short index of schedule headings and currency lines so the synopsis cannot skip them. */
+export function peopleDocAmountIndex(text: string): string {
+  const lines = text
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const picked: string[] = [];
+  const seen = new Set<string>();
+  const push = (line: string) => {
+    const clipped = line.slice(0, 240);
+    if (!clipped || seen.has(clipped)) return;
+    seen.add(clipped);
+    picked.push(clipped);
+  };
+  for (let i = 0; i < lines.length && picked.length < 40; i += 1) {
+    const line = lines[i];
+    if (ARRANGEMENT_LINE.test(line)) {
+      push(line);
+      continue;
+    }
+    if (!AMOUNT_LINE.test(line)) continue;
+    const previous = lines[i - 1];
+    if (
+      previous &&
+      (ARRANGEMENT_LINE.test(previous) || (previous.length <= 80 && !/[.!?]$/.test(previous)))
+    ) {
+      push(previous);
+    }
+    push(/\d/.test(line) ? line : `${line} [currency named, no figure on this line]`);
+  }
+  if (picked.length === 0) {
+    return "No schedule headings or currency amounts were found in the extract.";
+  }
+  return picked.join("\n");
 }
 
 export function buildPeopleDocLlmMessages(
@@ -60,7 +103,7 @@ export function buildPeopleDocLlmMessages(
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
-      content: `File name: ${fileName}\n\nExtracted text:\n${truncatePeopleDocText(text)}`,
+      content: `File name: ${fileName}\n\nAmount and schedule index (the synopsis must name every heading and figure below):\n${peopleDocAmountIndex(text)}\n\nExtracted text:\n${truncatePeopleDocText(text)}`,
     },
   ];
 }

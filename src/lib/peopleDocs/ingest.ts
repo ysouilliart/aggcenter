@@ -228,7 +228,20 @@ export async function ingestPeopleDocs(deps?: PeopleDocIngestDeps): Promise<Peop
       const hash = hashOf(buf);
       const hashed = await repo.findByHash(hash);
       if (hashed) {
-        skipped.push({ key: object.key, reason: "duplicate content" });
+        const doc = await fileDuplicateLandingObject({
+          storage,
+          repo,
+          prefix,
+          key: object.key,
+          buf,
+          existing: hashed,
+        });
+        ingested.push({
+          key: object.key,
+          docId: doc.id,
+          folder: doc.folder,
+          status: doc.parseStatus,
+        });
         continue;
       }
       const fileName = fileNameOf(object.key);
@@ -334,13 +347,84 @@ export async function listPeopleDocLanding(deps?: {
   return { provider: storage.name, prefix, files };
 }
 
+/**
+ * Same bytes as a document already parsed. Keep this landing name: copy the
+ * file into that document's folder for today and add a list row. The previous
+ * code deleted the landing object and returned the old row, so the new name
+ * vanished from the bucket and from the list.
+ */
+async function fileDuplicateLandingObject(options: {
+  storage: StorageProvider;
+  repo: PeopleDocRepository;
+  prefix: string;
+  key: string;
+  buf: Buffer;
+  existing: PeopleDocRecord;
+}): Promise<PeopleDocRecord> {
+  const detail = await options.repo.get(options.existing.id);
+  const fileName = fileNameOf(options.key);
+  const processedAt = new Date().toISOString();
+  const folder = DAY_FOLDERS.includes(options.existing.folder) ? options.existing.folder : "processed";
+  const id = docIdFor(options.key);
+  const destKey = await resolvePeopleDocStorageKey({
+    repo: options.repo,
+    prefix: options.prefix,
+    folder,
+    id,
+    fileName,
+    processedOn: processedAt,
+  });
+  await options.storage.put(destKey, options.buf, contentTypeForName(fileName));
+  const existingJob = detail?.job;
+  const doc: PeopleDocRecord = {
+    ...options.existing,
+    id,
+    fileName,
+    mimeType: options.existing.mimeType || contentTypeForName(fileName),
+    contentHash: hashOf(options.buf),
+    source: options.storage.name === "oci" ? "oci" : options.existing.source,
+    folder,
+    storageKey: destKey,
+    originalKey: options.key,
+    uploadedAt: processedAt,
+    processedAt,
+    archivedAt: folder === "archived" ? processedAt : undefined,
+  };
+  await options.repo.saveParsed({
+    doc,
+    fields: detail?.fields ?? [],
+    job: {
+      id: `${id}-JOB`,
+      docId: id,
+      storageKey: destKey,
+      parserId: existingJob?.parserId ?? options.existing.parserId ?? "people-docs",
+      parserVersion: existingJob?.parserVersion ?? options.existing.parserVersion ?? "1",
+      status: options.existing.parseStatus,
+      startedAt: processedAt,
+      finishedAt: processedAt,
+      warningCount: existingJob?.warningCount ?? 0,
+      pageCount: existingJob?.pageCount ?? options.existing.pageCount ?? 1,
+      confidence: options.existing.confidence,
+      events: existingJob?.events ?? [],
+    },
+  });
+  if (options.key !== destKey) {
+    try {
+      await options.storage.delete(options.key);
+    } catch {
+      /* landing copy can stay if delete is unsupported */
+    }
+  }
+  return doc;
+}
+
 export async function ingestPeopleDocLandingFile(input: {
   key: string;
   model?: string;
   storage?: StorageProvider;
   repo?: PeopleDocRepository;
   prefix?: string;
-}): Promise<{ doc: PeopleDocRecord; skipped?: string }> {
+}): Promise<{ doc: PeopleDocRecord; skipped?: string; duplicateOf?: string }> {
   const model = selectPeopleDocModelForParse(input.model);
   const storage = input.storage ?? getStorageProvider();
   const repo = input.repo ?? getPeopleDocRepository();
@@ -365,8 +449,15 @@ export async function ingestPeopleDocLandingFile(input: {
 
   const hashed = await repo.findByHash(hashOf(buf));
   if (hashed) {
-    await removeStaleLandingCopy(storage, key, hashed.storageKey);
-    return { doc: hashed, skipped: "duplicate content" };
+    const doc = await fileDuplicateLandingObject({
+      storage,
+      repo,
+      prefix,
+      key,
+      buf,
+      existing: hashed,
+    });
+    return { doc, duplicateOf: hashed.id };
   }
 
   const fileName = fileNameOf(key);

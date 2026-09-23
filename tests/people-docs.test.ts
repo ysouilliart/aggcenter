@@ -578,8 +578,15 @@ describe("people doc ingest", () => {
       repo,
       prefix,
     });
-    expect(duplicate.skipped).toBe("duplicate content");
-    expect(duplicate.doc.id).toBe(ran.doc.id);
+    expect(duplicate.duplicateOf).toBe(ran.doc.id);
+    expect(duplicate.doc.id).not.toBe(ran.doc.id);
+    expect(duplicate.doc.fileName).toBe("copy-agreement.txt");
+    expect(duplicate.doc.folder).toBe("processed");
+    expect(duplicate.doc.storageKey).toBe(
+      peopleDocFolderKey(prefix, "processed", "copy-agreement.txt", duplicate.doc.processedAt ?? ""),
+    );
+    expect(await storage.get(duplicate.doc.storageKey ?? "")).toEqual(Buffer.from(FULL_LINES.join("\n")));
+    expect((await repo.get(ran.doc.id))?.doc.storageKey).toBe(ran.doc.storageKey);
     expect((await listPeopleDocLanding({ storage, repo, prefix })).files.map((file) => file.key)).toEqual([
       otherKey,
     ]);

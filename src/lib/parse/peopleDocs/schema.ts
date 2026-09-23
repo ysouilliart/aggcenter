@@ -31,7 +31,7 @@ export const PEOPLE_DOC_LLM_OUTPUT_SCHEMA = {
     synopsis: {
       type: "string",
       description:
-        "Reviewer overview in the model's own words, then every contract amount with its currency and, when stated, the specific date versus that cost. Not a quotation or extract of the source.",
+        "Reviewer overview in the model's own words. Include any order summary or order total with its currency, how each schedule arranges amounts (including a currency with a blank figure), insurance limits and other contract amounts, and date versus cost when a date is stated. Not a quotation or extract of the source.",
     },
   },
 } as const;
@@ -93,17 +93,18 @@ function asString(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function asInteger(value: unknown, field: string, errors: string[]): number | undefined {
-  if (value == null || value === "") return undefined;
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    errors.push(`${field} must be a number`);
-    return undefined;
+function confidenceFromModel(value: unknown, warnings: string[], errors: string[]): number {
+  if (value == null || value === "") {
+    warnings.push("Model did not return confidence; defaulted to 50.");
+    return 50;
   }
-  if (!Number.isInteger(value)) {
-    errors.push(`${field} must be an integer`);
-    return undefined;
+  const numeric =
+    typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value.trim()) ? Number(value.trim()) : value;
+  if (typeof numeric !== "number" || !Number.isFinite(numeric)) {
+    errors.push("confidence must be a number");
+    return 50;
   }
-  return value;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
 function asBoolean(value: unknown, field: string, errors: string[]): boolean | undefined {
@@ -139,13 +140,8 @@ export function validatePeopleDocLlm(input: unknown): PeopleDocSchemaResult {
     return { ok: false, error: "LLM output is not a JSON object" };
   }
   const errors: string[] = [];
-  let confidence = asInteger(input.confidence, "confidence", errors);
-  if (confidence == null) {
-    errors.push("confidence is required");
-    confidence = 0;
-  } else {
-    confidence = Math.max(0, Math.min(100, confidence));
-  }
+  const warnings = asStringList(input.warnings, "warnings", errors);
+  const confidence = confidenceFromModel(input.confidence, warnings, errors);
   const rawHeader = isRecord(input.header) ? input.header : undefined;
   if (!rawHeader) errors.push("header must be an object");
   const header: PeopleDocHeader = rawHeader
@@ -162,7 +158,6 @@ export function validatePeopleDocLlm(input: unknown): PeopleDocSchemaResult {
         perpetual: asBoolean(rawHeader.perpetual, "header.perpetual", errors),
       }
     : {};
-  const warnings = asStringList(input.warnings, "warnings", errors);
   const reviewReasons = asStringList(input.reviewReasons, "reviewReasons", errors);
   const synopsis = coerceSynopsis(input.synopsis);
   if (errors.length) {

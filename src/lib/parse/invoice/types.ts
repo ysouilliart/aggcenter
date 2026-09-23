@@ -131,7 +131,7 @@ export interface InvoiceParseResult {
 }
 
 export interface ExtractedDocument {
-  kind: "pdf" | "docx" | "xlsx" | "csv" | "text" | "unsupported";
+  kind: "pdf" | "docx" | "doc" | "xlsx" | "csv" | "text" | "unsupported";
   fileName: string;
   mimeType: string;
   pageCount: number;

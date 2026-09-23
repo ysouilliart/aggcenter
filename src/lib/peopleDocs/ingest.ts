@@ -14,6 +14,7 @@ import {
   isPeopleDocProcessDay,
   landingKey,
   peopleDocFolderKey,
+  peopleDocLandingMarkerKey,
   withTrailingSlash,
 } from "./folders";
 import { folderForPeopleDocStatus, recordsFromPeopleDocParse } from "./fromParse";
@@ -146,11 +147,7 @@ async function persistParse(options: {
   });
   await options.storage.put(destKey, options.buf, contentTypeForName(options.fileName));
   if (options.currentKey !== destKey) {
-    try {
-      await options.storage.delete(options.currentKey);
-    } catch {
-      /* ignore */
-    }
+    await deleteStoredObject(options.storage, options.prefix, options.currentKey);
   }
   const bundle = recordsFromPeopleDocParse({
     id: options.id,
@@ -286,6 +283,32 @@ function landingPrefixFor(prefix: string): string {
   return `${withTrailingSlash(prefix)}landing/`;
 }
 
+const LANDING_MARKER_BODY = Buffer.from(
+  "This object keeps the landing folder visible when no documents are waiting.\n",
+);
+
+async function ensurePeopleDocLandingMarker(storage: StorageProvider, prefix: string): Promise<void> {
+  const key = peopleDocLandingMarkerKey(prefix);
+  try {
+    const existing = await storage.list(key);
+    if (existing.some((object) => object.key === key && object.size > 0)) return;
+    await storage.put(key, LANDING_MARKER_BODY, "text/plain");
+  } catch {
+    /* a missing marker must not block listing or processing */
+  }
+}
+
+async function deleteStoredObject(storage: StorageProvider, prefix: string, key: string): Promise<void> {
+  try {
+    await storage.delete(key);
+  } catch {
+    return;
+  }
+  if (key.startsWith(landingPrefixFor(prefix))) {
+    await ensurePeopleDocLandingMarker(storage, prefix);
+  }
+}
+
 function assertLandingObjectKey(prefix: string, key: string): string {
   const landingPrefix = landingPrefixFor(prefix);
   const normalized = key.trim().replace(/\\/g, "/").replace(/^\/+/, "");
@@ -300,15 +323,12 @@ function assertLandingObjectKey(prefix: string, key: string): string {
 
 async function removeStaleLandingCopy(
   storage: StorageProvider,
+  prefix: string,
   key: string,
   storageKey?: string,
 ): Promise<void> {
   if (!storageKey || storageKey === key) return;
-  try {
-    await storage.delete(key);
-  } catch {
-    /* landing originals can stay if delete is unsupported */
-  }
+  await deleteStoredObject(storage, prefix, key);
 }
 
 export async function listPeopleDocLanding(deps?: {
@@ -343,6 +363,7 @@ export async function listPeopleDocLanding(deps?: {
   files.sort(
     (a, b) => b.lastModified.localeCompare(a.lastModified) || a.fileName.localeCompare(b.fileName),
   );
+  await ensurePeopleDocLandingMarker(storage, prefix);
 
   return { provider: storage.name, prefix, files };
 }
@@ -409,11 +430,7 @@ async function fileDuplicateLandingObject(options: {
     },
   });
   if (options.key !== destKey) {
-    try {
-      await options.storage.delete(options.key);
-    } catch {
-      /* landing copy can stay if delete is unsupported */
-    }
+    await deleteStoredObject(options.storage, options.prefix, options.key);
   }
   return doc;
 }
@@ -433,7 +450,7 @@ export async function ingestPeopleDocLandingFile(input: {
 
   const existing = await repo.findByOriginalKey(key);
   if (existing) {
-    await removeStaleLandingCopy(storage, key, existing.storageKey);
+    await removeStaleLandingCopy(storage, prefix, key, existing.storageKey);
     return { doc: existing, skipped: "already ingested" };
   }
 

@@ -41,5 +41,6 @@ export {
   isPeopleDocProcessDay,
   landingKey,
   peopleDocFolderKey,
+  peopleDocLandingMarkerKey,
   peopleDocProcessDay,
 } from "./folders";

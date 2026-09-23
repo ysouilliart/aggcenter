@@ -42,7 +42,8 @@ General:
 - If agreement ID, type, entity, or dates are missing or ambiguous, say so in reviewReasons.
 - confidence is 0–100 for how complete and reliable the mapping is.
 - You fill gaps the static parser misses. Do not contradict clearly labelled values in the text.
-- synopsis: always include this. Write 2 to 4 sentences, in your own words, describing what the document is, who it involves, and the term or obligation it sets. It is a reviewer overview, not a quote, field list, or extract. Do not copy sentences or paragraphs from the source.
+- synopsis: always include this. Write it in your own words. Start with what the document is, who it involves, and the term or obligation it sets. Do not copy sentences or paragraphs from the source.
+  Then extract every monetary amount the contract is about, with its currency (ISO code or the symbol as written, such as AUD, USD, EUR, GBP, or $) and what the amount pays for (salary, fee, bonus, rate, cap, penalty, liability, or other cost). Pair each amount with the specific date it relates to when the text gives one (effective date, payment date, milestone, invoice date, anniversary, or term date). Write those pairs as date versus cost. If an amount has no date, include the amount and say that no date is stated. If a date has no amount, include the date and say that no amount is stated. Include every amount you can find, not only the headline fee. If the document states no amounts, say that no contract amounts are stated.
 
 Schema:
 ${JSON.stringify(PEOPLE_DOC_LLM_OUTPUT_SCHEMA)}`;

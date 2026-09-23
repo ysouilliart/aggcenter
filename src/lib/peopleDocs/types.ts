@@ -102,3 +102,21 @@ export const PEOPLE_DOC_FOLDERS: PeopleDocFolder[] = [
   "archived",
   "anomaly",
 ];
+
+/** A file currently sitting in the people-docs landing prefix. */
+export interface PeopleDocLandingFile {
+  key: string;
+  fileName: string;
+  size: number;
+  lastModified: string;
+  /** True when a parsed record already exists and the file has left landing. */
+  processed: boolean;
+  docId?: string;
+  folder?: PeopleDocFolder;
+}
+
+export interface PeopleDocLandingList {
+  provider: string;
+  prefix: string;
+  files: PeopleDocLandingFile[];
+}

@@ -1,14 +1,15 @@
 "use client";
 
+import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
 import Button from "@mui/material/Button";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { Card, ConfidencePill, ErrorNote, InfoNote, KpiCard, PageHeader, Spinner, StatusBadge, SuccessNote, WarningNote } from "@/components/ui";
-import type { PeopleDocDetail, PeopleDocRecord, PeopleDocSummary } from "@/lib/peopleDocs/types";
+import { Card, ConfidencePill, ErrorNote, InfoNote, KpiCard, PageHeader, ProcessPill, Spinner, StatusBadge, SuccessNote, WarningNote } from "@/components/ui";
+import type { PeopleDocDetail, PeopleDocLandingFile, PeopleDocLandingList, PeopleDocRecord, PeopleDocSummary } from "@/lib/peopleDocs/types";
 import { PEOPLE_DOC_FIELD_DEFS, type PeopleDocFieldKey } from "@/lib/parse/peopleDocs/types";
 import { formatDate } from "@/lib/format";
 import { peopleDocDisplayTitle } from "@/lib/peopleDocs/folders";
-import { useFetch } from "@/lib/useFetch";
+import { invalidateFetchCache, useFetch } from "@/lib/useFetch";
 
 type ModelChoice = { id: string; label: string };
 
@@ -22,6 +23,11 @@ type ClassifyStatus = {
 };
 
 const EMPTY_DOCS: PeopleDocRecord[] = [];
+const EMPTY_LANDING: PeopleDocLandingFile[] = [];
+
+function landingSelectionId(key: string): string {
+  return `landing:${key}`;
+}
 
 function flagLabel(value: boolean | undefined): string {
   if (value == null) return "—";
@@ -47,10 +53,32 @@ export default function PeopleDocsPage() {
   }, [appliedKeyword]);
   const list = useFetch<{ docs: PeopleDocRecord[]; q?: string }>(listUrl);
   const summary = useFetch<PeopleDocSummary & { classify?: ClassifyStatus }>("/api/people-docs/summary");
+  const landingQuery = useFetch<PeopleDocLandingList>("/api/people-docs/landing");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [landingSnapshot, setLandingSnapshot] = useState<PeopleDocLandingList | null>(null);
   const docs = list.data?.docs ?? EMPTY_DOCS;
-  const activeId =
-    selectedId && docs.some((d) => d.id === selectedId) ? selectedId : (docs[0]?.id ?? null);
+  const landingData = landingSnapshot ?? landingQuery.data;
+  const landingLoading = landingSnapshot == null && landingQuery.loading;
+  const landingFiles = landingData?.files ?? EMPTY_LANDING;
+  const docIds = useMemo(() => new Set(docs.map((doc) => doc.id)), [docs]);
+  const docOriginalKeys = useMemo(
+    () => new Set(docs.flatMap((doc) => (doc.originalKey ? [doc.originalKey] : []))),
+    [docs],
+  );
+  const pendingLanding = useMemo(() => {
+    const keyword = appliedKeyword.toLowerCase();
+    return landingFiles.filter((file) => {
+      if (file.processed) return false;
+      if (file.docId && docIds.has(file.docId)) return false;
+      if (docOriginalKeys.has(file.key)) return false;
+      if (!keyword) return true;
+      return file.fileName.toLowerCase().includes(keyword);
+    });
+  }, [appliedKeyword, docIds, docOriginalKeys, landingFiles]);
+  const landingSelection =
+    pendingLanding.find((file) => selectedId === landingSelectionId(file.key)) ?? null;
+  const selectedDocId = selectedId && !selectedId.startsWith("landing:") ? selectedId : null;
+  const activeId = selectedDocId ?? (landingSelection ? null : (docs[0]?.id ?? null));
   const detail = useFetch<PeopleDocDetail>(
     activeId ? `/api/people-docs/${encodeURIComponent(activeId)}` : "/api/people-docs/summary",
   );
@@ -58,6 +86,8 @@ export default function PeopleDocsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [runningKey, setRunningKey] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [savingModel, setSavingModel] = useState(false);
   const [model, setModel] = useState<string | null>(null);
@@ -69,10 +99,73 @@ export default function PeopleDocsPage() {
   const modelOptions = classify?.models ?? [];
   const selectedModel = model ?? classify?.model ?? "";
 
+  const loadLanding = useCallback(async () => {
+    const res = await fetch("/api/people-docs/landing", { cache: "no-store" });
+    const json = (await res.json()) as PeopleDocLandingList & { error?: string };
+    if (!res.ok) throw new Error(json.error ?? "Could not refresh the landing folder");
+    invalidateFetchCache("/api/people-docs/landing");
+    setLandingSnapshot(json);
+    return json;
+  }, []);
+
   async function reloadAll() {
     list.reload();
     summary.reload();
+    try {
+      await loadLanding();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not refresh the landing folder");
+    }
     if (activeId) detail.reload();
+  }
+
+  async function handleRefreshLanding() {
+    setRefreshing(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const json = await loadLanding();
+      list.reload();
+      summary.reload();
+      const pending = json.files.filter((file) => !file.processed).length;
+      setMessage(
+        `Reloaded landing from ${json.provider}: ${json.files.length} file(s) in landing, ${pending} not processed.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not refresh the landing folder");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function handleRun(key: string) {
+    setRunningKey(key);
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/people-docs/landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key,
+          ...(selectedModel ? { model: selectedModel } : {}),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Could not process the landing file");
+      const fileName = json.doc?.fileName ?? key.split("/").pop();
+      setMessage(
+        json.skipped
+          ? `${fileName} is already processed (${json.skipped}).`
+          : `Processed ${fileName} → ${json.doc.folder}.`,
+      );
+      if (json.doc?.id) setSelectedId(json.doc.id);
+      await reloadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not process the landing file");
+    } finally {
+      setRunningKey(null);
+    }
   }
 
   async function handleUpload(e: React.FormEvent) {
@@ -255,14 +348,27 @@ export default function PeopleDocsPage() {
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden max-lg:grid-rows-[minmax(10rem,38vh)_minmax(0,1fr)] lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
-        <Card className="flex min-h-0 flex-col overflow-hidden">
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden">
+          <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
             <h2 className="text-[13px] font-medium text-slate-800">Documents</h2>
-            {appliedKeyword ? (
-              <span className="text-xs text-slate-500">
-                {docs.length} match{docs.length === 1 ? "" : "es"}
-              </span>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {appliedKeyword ? (
+                <span className="text-xs text-slate-500">
+                  {pendingLanding.length + docs.length} match
+                  {pendingLanding.length + docs.length === 1 ? "" : "es"}
+                </span>
+              ) : null}
+              <Button
+                type="button"
+                variant="outlined"
+                size="small"
+                startIcon={<RefreshOutlined />}
+                onClick={() => void handleRefreshLanding()}
+                disabled={refreshing}
+              >
+                {refreshing ? "Refreshing…" : "Refresh"}
+              </Button>
+            </div>
           </div>
           <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
             <input
@@ -294,19 +400,58 @@ export default function PeopleDocsPage() {
               {submitting ? "Parsing…" : "Parse document"}
             </Button>
           </form>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {list.loading && !docs.length ? (
+          <div className="min-h-0 flex-1 basis-0 overflow-y-scroll overscroll-contain pr-1">
+            {landingQuery.error && !landingSnapshot ? (
+              <ErrorNote message={landingQuery.error} />
+            ) : null}
+            {(pendingLanding.length === 0 && docs.length === 0 && (list.loading || landingLoading)) ? (
               <Spinner />
-            ) : docs.length === 0 ? (
+            ) : pendingLanding.length === 0 && docs.length === 0 ? (
               <p className="text-sm text-slate-500">
                 {appliedKeyword
                   ? `No people docs match “${appliedKeyword}”.`
-                  : "No people docs yet. Drop files into aggcenter/peopleDocs/landing/ and sync, or upload here."}
+                  : "No people docs yet. Drop files into aggcenter/peopleDocs/landing/, refresh, then run a newly landed file."}
               </p>
             ) : (
               <ul className="divide-y divide-slate-100">
+                {pendingLanding.map((file) => {
+                  const active = selectedId === landingSelectionId(file.key);
+                  const running = runningKey === file.key;
+                  return (
+                    <li key={file.key}>
+                      <div className={`rounded-lg ${active ? "bg-brand-soft" : ""}`}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(landingSelectionId(file.key))}
+                          className={`w-full px-2 py-3 text-left ${active ? "" : "hover:bg-slate-50"} rounded-lg`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-slate-900" title={file.fileName}>
+                                {peopleDocDisplayTitle(file.fileName)}
+                              </div>
+                            </div>
+                            <ProcessPill processed={false} />
+                          </div>
+                        </button>
+                        <div className="px-2 pb-3">
+                          <Button
+                            type="button"
+                            variant="contained"
+                            size="small"
+                            onClick={() => void handleRun(file.key)}
+                            disabled={runningKey !== null}
+                          >
+                            {running ? "Running…" : "Run"}
+                          </Button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
                 {docs.map((doc) => {
                   const active = doc.id === activeId;
+                  const processed = doc.folder !== "landing";
                   return (
                     <li key={doc.id}>
                       <button
@@ -323,7 +468,10 @@ export default function PeopleDocsPage() {
                             </div>
                           </div>
                           <div className="flex shrink-0 flex-col items-end gap-1">
-                            <StatusBadge status={doc.folder} />
+                            <ProcessPill processed={processed} />
+                            {doc.folder === "anomaly" || doc.folder === "archived" ? (
+                              <StatusBadge status={doc.folder} />
+                            ) : null}
                             <ConfidencePill confidence={doc.confidence} />
                           </div>
                         </div>
@@ -337,7 +485,34 @@ export default function PeopleDocsPage() {
         </Card>
 
         <Card className="flex h-full min-h-0 flex-col overflow-hidden p-0">
-          {!activeId ? (
+          {landingSelection ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+              <div>
+                <h2 className="text-[13px] font-medium text-slate-800">{landingSelection.fileName}</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  In landing
+                  {landingSelection.lastModified ? ` · ${formatDate(landingSelection.lastModified)}` : ""}
+                </p>
+                <div className="mt-2">
+                  <ProcessPill processed={false} />
+                </div>
+              </div>
+              <p className="text-sm text-slate-600">
+                This file is in the landing folder and has not been processed. Run it to parse the document and move it to processed.
+              </p>
+              <div>
+                <Button
+                  type="button"
+                  variant="contained"
+                  size="small"
+                  onClick={() => void handleRun(landingSelection.key)}
+                  disabled={runningKey !== null}
+                >
+                  {runningKey === landingSelection.key ? "Running…" : "Run"}
+                </Button>
+              </div>
+            </div>
+          ) : !activeId ? (
             <p className="p-4 text-sm text-slate-500">Select a document to see classified fields.</p>
           ) : detail.loading && !selected ? (
             <div className="p-4">
@@ -355,6 +530,7 @@ export default function PeopleDocsPage() {
                     {formatDate(selected.doc.uploadedAt)}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
+                    <ProcessPill processed={selected.doc.folder !== "landing"} />
                     <StatusBadge status={selected.doc.parseStatus} />
                     <StatusBadge status={selected.doc.classifyMode ?? "static"} />
                     <ConfidencePill confidence={selected.doc.confidence} />

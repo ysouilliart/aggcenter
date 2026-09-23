@@ -159,9 +159,11 @@ export default function PeopleDocsPage() {
       if (!res.ok) throw new Error(json.error ?? "Could not process the landing file");
       const fileName = json.doc?.fileName ?? key.split("/").pop();
       setMessage(
-        json.skipped
-          ? `${fileName} is already processed (${json.skipped}).`
-          : `Processed ${fileName} → ${json.doc.folder}.`,
+        json.duplicateOf
+          ? `Processed ${fileName} → ${json.doc.folder}. Same content as an existing document, so the previous parse was kept and this file was filed under its own name.`
+          : json.skipped
+            ? `${fileName} is already processed (${json.skipped}).`
+            : `Processed ${fileName} → ${json.doc.folder}.`,
       );
       if (json.doc?.id) setSelectedId(json.doc.id);
       await reloadAll();

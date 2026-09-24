@@ -31,7 +31,7 @@ export const PEOPLE_DOC_LLM_OUTPUT_SCHEMA = {
     synopsis: {
       type: "string",
       description:
-        "Concise 2-4 sentence overview written in the model's own words. Not a quotation or extract of the source.",
+        "Reviewer overview in the model's own words, then every contract amount with its currency and, when stated, the specific date versus that cost. Not a quotation or extract of the source.",
     },
   },
 } as const;
@@ -44,7 +44,7 @@ export interface PeopleDocLlmPayload {
   synopsis?: string;
 }
 
-const SYNOPSIS_MAX = 900;
+const SYNOPSIS_MAX = 4_000;
 
 function isExtractDump(synopsis: string, sourceText: string): boolean {
   const src = sourceText.replace(/\s+/g, " ").trim().toLowerCase();

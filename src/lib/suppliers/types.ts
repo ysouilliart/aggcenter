@@ -37,13 +37,24 @@ export interface Supplier {
   updatedAt: string;
 }
 
+/** One operating-unit assignment for a supplier site (OU is a function of the site). */
+export interface SiteOperatingUnit {
+  name: string;
+  orgId: string;
+}
+
 export interface SupplierSite {
   id: string;
   supplierId: string;
   siteCode: string;
   addressName: string;
   procurementBu: string;
+  /** Primary operating unit name, the first assignment when a site has several. */
   operatingUnit?: string;
+  /** Primary Oracle ORG_ID for the operating unit. */
+  orgId?: string;
+  /** Every OU assignment from the VAT extract. A site can belong to more than one OU. */
+  operatingUnits?: SiteOperatingUnit[];
   inactiveDate?: string;
   paymentTerms: string;
   payGroup: string;
@@ -256,10 +267,8 @@ export interface FieldChange {
   to: string;
 }
 
-/** One site that was edited, with net field changes for final review. */
-export interface SupplierReviewItem {
-  id: string;
-  supplier: Supplier;
+/** Site-level edits nested under one supplier in final review. */
+export interface SupplierReviewSite {
   site: SupplierSite;
   changes: FieldChange[];
   lastActor: string;
@@ -267,4 +276,24 @@ export interface SupplierReviewItem {
   lastUpdatedAt: string;
   updateCount: number;
   vatCheck?: SupplierVatCheck;
+}
+
+/**
+ * One unique supplier that was edited. Header changes sit on `changes`;
+ * each updated site is listed separately so the same supplier is not repeated.
+ */
+export interface SupplierReviewItem {
+  id: string;
+  supplier: Supplier;
+  /** Supplier-header field changes (name, VAT, status, …). */
+  changes: FieldChange[];
+  /** Audit events on the supplier header. Zero when only sites were edited. */
+  headerUpdateCount: number;
+  headerActor?: string;
+  headerReason?: string;
+  sites: SupplierReviewSite[];
+  lastActor: string;
+  lastReason?: string;
+  lastUpdatedAt: string;
+  updateCount: number;
 }

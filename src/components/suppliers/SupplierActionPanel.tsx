@@ -18,7 +18,7 @@ import {
 } from "@/components/ui";
 import type { GraphFocus } from "@/components/suppliers/SupplierSiteGraph";
 import type { SupplierGroup } from "@/lib/suppliers/group";
-import { siteChipLabel, siteIssuesFor, supplierIssuesFor } from "@/lib/suppliers/group";
+import { siteChipLabel, siteIssuesFor, siteOperatingUnits, supplierIssuesFor } from "@/lib/suppliers/group";
 import { isStandardPaymentTerms, STANDARD_PAYMENT_TERMS } from "@/lib/suppliers/rationalise";
 import type {
   SupplierIssue,
@@ -267,10 +267,11 @@ function ActionEditor({
   const vatId = scope === "supplier" ? record.supplier.supplierVat : record.site.siteVat;
   const vatCheck = scope === "supplier" ? supplierVatCheck : siteVatCheck;
   const title = scope === "supplier" ? record.supplier.name : dash(record.site.siteCode);
+  const operatingUnits = siteOperatingUnits(record.site);
   const subtitle =
     scope === "supplier"
-      ? `${record.supplier.supplierNumber} · ${dash(record.supplier.type)} · v${record.supplier.version}`
-      : `id ${record.site.id} · ${dash(record.site.city)} ${dash(record.site.country)} · v${record.site.version}`;
+      ? `${record.supplier.supplierNumber} · VID ${record.supplier.id} · ${dash(record.supplier.type)} · v${record.supplier.version}`
+      : `SID ${record.site.id} · ${dash(record.site.city)} ${dash(record.site.country)} · v${record.site.version}`;
 
   return (
     <Card className="flex min-h-0 flex-col overflow-hidden p-0">
@@ -299,6 +300,26 @@ function ActionEditor({
             </div>
             <h2 className="truncate text-[13px] font-medium text-slate-800">{title}</h2>
             <p className="truncate text-xs text-slate-500">{subtitle}</p>
+            {scope === "site" ? (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {operatingUnits.length === 0 ? (
+                  <span className="text-[11px] text-slate-400">No operating unit on this site</span>
+                ) : (
+                  operatingUnits.map((ou) => (
+                    <span
+                      key={`${ou.name}|${ou.orgId}`}
+                      className="inline-flex max-w-full items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-700"
+                      title={ou.orgId ? `${ou.name || "Operating unit"} · OU ID ${ou.orgId}` : ou.name}
+                    >
+                      <span className="truncate">{ou.name || "Operating unit"}</span>
+                      {ou.orgId ? (
+                        <span className="shrink-0 font-mono text-slate-500">OU ID {ou.orgId}</span>
+                      ) : null}
+                    </span>
+                  ))
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

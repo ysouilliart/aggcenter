@@ -1,5 +1,7 @@
 export type {
   PeopleDocDetail,
+  PeopleDocLandingFile,
+  PeopleDocLandingList,
   PeopleDocParseJob,
   PeopleDocRecord,
   PeopleDocSearchExport,
@@ -13,11 +15,15 @@ export {
   getPeopleDocDetail,
   getPeopleDocFile,
   getPeopleDocSummary,
+  ingestPeopleDocLandingFile,
   ingestPeopleDocs,
+  listPeopleDocLanding,
   listPeopleDocs,
+  regroupPeopleDocsByProcessDay,
   reprocessPeopleDoc,
   uploadPeopleDoc,
 } from "./ingest";
+export { PeopleDocLandingError } from "./ingest";
 export {
   PEOPLE_DOC_SEARCH_TEXT_EXCERPT_MAX,
   exportPeopleDocsKeywordSearch,
@@ -30,4 +36,10 @@ export {
 export type { PeopleDocSearchFilter } from "./search";
 export { folderForPeopleDocStatus } from "./fromParse";
 export { getPeopleDocRepository, resetPeopleDocRepositoryCache } from "./repository";
-export { DEFAULT_PEOPLE_DOCS_PREFIX, peopleDocFolderKey, landingKey } from "./folders";
+export {
+  DEFAULT_PEOPLE_DOCS_PREFIX,
+  isPeopleDocProcessDay,
+  landingKey,
+  peopleDocFolderKey,
+  peopleDocProcessDay,
+} from "./folders";

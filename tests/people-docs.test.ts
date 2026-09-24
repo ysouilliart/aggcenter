@@ -5,9 +5,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InvoiceClassifyConfig } from "@/lib/config";
 import { getConfig, resolveInvoiceClassifyConfig, resolvePeopleDocsClassifyConfig } from "@/lib/config";
 import { folderForPeopleDocStatus } from "@/lib/peopleDocs/fromParse";
-import { peopleDocDisplayTitle } from "@/lib/peopleDocs/folders";
 import {
+  peopleDocDisplayTitle,
+  peopleDocFolderKey,
+  peopleDocProcessDay,
+} from "@/lib/peopleDocs/folders";
+import {
+  ingestPeopleDocLandingFile,
   ingestPeopleDocs,
+  listPeopleDocLanding,
+  PeopleDocLandingError,
+  regroupPeopleDocsByProcessDay,
   reprocessPeopleDoc,
   uploadPeopleDoc,
 } from "@/lib/peopleDocs/ingest";
@@ -345,6 +353,9 @@ describe("people doc LLM schema and overlay", () => {
     const messages = buildPeopleDocLlmMessages("agreement.txt", "Agreement ID: AGR-1");
     expect(messages[0].content).toMatch(/synopsis/i);
     expect(messages[0].content).toMatch(/own words/i);
+    expect(messages[0].content).toMatch(/currency/i);
+    expect(messages[0].content).toMatch(/date versus cost/i);
+    expect(messages[0].content).toMatch(/every monetary amount/i);
   });
 
   it("keeps an LLM synopsis and classifies with the requested model", async () => {
@@ -506,6 +517,171 @@ describe("people doc ingest", () => {
     if (fetchMock.mock.calls.length > 1) {
       expect(again?.synopsis).toMatch(/fixed term/i);
     }
+  });
+
+  it("lists landing files without parsing them, then runs one file", async () => {
+    stubPeopleDocLlm();
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
+    const prefix = "aggcenter/peopleDocs/";
+    const landedKey = `${prefix}landing/new-agreement.txt`;
+    const otherKey = `${prefix}landing/still-waiting.txt`;
+    await storage.put(landedKey, Buffer.from(FULL_LINES.join("\n")), "text/plain");
+    await storage.put(otherKey, Buffer.from("Waiting in landing."), "text/plain");
+
+    const before = await listPeopleDocLanding({ storage, repo, prefix });
+    expect(before.provider).toBe("local");
+    expect(before.files.map((file) => file.fileName).sort()).toEqual([
+      "new-agreement.txt",
+      "still-waiting.txt",
+    ]);
+    expect(before.files.every((file) => file.processed === false)).toBe(true);
+    expect(await repo.list()).toHaveLength(0);
+
+    await expect(
+      ingestPeopleDocLandingFile({
+        key: `${prefix}processed/PD-1/new-agreement.txt`,
+        storage,
+        repo,
+        prefix,
+      }),
+    ).rejects.toBeInstanceOf(PeopleDocLandingError);
+
+    const ran = await ingestPeopleDocLandingFile({
+      key: landedKey,
+      storage,
+      repo,
+      prefix,
+    });
+    expect(ran.skipped).toBeUndefined();
+    expect(ran.doc.fileName).toBe("new-agreement.txt");
+    expect(ran.doc.folder).toBe("processed");
+    expect(ran.doc.storageKey).toBe(
+      peopleDocFolderKey(prefix, "processed", ran.doc.fileName, ran.doc.processedAt ?? ""),
+    );
+    expect(ran.doc.storageKey).not.toContain(`/${ran.doc.id}/`);
+    expect(await storage.list(`${prefix}landing/`)).toEqual([
+      expect.objectContaining({ key: otherKey }),
+    ]);
+
+    const after = await listPeopleDocLanding({ storage, repo, prefix });
+    expect(after.files).toEqual([
+      expect.objectContaining({ key: otherKey, fileName: "still-waiting.txt", processed: false }),
+    ]);
+
+    const duplicateKey = `${prefix}landing/copy-agreement.txt`;
+    await storage.put(duplicateKey, Buffer.from(FULL_LINES.join("\n")), "text/plain");
+    const duplicate = await ingestPeopleDocLandingFile({
+      key: duplicateKey,
+      storage,
+      repo,
+      prefix,
+    });
+    expect(duplicate.duplicateOf).toBe(ran.doc.id);
+    expect(duplicate.doc.id).not.toBe(ran.doc.id);
+    expect(duplicate.doc.fileName).toBe("copy-agreement.txt");
+    expect(duplicate.doc.folder).toBe("processed");
+    expect(duplicate.doc.storageKey).toBe(
+      peopleDocFolderKey(prefix, "processed", "copy-agreement.txt", duplicate.doc.processedAt ?? ""),
+    );
+    expect(await storage.get(duplicate.doc.storageKey ?? "")).toEqual(Buffer.from(FULL_LINES.join("\n")));
+    expect((await repo.get(ran.doc.id))?.doc.storageKey).toBe(ran.doc.storageKey);
+    expect((await listPeopleDocLanding({ storage, repo, prefix })).files.map((file) => file.key)).toEqual([
+      otherKey,
+    ]);
+  });
+
+  it("regroups per-file folders into the process day", async () => {
+    const root = tmp();
+    const storage = new LocalStorageProvider(root);
+    const repo = new LocalJsonPeopleDocRepository(path.join(root, "people-docs.json"));
+    const prefix = "aggcenter/peopleDocs/";
+    const processedAt = "2026-09-23T02:00:00.000Z";
+    const oldKey = `${prefix}processed/PD-abc/Supply Agreement.pdf`;
+    await storage.put(oldKey, Buffer.from("agreement"), "application/pdf");
+    await storage.put(`${prefix}processed/PD-other/Supply Agreement.pdf`, Buffer.from("other"), "application/pdf");
+    await storage.put(`${prefix}anomaly/PD-old/notes.txt`, Buffer.from("n"), "text/plain");
+    await storage.put(`${prefix}anomaly/loose.txt`, Buffer.from("loose"), "text/plain");
+    await storage.put(`${prefix}landing/stay.txt`, Buffer.from("stay"), "text/plain");
+    const job = {
+      id: "PD-abc-JOB",
+      docId: "PD-abc",
+      parserId: "test",
+      parserVersion: "1",
+      status: "parsed" as const,
+      startedAt: processedAt,
+      finishedAt: processedAt,
+      warningCount: 0,
+      pageCount: 1,
+      confidence: 80,
+      events: [],
+    };
+    await repo.saveParsed({
+      doc: {
+        id: "PD-abc",
+        fileName: "Supply Agreement.pdf",
+        mimeType: "application/pdf",
+        contentHash: "abc",
+        source: "oci",
+        folder: "processed",
+        storageKey: oldKey,
+        parseStatus: "parsed",
+        confidence: 80,
+        uploadedAt: processedAt,
+        processedAt,
+      },
+      fields: [],
+      job,
+    });
+    await repo.saveParsed({
+      doc: {
+        id: "PD-other",
+        fileName: "Supply Agreement.pdf",
+        mimeType: "application/pdf",
+        contentHash: "other",
+        source: "oci",
+        folder: "processed",
+        storageKey: `${prefix}processed/PD-other/Supply Agreement.pdf`,
+        parseStatus: "parsed",
+        confidence: 70,
+        uploadedAt: processedAt,
+        processedAt,
+      },
+      fields: [],
+      job: { ...job, id: "PD-other-JOB", docId: "PD-other" },
+    });
+
+    const first = await regroupPeopleDocsByProcessDay({ storage, repo, prefix });
+    expect(first.errors).toEqual([]);
+    expect(first.moved).toEqual(
+      expect.arrayContaining([
+        {
+          from: oldKey,
+          to: `${prefix}processed/23-09-2026/Supply Agreement.pdf`,
+        },
+        {
+          from: `${prefix}processed/PD-other/Supply Agreement.pdf`,
+          to: `${prefix}processed/23-09-2026/Supply Agreement__PD-other.pdf`,
+        },
+      ]),
+    );
+    expect(first.moved.some((row) => row.from === `${prefix}anomaly/loose.txt`)).toBe(true);
+    expect(first.moved.some((row) => row.from.includes("/anomaly/PD-old/"))).toBe(true);
+    expect(await storage.get(`${prefix}processed/23-09-2026/Supply Agreement.pdf`)).toEqual(
+      Buffer.from("agreement"),
+    );
+    expect((await storage.list(prefix)).some((object) => object.key.includes("/PD-"))).toBe(false);
+    expect((await storage.list(`${prefix}landing/`)).map((object) => object.key)).toEqual([
+      `${prefix}landing/stay.txt`,
+    ]);
+    expect((await repo.get("PD-abc"))?.doc.storageKey).toBe(
+      `${prefix}processed/23-09-2026/Supply Agreement.pdf`,
+    );
+
+    const second = await regroupPeopleDocsByProcessDay({ storage, repo, prefix });
+    expect(second.moved).toEqual([]);
+    expect(second.errors).toEqual([]);
   });
 
   it("resolves people-docs LLM independently of invoice classify", () => {
@@ -725,6 +901,30 @@ describe("people docs keyword search and JSON export", () => {
       "people-docs-agr-2026-0441-2026-09-21.json",
     );
     expect(peopleDocSearchFileName("", payload.exportedAt)).toBe("people-docs-search-2026-09-21.json");
+  });
+});
+
+describe("people doc storage layout", () => {
+  it("uses a dd-mm-yyyy process-day folder under processed, anomaly, and archived", () => {
+    expect(peopleDocProcessDay("2026-09-23T15:04:00.000Z")).toBe("23-09-2026");
+    expect(peopleDocProcessDay("2026-01-02T00:00:00.000Z")).toBe("02-01-2026");
+    expect(
+      peopleDocFolderKey(
+        "aggcenter/peopleDocs/",
+        "processed",
+        "Supply Agreement.pdf",
+        "2026-09-23T15:04:00.000Z",
+      ),
+    ).toBe("aggcenter/peopleDocs/processed/23-09-2026/Supply Agreement.pdf");
+    expect(
+      peopleDocFolderKey("aggcenter/peopleDocs/", "anomaly", "notes.txt", "2026-01-02T00:00:00.000Z"),
+    ).toBe("aggcenter/peopleDocs/anomaly/02-01-2026/notes.txt");
+    expect(
+      peopleDocFolderKey("aggcenter/peopleDocs/", "archived", "notes.txt", "2026-12-31T23:00:00.000Z"),
+    ).toBe("aggcenter/peopleDocs/archived/31-12-2026/notes.txt");
+    expect(
+      peopleDocFolderKey("aggcenter/peopleDocs/", "landing", "notes.txt", "2026-09-23T00:00:00.000Z"),
+    ).toBe("aggcenter/peopleDocs/landing/notes.txt");
   });
 });
 
